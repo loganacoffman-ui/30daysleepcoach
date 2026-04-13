@@ -1,0 +1,1714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="favicon.ico" sizes="48x48">
+<link rel="icon" href="favicon-32x32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="favicon-16x16.png" type="image/png" sizes="16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>30 Day Sleep Coach</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --surface2: #f4f4f5;
+  --surface3: #e8e8eb;
+  --border: rgba(0,0,0,0.06);
+  --border2: rgba(0,0,0,0.10);
+  --text: #18181b;
+  --muted: #52525b;
+  --muted2: #71717a;
+  --accent: #4f7cff;
+  --accent-dim: rgba(79,124,255,0.08);
+  --green: #16a34a;
+  --green-dim: rgba(22,163,74,0.08);
+  --red: #dc2626;
+  --red-dim: rgba(220,38,38,0.08);
+  --radius: 8px;
+  --radius-sm: 5px;
+}
+
+html { scroll-behavior: smooth; }
+body { font-family: 'Geist', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; -webkit-font-smoothing: antialiased; min-height: 100vh; }
+body.landing-active { overflow: hidden; }
+
+.bg-gradient { position: fixed; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(79,124,255,0.04) 0%, transparent 60%), radial-gradient(ellipse 60% 40% at 80% 60%, rgba(79,124,255,0.02) 0%, transparent 50%); }
+
+/* AUTH MODAL */
+#auth-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(250,250,250,0.96); display: flex; align-items: center; justify-content: center; padding: 2rem; }
+#auth-overlay.hidden { display: none; }
+.auth-box { width: 100%; max-width: 380px; text-align: center; }
+.auth-logo { font-family: 'Geist', sans-serif; font-size: 1.6rem; font-weight: 600; color: var(--text); margin-bottom: 0.5rem; letter-spacing: -0.01em; }
+.auth-logo span { color: var(--accent); }
+.auth-sub { font-size: 0.82rem; color: var(--muted); margin-bottom: 0; font-weight: 400; letter-spacing: 0.04em; }
+
+/* Welcome screen (default) */
+.auth-welcome { display: block; }
+.auth-welcome .auth-desc { font-size: 0.85rem; color: var(--muted); font-weight: 400; line-height: 1.75; margin: 1.5rem 0 2rem; max-width: 300px; margin-left: auto; margin-right: auto; }
+.auth-welcome .auth-eyebrow { font-family: 'Geist Mono', monospace; font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.auth-welcome .auth-eyebrow::before, .auth-welcome .auth-eyebrow::after { content: ''; width: 20px; height: 1px; background: var(--accent); opacity: 0.5; }
+.auth-login-link { font-size: 0.8rem; color: var(--muted2); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; transition: color .15s; margin-top: 1rem; display: inline-block; }
+.auth-login-link:hover { color: var(--muted); }
+
+/* Password screen (shown on demand) */
+.auth-password { display: none; }
+.auth-back { font-size: 0.75rem; color: var(--muted2); cursor: pointer; margin-bottom: 2rem; display: inline-flex; align-items: center; gap: 6px; transition: color .15s; }
+.auth-back:hover { color: var(--muted); }
+.auth-input { width: 100%; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-family: 'Geist', sans-serif; font-size: 1rem; padding: 13px 16px; outline: none; text-align: center; letter-spacing: 0.1em; margin-bottom: 0.5rem; transition: border-color .2s; }
+.auth-input:focus { border-color: var(--accent); }
+.auth-input.shake { animation: shake .3s ease; border-color: var(--red); }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+.auth-error { font-size: 0.7rem; color: var(--red); font-family: 'Geist Mono', monospace; margin-bottom: 0.75rem; min-height: 1rem; }
+.auth-btn { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 6px; font-family: 'Geist', sans-serif; font-weight: 500; font-size: 0.88rem; padding: 13px; cursor: pointer; transition: all .2s; margin-bottom: 0.5rem; }
+.auth-btn:hover { background: #3d6ae8; }
+.auth-btn.primary-lg { font-size: 0.95rem; padding: 15px 40px; margin-bottom: 0; width: auto; border-radius: 8px; }
+
+/* Signup screen */
+.auth-signup { display: none; text-align: left; margin-top: 1.5rem; }
+.auth-signup .signup-label { font-family: 'Geist Mono', monospace; font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted2); margin-bottom: 5px; display: block; }
+.auth-signup .signup-field { width: 100%; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-family: 'Geist', sans-serif; font-size: 0.88rem; padding: 11px 14px; outline: none; margin-bottom: 12px; transition: border-color .2s; }
+.auth-signup .signup-field:focus { border-color: var(--accent); }
+.auth-signup .signup-field::placeholder { color: var(--muted2); }
+.auth-signup textarea.signup-field { resize: none; line-height: 1.55; }
+.auth-signup .signup-field.field-error { border-color: var(--red); }
+.auth-signup-success { text-align: center; padding: 2rem 1rem; }
+.auth-signup-success .success-icon { font-size: 2rem; margin-bottom: 1rem; }
+.auth-signup-success h4 { font-family: 'Geist', sans-serif; font-size: 1.1rem; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+.auth-signup-success p { font-size: 0.8rem; color: var(--muted); font-weight: 400; line-height: 1.6; margin-bottom: 1.5rem; }
+
+/* HEADER */
+header { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center; padding: 0 2rem; height: 58px; background: rgba(250,250,250,0.92); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); }
+.logo { font-family: 'Geist', sans-serif; font-size: 0.95rem; font-weight: 600; color: var(--text); letter-spacing: -0.01em; flex-shrink: 0; text-decoration: none; cursor: pointer; }
+.logo:hover { opacity: 0.8; }
+.logo span { color: var(--accent); }
+nav { display: flex; gap: 2px; background: rgba(0,0,0,0.03); border: 1px solid var(--border); border-radius: 6px; padding: 3px; }
+nav button { background: none; border: none; color: var(--muted); font-family: 'Geist', sans-serif; font-size: 0.78rem; font-weight: 400; padding: 6px 16px; border-radius: 4px; cursor: pointer; transition: all .15s; white-space: nowrap; }
+nav button.active { background: #fff; color: var(--text); border: 1px solid var(--border2); font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+nav button:hover:not(.active) { color: var(--text); }
+.header-right { display: flex; align-items: center; gap: 10px; }
+.day-badge { font-family: 'Geist Mono', monospace; font-size: 0.68rem; font-weight: 500; letter-spacing: 0.08em; color: var(--muted); background: var(--surface2); border: 1px solid var(--border2); padding: 4px 12px; border-radius: 100px; }
+.mode-badge { font-family: 'Geist Mono', monospace; font-size: 0.65rem; font-weight: 500; letter-spacing: 0.06em; padding: 4px 10px; border-radius: 100px; cursor: pointer; transition: all .15s; }
+.mode-badge.public { color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(79,124,255,0.18); }
+.mode-badge.private { color: var(--muted2); background: rgba(0,0,0,0.03); border: 1px solid var(--border); }
+.mode-badge:hover { opacity: 0.75; }
+
+/* LAYOUT */
+main { position: relative; z-index: 1; padding-top: 58px; }
+.view { display: none; }
+.view.active { display: block; }
+.container { max-width: 820px; margin: 0 auto; padding: 2rem 2rem 4rem; }
+
+/* LOADING */
+.loading-bar { position: fixed; top: 58px; left: 0; right: 0; height: 2px; background: var(--accent); z-index: 200; transform: scaleX(0); transform-origin: left; transition: transform .4s ease; }
+.loading-bar.active { transform: scaleX(1); }
+
+/* SHARED */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.card-label { font-family: 'Geist Mono', monospace; font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted2); margin-bottom: 1rem; }
+.section-tag { font-family: 'Geist Mono', monospace; font-size: 0.65rem; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.section-tag::before { content: ''; width: 14px; height: 1px; background: var(--accent); }
+.page-heading { font-family: 'Geist', sans-serif; font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 600; color: var(--text); line-height: 1.2; margin-bottom: 1.75rem; letter-spacing: -0.02em; }
+.page-heading em { font-style: normal; color: var(--text); }
+.empty-state { text-align: center; padding: 3rem 2rem; color: var(--muted2); font-family: 'Geist Mono', monospace; font-size: 0.72rem; letter-spacing: 0.04em; line-height: 2; }
+
+/* PUBLIC BANNER */
+.public-banner { background: rgba(79,124,255,0.04); border: 1px solid rgba(79,124,255,0.12); border-radius: var(--radius); padding: 0.9rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 12px; }
+.public-banner-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
+.public-banner p { font-size: 0.78rem; color: var(--muted); font-weight: 400; line-height: 1.5; }
+.public-banner p strong { color: var(--accent); font-weight: 500; }
+.public-banner p .link { cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.public-banner p .link:hover { color: var(--text); }
+
+/* LOG */
+.log-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+.big-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: 'Geist Mono', monospace; font-size: 2.4rem; font-weight: 400; padding: 12px 16px; outline: none; transition: border-color .15s; -moz-appearance: textfield; }
+.big-input::-webkit-outer-spin-button,.big-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.big-input:focus { border-color: var(--accent); }
+.big-input::placeholder { color: var(--muted2); }
+.input-unit { font-family: 'Geist Mono', monospace; font-size: 0.65rem; letter-spacing: 0.06em; color: var(--muted2); margin-top: 5px; padding-left: 2px; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-bottom: 0.5rem; }
+label.field { display: flex; flex-direction: column; gap: 5px; }
+.field-name { font-family: 'Geist Mono', monospace; font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted2); }
+input[type="time"], select { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: 'Geist', sans-serif; font-size: 0.82rem; padding: 8px 10px; outline: none; width: 100%; transition: border-color .15s; cursor: pointer; }
+input[type="time"]:focus, select:focus { border-color: var(--border2); }
+select option { background: #ffffff; }
+.hrv-display { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 130px; gap: 6px; }
+.hrv-number { font-family: 'Geist', sans-serif; font-size: 3.5rem; font-weight: 600; line-height: 1; transition: color .3s; }
+.hrv-unit { font-family: 'Geist Mono', monospace; font-size: 0.72rem; color: var(--muted2); letter-spacing: 0.06em; }
+.hrv-zone { font-family: 'Geist Mono', monospace; font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 12px; border-radius: 100px; margin-top: 4px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 0.5rem; }
+.tag { font-family: 'Geist', sans-serif; font-size: 0.75rem; padding: 5px 12px; border-radius: 100px; border: 1px solid var(--border2); color: var(--muted); cursor: pointer; transition: all .15s; user-select: none; background: none; }
+.tag:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+.tag.pos-on { background: var(--green-dim); color: var(--green); border-color: rgba(22,163,74,0.25); }
+.tag.neg-on { background: var(--red-dim); color: var(--red); border-color: rgba(220,38,38,0.25); }
+textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: 'Geist', sans-serif; font-size: 0.85rem; padding: 12px 14px; resize: none; outline: none; line-height: 1.6; transition: border-color .15s; margin-bottom: 1rem; }
+textarea:focus { border-color: var(--border2); }
+textarea::placeholder { color: var(--muted2); }
+.save-btn { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-family: 'Geist', sans-serif; font-weight: 500; font-size: 0.95rem; padding: 15px 80px; cursor: pointer; transition: all .2s; display: block; margin: 0 auto; }
+.save-btn:hover { background: #3d6ae8; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79,124,255,0.2); }
+.save-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* HISTORY */
+.stat-row { display: grid; grid-template-columns: repeat(4,1fr); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.stat-card { background: var(--surface); padding: 1.25rem 1.5rem; border-right: 1px solid var(--border); }
+.stat-card:last-child { border-right: none; }
+.stat-val { font-family: 'Geist', sans-serif; font-size: 1.8rem; font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; }
+.stat-lbl { font-family: 'Geist Mono', monospace; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted2); margin-top: 5px; }
+.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.chart-title { font-family: 'Geist Mono', monospace; font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted2); margin-bottom: 1.25rem; }
+.chart-wrap { position: relative; width: 100%; height: 180px; }
+.target-note { font-family: 'Geist Mono', monospace; font-size: 0.62rem; color: var(--muted2); margin-top: 10px; letter-spacing: 0.04em; }
+.target-note::before { content: '— '; color: var(--accent); opacity: 0.5; }
+.log-table { width: 100%; border-collapse: collapse; }
+.log-table th { font-family: 'Geist Mono', monospace; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted2); text-align: left; padding: 0 10px 12px 0; border-bottom: 1px solid var(--border); }
+.log-table td { padding: 10px 10px 10px 0; border-bottom: 1px solid var(--border); font-size: 0.82rem; vertical-align: middle; }
+.log-table tr:last-child td { border-bottom: none; }
+.hrv-pill { font-family: 'Geist Mono', monospace; font-size: 0.75rem; font-weight: 500; padding: 2px 10px; border-radius: 100px; display: inline-block; }
+.factor-chip { display: inline-block; font-size: 0.65rem; padding: 2px 8px; border-radius: 100px; margin: 1px; border: 1px solid var(--border2); color: var(--muted); }
+.weekly-row { display: grid; grid-template-columns: 80px 1fr 64px 40px; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.weekly-row:last-child { border-bottom: none; }
+.week-bar-bg { height: 5px; background: rgba(0,0,0,0.04); border-radius: 3px; overflow: hidden; }
+.week-bar-fill { height: 100%; border-radius: 3px; transition: width .4s ease; }
+.delete-btn { background: none; border: none; color: var(--muted2); cursor: pointer; font-size: 0.75rem; padding: 2px 6px; border-radius: 3px; transition: all .15s; }
+.delete-btn:hover { color: var(--red); background: var(--red-dim); }
+
+/* INSIGHTS */
+.insight-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+.insight-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.insight-headline { font-family: 'Geist', sans-serif; font-size: 1.6rem; font-weight: 600; line-height: 1.2; margin-bottom: 5px; letter-spacing: -0.02em; }
+.insight-subtext { font-size: 0.8rem; color: var(--muted); line-height: 1.6; }
+.heatmap-grid { display: grid; gap: 4px; }
+.heatmap-row { display: flex; align-items: center; gap: 8px; }
+.heatmap-label { font-size: 0.75rem; color: var(--muted); width: 140px; flex-shrink: 0; text-align: right; padding-right: 4px; }
+.heatmap-cell { height: 28px; flex: 2; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-family: 'Geist Mono', monospace; font-size: 0.7rem; transition: all .2s; min-width: 52px; }
+.heatmap-cell.no-data { background: var(--surface2); color: var(--muted2); font-size: 0.65rem; }
+
+/* COACH BRIEFING */
+.coach-section { margin-bottom: 1.5rem; }
+.coach-briefing { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); position: relative; }
+.coach-briefing-header { display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; }
+.coach-avatar { width: 32px; height: 32px; border-radius: 8px; background: var(--accent); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.coach-avatar svg { width: 18px; height: 18px; }
+.coach-name { font-size: 0.82rem; font-weight: 500; color: var(--text); }
+.coach-time { font-family: 'Geist Mono', monospace; font-size: 0.68rem; color: var(--muted2); margin-left: auto; }
+.coach-body { font-size: 0.88rem; color: var(--text); line-height: 1.7; }
+.coach-body p { margin-bottom: 0.75rem; }
+.coach-body p:last-child { margin-bottom: 0; }
+.coach-body strong { font-weight: 600; color: var(--text); }
+.coach-loading { display: flex; align-items: center; gap: 10px; padding: 1rem 0; color: var(--muted); font-size: 0.85rem; }
+.coach-dots { display: flex; gap: 4px; }
+.coach-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); opacity: 0.3; animation: coachPulse 1.4s ease-in-out infinite; }
+.coach-dots span:nth-child(2) { animation-delay: 0.2s; }
+.coach-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes coachPulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
+.coach-refresh { position: absolute; top: 1rem; right: 1rem; background: none; border: none; cursor: pointer; color: var(--muted2); padding: 4px; border-radius: 4px; transition: color .15s, background .15s; }
+.coach-refresh:hover { color: var(--accent); background: var(--accent-dim); }
+
+/* CHAT */
+.coach-chat { margin-top: 1.5rem; }
+.chat-messages { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1rem; max-height: 400px; overflow-y: auto; }
+.chat-msg { max-width: 85%; padding: 0.85rem 1rem; border-radius: 12px; font-size: 0.86rem; line-height: 1.65; }
+.chat-msg.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+.chat-msg.assistant { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-bottom-left-radius: 4px; }
+.chat-msg.assistant p { margin-bottom: 0.5rem; }
+.chat-msg.assistant p:last-child { margin-bottom: 0; }
+.chat-msg.assistant strong { font-weight: 600; }
+.chat-input-row { display: flex; gap: 8px; align-items: center; }
+.chat-input { flex: 1; padding: 10px 14px; border: 1px solid var(--border2); border-radius: 10px; font-family: 'Geist', sans-serif; font-size: 0.88rem; color: var(--text); background: var(--surface); outline: none; transition: border-color .2s; }
+.chat-input:focus { border-color: var(--accent); }
+.chat-input::placeholder { color: var(--muted2); }
+.chat-send { width: 38px; height: 38px; border-radius: 10px; background: var(--accent); color: #fff; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background .15s; }
+.chat-send:hover { background: #3d6ae8; }
+.chat-send:disabled { opacity: 0.5; cursor: not-allowed; }
+.chat-hints { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1rem; }
+.chat-hint { font-size: 0.72rem; color: var(--muted); padding: 5px 10px; border: 1px solid var(--border2); border-radius: 100px; cursor: pointer; transition: all .15s; font-family: 'Geist', sans-serif; background: var(--surface); }
+.chat-hint:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+/* CTA FOOTER */
+.cta-section { position: relative; z-index: 1; border-top: 1px solid var(--border); background: var(--surface); }
+.cta-inner { max-width: 820px; margin: 0 auto; padding: 4rem 2rem 3rem; }
+.cta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: end; }
+.cta-left { display: flex; flex-direction: column; }
+.cta-left h2 { font-family: 'Geist', sans-serif; font-size: clamp(1.4rem, 2.5vw, 1.8rem); font-weight: 600; color: var(--text); line-height: 1.2; margin-bottom: 0.75rem; letter-spacing: -0.02em; }
+.cta-left h2 em { font-style: normal; color: var(--accent); }
+.cta-left p { font-size: 0.88rem; color: var(--muted); line-height: 1.75; font-weight: 400; margin-bottom: 1.5rem; }
+.cta-links { display: flex; flex-direction: column; gap: 10px; }
+.cta-link { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); text-decoration: none; transition: all .2s; }
+.cta-link:hover { border-color: var(--border2); background: var(--surface3); transform: translateX(3px); }
+.cta-link-icon { width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+.cta-link-text h4 { font-size: 0.85rem; font-weight: 500; color: var(--text); margin-bottom: 2px; }
+.cta-link-text p { font-size: 0.75rem; color: var(--muted); font-weight: 400; margin: 0; line-height: 1.4; }
+.signup-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.75rem; }
+.signup-card h3 { font-family: 'Geist', sans-serif; font-size: 1.1rem; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.signup-card p { font-size: 0.8rem; color: var(--muted); font-weight: 400; line-height: 1.6; margin-bottom: 1.25rem; }
+.signup-input { width: 100%; background: #fff; border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-family: 'Geist', sans-serif; font-size: 0.85rem; padding: 11px 14px; outline: none; margin-bottom: 10px; transition: border-color .15s; }
+.signup-input:focus { border-color: var(--accent); }
+.signup-input::placeholder { color: var(--muted2); }
+.signup-btn { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-family: 'Geist', sans-serif; font-weight: 500; font-size: 0.85rem; padding: 11px; cursor: pointer; transition: all .2s; }
+.signup-btn:hover { background: #3d6ae8; }
+.signup-success { text-align: center; padding: 1rem; font-family: 'Geist Mono', monospace; font-size: 0.75rem; color: var(--green); letter-spacing: 0.04em; display: none; }
+.footer-meta { display: flex; justify-content: space-between; align-items: center; padding-top: 2rem; margin-top: 2rem; border-top: 1px solid var(--border); }
+.footer-logo { font-family: 'Geist', sans-serif; font-size: 0.88rem; font-weight: 600; color: var(--muted); text-decoration: none; cursor: pointer; display: inline-block; }
+.footer-logo:hover { opacity: 0.8; }
+.footer-logo span { color: var(--accent); }
+.footer-copy { font-size: 0.72rem; color: var(--muted2); }
+
+/* LANDING PAGE */
+#landing-page {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0;
+  overflow-y: auto;
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+#landing-page.exit {
+  opacity: 0;
+  transform: translateY(-12px);
+  pointer-events: none;
+}
+#landing-page.gone { display: none; }
+
+#landing-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  transition: opacity 0.8s ease;
+}
+#landing-canvas.hidden { opacity: 0; }
+
+.landing-box {
+  width: 100%;
+  max-width: 580px;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+  padding: 160px 2rem 0;
+}
+
+.landing-logo {
+  font-family: 'Geist', sans-serif;
+  font-size: clamp(2.2rem, 4.5vw, 3.2rem);
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.landing-logo span { color: var(--accent); }
+.landing-sub {
+  font-size: 1.05rem;
+  color: var(--muted);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  margin-bottom: 0;
+}
+
+/* Landing nav */
+.landing-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 2rem;
+  height: 56px;
+  background: rgba(250,250,250,0.88);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+.landing-nav-logo {
+  font-family: 'Geist', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.landing-nav-logo span { color: var(--accent); }
+.landing-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+.landing-nav-links a {
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 400;
+  transition: color .15s;
+}
+.landing-nav-links a:hover { color: var(--text); }
+.landing-nav-links .nav-cta-btn {
+  background: var(--accent);
+  color: #fff;
+  padding: 7px 18px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.82rem;
+  transition: background .15s;
+}
+.landing-nav-links .nav-cta-btn:hover { background: #3d6ae8; color: #fff; }
+
+/* Landing banner */
+.landing-banner {
+  position: absolute;
+  top: 68px;
+  left: 1rem;
+  right: 1rem;
+  z-index: 10;
+  background: var(--accent);
+  padding: 11px 28px;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: #fff;
+  letter-spacing: 0.01em;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(79,124,255,0.2);
+}
+.landing-banner a {
+  color: #fff;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  margin-left: 4px;
+}
+
+/* trend chart area */
+.landing-chart-wrap {
+  margin: 2rem auto 1.75rem;
+  position: relative;
+  height: 90px;
+  max-width: 400px;
+  width: 100%;
+}
+
+.landing-eyebrow {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.landing-eyebrow::before, .landing-eyebrow::after {
+  content: '';
+  width: 20px; height: 1px;
+  background: var(--accent);
+  opacity: 0.5;
+}
+.landing-desc {
+  font-size: 1.1rem;
+  color: var(--muted);
+  font-weight: 400;
+  line-height: 1.7;
+  margin-left: -40px;
+  margin-right: -40px;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+/* Chat input box */
+.landing-chat-box {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 10;
+}
+.landing-chat-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid rgba(0,0,0,0.10);
+  border-radius: 14px;
+  padding: 6px 8px 6px 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.03);
+  transition: border-color .2s, box-shadow .2s;
+  position: relative;
+}
+.landing-chat-inner:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 2px 16px rgba(79,124,255,0.10), 0 0 0 2px rgba(79,124,255,0.08);
+}
+.landing-chat-icon {
+  color: var(--muted2);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+.landing-chat-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: 'Geist', sans-serif;
+  font-size: 0.92rem;
+  color: var(--text);
+  padding: 10px 0;
+}
+.landing-chat-input::placeholder { color: var(--muted2); }
+.landing-chat-send {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.landing-chat-send:hover { background: #3d6ae8; }
+.landing-chat-hints {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.landing-chat-hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+  padding: 5px 12px;
+  border: 1px solid var(--border2);
+  border-radius: 100px;
+  cursor: pointer;
+  transition: all .15s;
+  font-family: 'Geist', sans-serif;
+  background: #fff;
+}
+.landing-chat-hint:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(79,124,255,0.04);
+}
+
+
+/* RESPONSIVE */
+@media (max-width: 720px) {
+  header { padding: 0 1rem; }
+  nav button { padding: 5px 10px; font-size: 0.72rem; }
+  .day-badge { display: none; }
+  .container { padding: 1.25rem 1rem 3rem; }
+  .log-grid { grid-template-columns: 1fr; }
+  .field-row { grid-template-columns: 1fr 1fr; }
+  .stat-row { grid-template-columns: 1fr 1fr; }
+  .stat-card { border-bottom: 1px solid var(--border); }
+  .stat-card:nth-child(odd) { border-right: 1px solid var(--border); }
+  .stat-card:nth-child(even) { border-right: none; }
+  .insight-grid { grid-template-columns: 1fr; }
+  .chat-msg { max-width: 92%; }
+  .chat-messages { max-height: 300px; }
+  .chat-hints { gap: 5px; }
+  .chat-hint { font-size: 0.68rem; padding: 4px 8px; }
+  .cta-grid { grid-template-columns: 1fr; gap: 2rem; }
+  .cta-inner { padding: 2.5rem 1rem 2rem; }
+  .landing-nav { padding: 0 1rem; }
+  .landing-nav-links a:not(.nav-cta-btn) { display: none; }
+  .landing-banner { font-size: 0.72rem; padding: 9px 16px; top: 60px; left: 0.5rem; right: 0.5rem; }
+  .landing-desc { margin-left: 0; margin-right: 0; font-size: 0.95rem; }
+  .landing-chat-hints { gap: 5px; }
+  .landing-chat-hint { font-size: 0.68rem; padding: 4px 10px; }
+  .landing-logo { font-size: clamp(1.8rem, 5vw, 2.6rem); white-space: normal; }
+  .landing-below div[style*="grid-template-columns:1fr 1fr 1fr"] { grid-template-columns: 1fr !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- LANDING PAGE -->
+<div id="landing-page">
+  <canvas id="landing-canvas"></canvas>
+  <nav class="landing-nav">
+    <div class="landing-nav-logo"><span>30 Day</span> Sleep Coach</div>
+    <div class="landing-nav-links">
+      <a href="#" onclick="event.preventDefault(); showSignupScreen()">Early Access</a>
+      <a href="#" class="nav-cta-btn" onclick="event.preventDefault(); showPasswordScreen()">Log In</a>
+    </div>
+  </nav>
+  <div class="landing-banner">
+    AI-powered sleep coaching — track habits, find patterns, sleep better in 30 days.
+    <a href="#" onclick="event.preventDefault(); showSignupScreen()">Get early access →</a>
+  </div>
+  <div class="landing-box">
+    <div class="landing-logo"><span>30 Day</span> Sleep Coach</div>
+    <p class="landing-sub">Control Cortisol. Master Your Sleep.</p>
+
+    <!-- WELCOME -->
+    <div id="landing-welcome">
+      <div style="margin-top:1.5rem"></div>
+      <div class="landing-chart-wrap">
+        <svg id="trend-svg" viewBox="0 0 400 90" preserveAspectRatio="none" style="width:100%;height:90px;overflow:visible">
+          <!-- Target line -->
+          <line x1="0" y1="22" x2="400" y2="22" stroke="rgba(79,124,255,0.25)" stroke-width="1" stroke-dasharray="4,4"/>
+          <text x="392" y="18" fill="rgba(79,124,255,0.4)" font-size="8" font-family="monospace" text-anchor="end">target</text>
+          <!-- Gradient fill -->
+          <defs>
+            <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#4f7cff" stop-opacity="0.2"/>
+              <stop offset="100%" stop-color="#4f7cff" stop-opacity="0"/>
+            </linearGradient>
+            <filter id="trendGlow">
+              <feGaussianBlur stdDeviation="2" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <!-- Fill area -->
+          <path id="trend-fill-path" fill="url(#trendFill)" opacity="0.8"/>
+          <!-- Main line -->
+          <path id="trend-line-path" fill="none" stroke="#4f7cff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#trendGlow)"/>
+          <!-- Animated dot at end -->
+          <circle id="trend-dot" r="3.5" fill="#4f7cff" filter="url(#trendGlow)"/>
+          <!-- Day labels -->
+          <text x="4" y="86" fill="rgba(113,113,122,0.7)" font-size="8" font-family="monospace">Day 1</text>
+          <text x="192" y="86" fill="rgba(113,113,122,0.7)" font-size="8" font-family="monospace" text-anchor="middle">Day 15</text>
+          <text x="396" y="86" fill="rgba(113,113,122,0.7)" font-size="8" font-family="monospace" text-anchor="end">Day 30</text>
+        </svg>
+      </div>
+      <p class="landing-desc">Your wearable tracks your sleep. This app tells you <strong>what to do about it</strong>. Log daily habits, uncover the patterns that actually move your scores, and get a personalized protocol — in 30 days.</p>
+      
+      <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-top:0.5rem;">
+        <button class="auth-btn primary-lg" onclick="showSignupScreen()">Get early access →</button>
+      </div>
+      <div style="margin-top:1rem; text-align:center;">
+        <span class="auth-login-link" onclick="showPasswordScreen()">Already have an account? Log in</span>
+      </div>
+    </div>
+
+    <!-- SIGNUP -->
+    <div id="landing-signup" style="display:none">
+      <div id="auth-signup-form-wrap">
+        <div class="auth-back" onclick="showWelcomeScreen()" style="margin-top:1.5rem">← back</div>
+        <div style="text-align:center;margin-bottom:1.75rem">
+          <div style="font-family:'Geist',sans-serif;font-size:1.1rem;font-weight:500;color:var(--text);margin-bottom:6px">Thanks for your interest!</div>
+          <div style="font-size:0.8rem;color:var(--muted);font-weight:400;line-height:1.6">You'll receive a personal follow-up to get set up.</div>
+        </div>
+        <input class="auth-input" id="su-name" type="text" placeholder="Your name" style="letter-spacing:0;text-align:left;margin-bottom:10px" onkeydown="if(event.key==='Enter')document.getElementById('su-email').focus()">
+        <input class="auth-input" id="su-email" type="email" placeholder="your@email.com" style="letter-spacing:0;text-align:left;margin-bottom:10px" onkeydown="if(event.key==='Enter')submitSignupRequest()">
+        <div id="su-error" style="font-size:0.7rem;color:var(--red);font-family:'Geist Mono',monospace;margin-bottom:8px;min-height:1rem;text-align:left"></div>
+        <button class="auth-btn" onclick="submitSignupRequest()">Request early access →</button>
+      </div>
+      <div id="auth-signup-success" style="display:none;text-align:center;padding:1.5rem 0">
+        <div style="font-size:1.75rem;margin-bottom:1rem">✦</div>
+        <div style="font-family:'Geist',sans-serif;font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:8px">You're on the list.</div>
+        <div style="font-size:0.8rem;color:var(--muted);font-weight:400;line-height:1.6;margin-bottom:1.5rem">I'll be in touch shortly.</div>
+        <button class="auth-btn" onclick="showWelcomeScreen()">← Back to home</button>
+      </div>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="landing-password" style="display:none">
+      <div style="margin-top:1.5rem">
+        <div class="auth-back" onclick="showWelcomeScreen()">← back</div>
+        <input class="auth-input" id="auth-email" type="email" placeholder="your@email.com" style="letter-spacing:0;text-align:left;margin-bottom:10px" onkeydown="if(event.key==='Enter')document.getElementById('auth-password-input').focus()">
+        <input class="auth-input" id="auth-password-input" type="password" placeholder="Password" style="letter-spacing:0;text-align:left" onkeydown="if(event.key==='Enter')tryAuth()">
+        <div class="auth-error" id="auth-error"></div>
+        <button class="auth-btn" id="auth-submit-btn" onclick="tryAuth()">Sign in →</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Landing page below-the-fold content -->
+  <div class="landing-below" style="width:100%; max-width:720px; padding: 4rem 2rem 3rem; text-align:center; position:relative; z-index:1;">
+    
+    <!-- How it works -->
+    <div style="margin-bottom:3.5rem;">
+      <div style="font-family:'Geist Mono',monospace; font-size:0.65rem; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;">How it works</div>
+      <h2 style="font-size:1.6rem; font-weight:600; letter-spacing:-0.02em; margin-bottom:2rem; color:var(--text);">Three steps. Thirty days.</h2>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.5rem; text-align:left;">
+        <div style="background:#fff; border:1px solid rgba(0,0,0,0.06); border-radius:8px; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+          <div style="font-family:'Geist Mono',monospace; font-size:0.7rem; color:var(--accent); font-weight:500; margin-bottom:8px;">01</div>
+          <div style="font-weight:600; font-size:0.92rem; margin-bottom:6px;">Log daily</div>
+          <div style="font-size:0.82rem; color:var(--muted); line-height:1.6;">90-second journal. Sleep score, HRV, habits, and how you feel. That's it.</div>
+        </div>
+        <div style="background:#fff; border:1px solid rgba(0,0,0,0.06); border-radius:8px; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+          <div style="font-family:'Geist Mono',monospace; font-size:0.7rem; color:var(--accent); font-weight:500; margin-bottom:8px;">02</div>
+          <div style="font-weight:600; font-size:0.92rem; margin-bottom:6px;">Find patterns</div>
+          <div style="font-size:0.82rem; color:var(--muted); line-height:1.6;">AI correlates your behaviors with your biometrics. See what actually moves the needle.</div>
+        </div>
+        <div style="background:#fff; border:1px solid rgba(0,0,0,0.06); border-radius:8px; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+          <div style="font-family:'Geist Mono',monospace; font-size:0.7rem; color:var(--accent); font-weight:500; margin-bottom:8px;">03</div>
+          <div style="font-weight:600; font-size:0.92rem; margin-bottom:6px;">Sleep better</div>
+          <div style="font-size:0.82rem; color:var(--muted); line-height:1.6;">Personalized protocol that adapts to your life. Not generic tips — your data, your plan.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Product preview placeholder -->
+    <div style="margin-bottom:3.5rem;">
+      <div style="font-family:'Geist Mono',monospace; font-size:0.65rem; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;">See it in action</div>
+      <h2 style="font-size:1.6rem; font-weight:600; letter-spacing:-0.02em; margin-bottom:1.5rem; color:var(--text);">Your dashboard, personalized.</h2>
+      <div id="product-preview" style="background:#fff; border:1px solid rgba(0,0,0,0.06); border-radius:12px; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+        <!-- Replace this div with a <video>, <iframe>, or <img> when ready -->
+        <div style="aspect-ratio:16/9; display:flex; flex-direction:column; align-items:center; justify-content:center; background:linear-gradient(135deg, rgba(79,124,255,0.03) 0%, rgba(79,124,255,0.08) 100%); gap:12px;">
+          <div style="width:48px; height:48px; border-radius:12px; background:var(--accent-dim); display:flex; align-items:center; justify-content:center;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </div>
+          <div style="font-size:0.85rem; color:var(--muted); font-weight:400;">Product walkthrough coming soon</div>
+          <div style="font-family:'Geist Mono',monospace; font-size:0.65rem; color:var(--muted2); letter-spacing:0.04em;">Track sleep · Spot patterns · Get coached</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Built for -->
+    <div style="margin-bottom:3.5rem;">
+      <div style="font-family:'Geist Mono',monospace; font-size:0.65rem; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;">Built for</div>
+      <h2 style="font-size:1.6rem; font-weight:600; letter-spacing:-0.02em; margin-bottom:1.5rem; color:var(--text);">People who track, not just sleep.</h2>
+      <p style="font-size:0.95rem; color:var(--muted); line-height:1.7; max-width:480px; margin:0 auto 1.5rem;">If you own an Oura Ring, WHOOP, or Apple Watch — you already have the data. 30 Day Sleep Coach is the coaching layer that makes it actionable.</p>
+      <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+        <span style="font-size:0.78rem; color:var(--muted); padding:6px 16px; border:1px solid rgba(0,0,0,0.08); border-radius:100px; background:#fff;">Oura Ring</span>
+        <span style="font-size:0.78rem; color:var(--muted); padding:6px 16px; border:1px solid rgba(0,0,0,0.08); border-radius:100px; background:#fff;">WHOOP</span>
+        <span style="font-size:0.78rem; color:var(--muted); padding:6px 16px; border:1px solid rgba(0,0,0,0.08); border-radius:100px; background:#fff;">Apple Watch</span>
+        <span style="font-size:0.78rem; color:var(--muted); padding:6px 16px; border:1px solid rgba(0,0,0,0.08); border-radius:100px; background:#fff;">Eight Sleep</span>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="border-top:1px solid rgba(0,0,0,0.06); padding-top:2rem; display:flex; justify-content:space-between; align-items:center;">
+      <div style="font-size:0.88rem; font-weight:600; color:var(--muted);"><span style="color:var(--accent);">30 Day</span> Sleep Coach</div>
+      <div style="font-size:0.72rem; color:var(--muted2);">© 2026 · 30daysleepcoach.com</div>
+    </div>
+  </div>
+
+</div>
+
+
+<div class="bg-gradient"></div>
+<div class="loading-bar" id="loading-bar"></div>
+
+<!-- HEADER -->
+<header>
+  <a class="logo" href="#" onclick="goHome(); return false;"><span>30 Day</span> Sleep Coach</a>
+  <nav>
+    <button class="active" onclick="setView('history',this)">History</button>
+    <button onclick="setView('log',this)">Log</button>
+    <button onclick="setView('insights',this)">Insights</button>
+  </nav>
+  <div class="header-right">
+    <div class="day-badge" id="day-badge">Day 1</div>
+    <div class="mode-badge public" id="mode-badge" onclick="toggleMode()">● public</div>
+  </div>
+</header>
+
+<main>
+
+<!-- LOG VIEW -->
+<div id="view-log" class="view">
+<div class="container">
+  <div class="section-tag">Daily Entry</div>
+  <h1 class="page-heading">How did you <em>sleep?</em></h1>
+
+  <!-- Row 1: HRV input + Reading gauge -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+    <div class="card">
+      <div class="card-label">HRV this morning</div>
+      <input class="big-input" type="number" id="hrv" placeholder="—" min="10" max="120" oninput="updateGauge()">
+      <div class="input-unit">milliseconds · from Oura or WHOOP</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Reading</div>
+      <div class="hrv-display">
+        <div class="hrv-number" id="gauge-num" style="color:var(--muted2)">—</div>
+        <div class="hrv-unit">ms HRV</div>
+        <div class="hrv-zone" id="gauge-zone" style="background:var(--surface2);color:var(--muted2)">enter HRV above</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Sleep metrics full width -->
+  <div class="card" style="margin-bottom:1rem">
+    <div class="card-label">Sleep metrics</div>
+    <div class="field-row">
+      <label class="field">
+        <span class="field-name">Sleep score</span>
+        <input type="number" id="sleep_score" placeholder="—" min="0" max="100" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'Geist Mono',monospace;font-size:1.2rem;font-weight:400;padding:8px 12px;outline:none;width:100%;-moz-appearance:textfield;">
+      </label>
+      <label class="field">
+        <span class="field-name">Bedtime</span>
+        <input type="time" id="bedtime">
+      </label>
+      <label class="field">
+        <span class="field-name">Wake time</span>
+        <input type="time" id="waketime">
+      </label>
+      <label class="field">
+        <span class="field-name">Night wake</span>
+        <select id="night_wake">
+          <option value="">— select —</option>
+          <option value="none">None — slept through</option>
+          <option value="back_quick">Brief wake, fell back fast</option>
+          <option value="back_slow">Woke, took 30+ min to sleep</option>
+          <option value="couldnt_sleep">Woke at 3am, 2+ hrs awake</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <!-- Row 3: Positives + Negatives side by side -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+    <div class="card">
+      <div class="card-label">Positives yesterday</div>
+      <div class="tags" id="pos-tags">
+        <span class="tag" data-val="morning_light">Morning light</span>
+        <span class="tag" data-val="no_alcohol">No alcohol</span>
+        <span class="tag" data-val="fluids_off">Fluids off 7pm</span>
+        <span class="tag" data-val="early_meal">Last meal &lt;7pm</span>
+        <span class="tag" data-val="exercise">Exercise</span>
+        <span class="tag" data-val="breathwork">Breathwork</span>
+        <span class="tag" data-val="ashwagandha">Ashwagandha</span>
+        <span class="tag" data-val="mag_glycinate">Mag glycinate</span>
+        <span class="tag" data-val="phosphatidylserine">Phosphatidylserine</span>
+        <span class="tag" data-val="cool_room">Cool room</span>
+        <span class="tag" data-val="no_screens">No screens 1hr</span>
+        <span class="tag" data-val="low_stress">Low stress</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-label">Negatives yesterday</div>
+      <div class="tags" id="neg-tags">
+        <span class="tag" data-val="alcohol">Alcohol</span>
+        <span class="tag" data-val="late_meal">Late meal 8pm+</span>
+        <span class="tag" data-val="high_stress">High stress</span>
+        <span class="tag" data-val="sleep_debt">Sleep deprived</span>
+        <span class="tag" data-val="intense_exercise">Intense workout</span>
+        <span class="tag" data-val="late_screens">Late screens</span>
+        <span class="tag" data-val="late_caffeine">Caffeine after 2pm</span>
+        <span class="tag" data-val="emotional_stress">Emotional stress</span>
+      </div>
+    </div>
+  </div>
+  <textarea id="note" rows="2" placeholder="eg - woke up at 3a but managed to fall back asleep within 30 mins. Length of REM sleep increased."></textarea>
+  <button class="save-btn" id="save-btn" onclick="saveEntry()">Save today's entry →</button>
+  <div id="save-confirm" style="text-align:center;margin-top:.75rem;font-size:0.75rem;font-family:'Geist Mono',monospace;color:var(--green);letter-spacing:.04em;opacity:0;transition:opacity .3s"></div>
+</div>
+</div>
+
+<!-- HISTORY VIEW -->
+<div id="view-history" class="view active">
+<div class="container">
+  <div class="section-tag">Progress</div>
+  <h1 class="page-heading">Your 30-day <em>trend.</em></h1>
+  <div class="stat-row" id="stat-row">
+    <div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">avg sleep score</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">best</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">lowest</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">7-day trend</div></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">Sleep score — last 30 days</div>
+    <div class="chart-wrap"><canvas id="sleep-chart"></canvas></div>
+    <div class="target-note">from Oura ring · target: 85+</div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">HRV — last 30 days</div>
+    <div class="chart-wrap"><canvas id="hrv-chart"></canvas></div>
+    <div class="target-note">target range: mid-60s ms</div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">Weekly averages</div>
+    <div id="weekly-view"><div class="empty-state">No entries yet</div></div>
+  </div>
+  <div class="card">
+    <div class="card-label">Entry log</div>
+    <table class="log-table">
+      <thead><tr><th>Date</th><th>HRV</th><th>Sleep</th><th>Night wake</th><th>Factors</th><th>Note</th><th id="del-th"></th></tr></thead>
+      <tbody id="log-body"></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<!-- INSIGHTS VIEW -->
+<div id="view-insights" class="view">
+<div class="container">
+  <div class="section-tag">Your coach</div>
+  <h1 class="page-heading">Daily <em>briefing.</em></h1>
+
+  <!-- AI BRIEFING -->
+  <div class="coach-section">
+    <div class="coach-briefing" id="coach-briefing">
+      <button class="coach-refresh" onclick="generateBriefing()" title="Refresh briefing">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.65 2.35A7.96 7.96 0 008 0a8 8 0 108 8h-2a6 6 0 11-1.76-4.24L10 6h6V0l-2.35 2.35z" fill="currentColor"/></svg>
+      </button>
+      <div class="coach-briefing-header">
+        <div class="coach-avatar">
+          <svg viewBox="0 0 18 18" fill="none"><rect x="3" y="12" width="2.5" height="4" rx="0.8" fill="#fff" opacity="0.4"/><rect x="6.5" y="9.5" width="2.5" height="6.5" rx="0.8" fill="#fff" opacity="0.6"/><rect x="10" y="7" width="2.5" height="9" rx="0.8" fill="#fff" opacity="0.8"/><rect x="13.5" y="4" width="2.5" height="12" rx="0.8" fill="#fff"/></svg>
+        </div>
+        <div>
+          <div class="coach-name">Sleep Coach</div>
+        </div>
+        <div class="coach-time" id="briefing-time"></div>
+      </div>
+      <div class="coach-body" id="briefing-body">
+        <div class="coach-loading"><div class="coach-dots"><span></span><span></span><span></span></div> Analyzing your sleep data...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="coach-chat">
+    <div class="chat-hints" id="chat-hints">
+      <span class="chat-hint" onclick="sendChat('Why do I keep waking up early?')">Why do I wake up early?</span>
+      <span class="chat-hint" onclick="sendChat('Which supplements are helping my sleep score?')">Which supplements help?</span>
+      <span class="chat-hint" onclick="sendChat('What should my bedtime routine be tonight?')">Tonight\'s routine?</span>
+      <span class="chat-hint" onclick="sendChat('How does alcohol affect my sleep?')">Alcohol impact?</span>
+    </div>
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input-row">
+      <input class="chat-input" id="coach-chat-input" type="text" placeholder="Ask your sleep coach..." onkeydown="if(event.key==='Enter'&&!event.shiftKey)sendChat()">
+      <button class="chat-send" id="chat-send-btn" onclick="sendChat()">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 14l12-6L2 2v4.67L10 8 2 9.33V14z" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- DATA CARDS -->
+  <div style="margin-top:2rem">
+    <div class="section-tag">Patterns</div>
+    <h2 class="page-heading" style="font-size:1.3rem;margin-bottom:1rem">What the data <em>shows.</em></h2>
+  </div>
+  <div id="insights-top" class="insight-grid"></div>
+  <div class="chart-card">
+    <div class="chart-title">Factor correlation — delta vs avg sleep score</div>
+    <div id="heatmap-sleep"><div class="empty-state">Log at least 3 days to build the heatmap</div></div>
+  </div>
+  <div class="chart-card" style="margin-top:1rem">
+    <div class="chart-title">Factor correlation — delta vs avg HRV</div>
+    <div id="heatmap-hrv"><div class="empty-state">Log at least 3 days to build the heatmap</div></div>
+  </div>
+  <div class="chart-card" style="margin-top:1rem">
+    <div class="chart-title">HRV vs sleep score</div>
+    <div class="chart-wrap" style="height:200px"><canvas id="scatter-chart"></canvas></div>
+  </div>
+</div>
+</div>
+
+<!-- CTA FOOTER -->
+<section class="cta-section">
+  <div class="cta-inner">
+    <div class="cta-grid">
+      <div class="cta-left">
+        <div class="section-tag" style="margin-bottom:12px">Get in touch</div>
+        <h2>Interested in what I'm building?</h2>
+        <p>I'm experimenting on myself — tracking HRV, cortisol patterns, and intervention protocols to fix early morning waking. If you're dealing with the same thing, or curious about the app, I'd love to hear from you.</p>
+        <div class="cta-links">
+          <a href="https://calendly.com/logancoffman/30min" target="_blank" class="cta-link">
+            <div class="cta-link-icon" style="background:var(--accent-dim);color:var(--accent)">📅</div>
+            <div class="cta-link-text"><h4>Book a free 30-min call</h4><p>Talk about your sleep, HRV, or the app</p></div>
+          </a>
+          <a href="mailto:logan@30daysleepcoach.com" class="cta-link">
+            <div class="cta-link-icon" style="background:var(--accent-dim);color:var(--accent)">✉</div>
+            <div class="cta-link-text"><h4>Send me a message</h4><p>logan@30daysleepcoach.com</p></div>
+          </a>
+        </div>
+      </div>
+      <div>
+        <div class="signup-card">
+          <h3>Follow the experiment</h3>
+          <p>I'm using myself as the test subject. Drop your email to get notified when I publish findings — or when the app opens up to others.</p>
+          <div id="signup-form">
+            <input class="signup-input" id="signup-email" type="email" placeholder="your@email.com">
+            <input class="signup-input" id="signup-name" type="text" placeholder="First name (optional)">
+            <button class="signup-btn" onclick="submitSignup()">Notify me when it's ready →</button>
+          </div>
+          <div class="signup-success" id="signup-success">✓ You're on the list — I'll be in touch.</div>
+        </div>
+      </div>
+    </div>
+    <div class="footer-meta">
+      <a class="footer-logo" href="#" onclick="goHome(); return false;"><span>30 Day</span> Sleep Coach</a>
+      <div class="footer-copy">© 2026 · 30daysleepcoach.com</div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- Netlify forms (hidden — required for Netlify Forms processing) -->
+<form name="waitlist" netlify netlify-honeypot="bot-field" hidden>
+  <input name="email" type="email">
+  <input name="name" type="text">
+</form>
+<form name="signup-request" netlify netlify-honeypot="bot-field" hidden>
+  <input name="name" type="text">
+  <input name="email" type="email">
+  <textarea name="challenge"></textarea>
+</form>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────
+const SUPABASE_URL = 'https://qfnouotdhfltgvjhfbld.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmbm91b3RkaGZsdGd2amhmYmxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NTEyODksImV4cCI6MjA4OTUyNzI4OX0.fI0QrHf1qutTlLtRH8JLoiv5UnHwjqulnKGPDtH1610';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── STATE ────────────────────────────────────────────
+let entries = [];
+let hrvChart = null, scatterChart = null, sleepChart = null;
+let isAuthenticated = false, tagsInitialized = false;
+const posSelected = new Set(), negSelected = new Set();
+
+// ── SUPABASE ─────────────────────────────────────────
+async function sbFetch(path, opts = {}) {
+  const session = (await sb.auth.getSession()).data.session;
+  const token = session ? session.access_token : SUPABASE_KEY;
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...opts,
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation', ...(opts.headers||{}) }
+  });
+  if (!r.ok) throw new Error(await r.text());
+  const t = await r.text(); return t ? JSON.parse(t) : null;
+}
+
+async function loadEntries() {
+  setLoading(true);
+  try { entries = await sbFetch('entries?order=ts.desc&limit=120') || []; }
+  catch(e) { console.error('Load error:', e); entries = []; }
+  setLoading(false);
+}
+
+// ── AUTH ─────────────────────────────────────────────
+function showWelcomeScreen() {
+  document.getElementById('landing-welcome').style.display = 'block';
+  document.getElementById('landing-password').style.display = 'none';
+  document.getElementById('landing-signup').style.display = 'none';
+  document.getElementById('auth-error').textContent = '';
+  const emailEl = document.getElementById('auth-email');
+  const passEl = document.getElementById('auth-password-input');
+  if (emailEl) emailEl.value = '';
+  if (passEl) passEl.value = '';
+}
+
+function goHome() {
+  document.getElementById('landing-page').classList.remove('exit','gone');
+  document.getElementById('landing-welcome').style.display = 'block';
+  document.getElementById('landing-password').style.display = 'none';
+  document.getElementById('landing-signup').style.display = 'none';
+  document.getElementById('auth-error').textContent = '';
+  const emailEl = document.getElementById('auth-email');
+  const passEl = document.getElementById('auth-password-input');
+  if (emailEl) emailEl.value = '';
+  if (passEl) passEl.value = '';
+  document.body.classList.add('landing-active');
+  const lnav = document.querySelector('.landing-nav');
+  const lban = document.querySelector('.landing-banner');
+  if (lnav) lnav.style.display = 'flex';
+  if (lban) lban.style.display = 'block';
+  if (window.showLandingCanvas) window.showLandingCanvas();
+}
+
+function showSignupScreen() {
+  document.getElementById('landing-page').classList.remove('exit','gone');
+  document.getElementById('landing-welcome').style.display = 'none';
+  document.getElementById('landing-password').style.display = 'none';
+  document.getElementById('landing-signup').style.display = 'block';
+  document.getElementById('auth-signup-form-wrap').style.display = 'block';
+  document.getElementById('auth-signup-success').style.display = 'none';
+  document.body.classList.add('landing-active');
+  if (window.showLandingCanvas) window.showLandingCanvas();
+  setTimeout(() => document.getElementById('su-name').focus(), 50);
+}
+
+async function submitSignupRequest() {
+  const name = document.getElementById('su-name').value.trim();
+  const email = document.getElementById('su-email').value.trim();
+  const errEl = document.getElementById('su-error');
+
+  if (!name) { errEl.textContent = 'name is required'; document.getElementById('su-name').style.borderColor='var(--red)'; return; }
+  if (!email || !email.includes('@')) { errEl.textContent = 'valid email is required'; document.getElementById('su-email').style.borderColor='var(--red)'; return; }
+  errEl.textContent = '';
+
+  try {
+    await fetch('/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ 'form-name': 'signup-request', name, email }).toString()
+    });
+  } catch(e) {}
+
+  document.getElementById('auth-signup-form-wrap').style.display = 'none';
+  document.getElementById('auth-signup-success').style.display = 'block';
+}
+
+function showPasswordScreen() {
+  document.getElementById('landing-page').classList.remove('exit','gone');
+  document.getElementById('landing-welcome').style.display = 'none';
+  document.getElementById('landing-signup').style.display = 'none';
+  document.getElementById('landing-password').style.display = 'block';
+  document.body.classList.add('landing-active');
+  if (window.showLandingCanvas) window.showLandingCanvas();
+  setTimeout(() => document.getElementById('auth-email').focus(), 50);
+}
+
+function hideLandingPage() {
+  const lp = document.getElementById('landing-page');
+  lp.classList.add('exit');
+  document.body.classList.remove('landing-active');
+  if (window.hideLandingCanvas) window.hideLandingCanvas();
+  const lnav = document.querySelector('.landing-nav');
+  const lban = document.querySelector('.landing-banner');
+  if (lnav) lnav.style.display = 'none';
+  if (lban) lban.style.display = 'none';
+  setTimeout(() => lp.classList.add('gone'), 850);
+}
+
+async function tryAuth() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password-input').value;
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-submit-btn');
+
+  if (!email || !password) { errEl.textContent = 'email and password required'; return; }
+
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  errEl.textContent = '';
+
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    isAuthenticated = true;
+    hideLandingPage();
+    updateModeUI(); initApp();
+  } catch(e) {
+    const inp = document.getElementById('auth-password-input');
+    inp.classList.add('shake');
+    errEl.textContent = e.message === 'Invalid login credentials' ? 'incorrect email or password' : (e.message || 'sign in failed');
+    setTimeout(() => inp.classList.remove('shake'), 1500);
+  }
+  btn.disabled = false; btn.textContent = 'Sign in →';
+}
+
+async function signOut() {
+  await sb.auth.signOut();
+  isAuthenticated = false;
+  entries = [];
+  goHome();
+}
+
+function showAuthOverlay() {
+  document.getElementById('landing-page').classList.remove('exit','gone');
+  showPasswordScreen();
+}
+
+function toggleMode() {
+  if (isAuthenticated) { if(confirm('Sign out?')) signOut(); }
+  else showAuthOverlay();
+}
+
+function updateModeUI() {
+  const badge = document.getElementById('mode-badge');
+  const saveBtn = document.getElementById('save-btn');
+
+  badge.textContent = isAuthenticated ? '● signed in' : '● public';
+  badge.className = 'mode-badge ' + (isAuthenticated ? 'private' : 'public');
+  badge.title = isAuthenticated ? 'Click to sign out' : 'Click to sign in';
+  saveBtn.disabled = !isAuthenticated;
+
+  document.querySelectorAll('.big-input, input[type="time"], select, textarea').forEach(el => el.disabled = !isAuthenticated);
+  document.querySelectorAll('.tag').forEach(el => el.style.pointerEvents = isAuthenticated ? '' : 'none');
+}
+
+// ── INIT ─────────────────────────────────────────────
+async function initApp() {
+  setupTags();
+  await loadEntries();
+  updateDayBadge();
+  updateModeUI();
+  renderHistory();
+}
+
+function setupTags() {
+  if (tagsInitialized) return;
+  tagsInitialized = true;
+  document.querySelectorAll('#pos-tags .tag').forEach(t => t.addEventListener('click', () => {
+    if (!isAuthenticated) return;
+    t.classList.toggle('pos-on');
+    posSelected.has(t.dataset.val) ? posSelected.delete(t.dataset.val) : posSelected.add(t.dataset.val);
+  }));
+  document.querySelectorAll('#neg-tags .tag').forEach(t => t.addEventListener('click', () => {
+    if (!isAuthenticated) return;
+    t.classList.toggle('neg-on');
+    negSelected.has(t.dataset.val) ? negSelected.delete(t.dataset.val) : negSelected.add(t.dataset.val);
+  }));
+}
+
+function setLoading(on) { document.getElementById('loading-bar').classList.toggle('active', on); }
+
+function updateDayBadge() {
+  if (!entries.length) { document.getElementById('day-badge').textContent = 'Day 1'; return; }
+  const first = Math.min(...entries.map(e => e.ts));
+  document.getElementById('day-badge').textContent = `Day ${Math.min(Math.floor((Date.now()-first)/86400000)+1, 30)}`;
+}
+
+// ── VIEWS ────────────────────────────────────────────
+function setView(v, btn) {
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  btn.classList.add('active');
+  if (v==='history') renderHistory();
+  if (v==='insights') renderInsights();
+}
+
+function refreshCurrentView() {
+  const id = document.querySelector('.view.active')?.id?.replace('view-','');
+  if (id==='history') renderHistory();
+  if (id==='insights') renderInsights();
+}
+
+// ── GAUGE ─────────────────────────────────────────────
+function updateGauge() {
+  const v = parseInt(document.getElementById('hrv').value);
+  const num = document.getElementById('gauge-num'), zone = document.getElementById('gauge-zone');
+  if (!v||v<10) { num.style.color='var(--muted2)'; num.textContent='—'; zone.style.background='var(--surface2)'; zone.style.color='var(--muted2)'; zone.textContent='enter HRV above'; return; }
+  num.textContent = v;
+  const cfg = v>=55?['var(--green)','var(--green-dim)','good']:v>=40?['var(--muted)','var(--surface2)','moderate']:['var(--red)','var(--red-dim)','low'];
+  num.style.color=cfg[0]; zone.style.background=cfg[1]; zone.style.color=cfg[0]; zone.textContent=cfg[2];
+}
+
+// ── SAVE ─────────────────────────────────────────────
+async function saveEntry() {
+  if (!isAuthenticated) return;
+  const hrv = parseInt(document.getElementById('hrv').value);
+  if (!hrv||hrv<10||hrv>120) { alert('Please enter a valid HRV reading (10–120 ms)'); return; }
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const entry = {
+    date: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+    ts: Date.now(), hrv,
+    sleep_score: parseInt(document.getElementById('sleep_score').value)||null,
+    bedtime: document.getElementById('bedtime').value||null,
+    waketime: document.getElementById('waketime').value||null,
+    night_wake: document.getElementById('night_wake').value||null,
+    note: document.getElementById('note').value.trim()||null,
+    pos: [...posSelected], neg: [...negSelected]
+  };
+  try {
+    const saved = await sbFetch('entries', {method:'POST', body:JSON.stringify(entry)});
+    entries.unshift(saved?.[0] || entry);
+    updateDayBadge();
+    ['hrv','sleep_score','bedtime','waketime','night_wake','note'].forEach(id => document.getElementById(id).value='');
+    posSelected.clear(); negSelected.clear();
+    document.querySelectorAll('.tag').forEach(t=>t.classList.remove('pos-on','neg-on'));
+    updateGauge();
+    const c = document.getElementById('save-confirm');
+    c.textContent='✓ saved to database'; c.style.opacity='1';
+    setTimeout(()=>c.style.opacity='0', 2500);
+  } catch(e) { alert('Save failed — check connection and try again.'); console.error(e); }
+  btn.disabled = false; btn.textContent = "Save today's entry →";
+}
+
+// ── DELETE ────────────────────────────────────────────
+async function deleteEntry(id, ts) {
+  if (!isAuthenticated||!confirm('Delete this entry?')) return;
+  try {
+    await sbFetch(`entries?id=eq.${id}`, {method:'DELETE'});
+    entries = entries.filter(e=>e.id!==id&&e.ts!==ts);
+    renderHistory(); updateDayBadge();
+  } catch(e) { alert('Delete failed.'); }
+}
+
+// ── COLOR ─────────────────────────────────────────────
+function hc(v) { return v>=55?'#16a34a':v>=40?'#52525b':'#dc2626'; }
+
+// ── HISTORY ──────────────────────────────────────────
+function renderHistory() { renderStats(); renderSleepChart(); renderHRVChart(); renderWeekly(); renderLog(); }
+
+function renderStats() {
+  if (!entries.length) { document.getElementById('stat-row').innerHTML='<div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">avg sleep score</div></div><div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">best</div></div><div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">lowest</div></div><div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">7-day trend</div></div>'; return; }
+  const svs=entries.filter(e=>e.sleep_score).map(e=>e.sleep_score);
+  if (!svs.length) { document.getElementById('stat-row').innerHTML='<div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">avg sleep score</div></div><div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">best</div></div><div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">lowest</div></div><div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">7-day trend</div></div>'; return; }
+  const avg=Math.round(svs.reduce((a,b)=>a+b,0)/svs.length), mx=Math.max(...svs), mn=Math.min(...svs);
+  const { delta: tr, count: trCount } = calc7DayTrend();
+  const trs = tr !== null ? (tr>=0?'+':'')+tr+' pts' : '—';
+  const trCol = tr === null ? 'var(--muted2)' : tr>=0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('stat-row').innerHTML=`<div class="stat-card"><div class="stat-val" style="color:${sc(avg)}">${avg}</div><div class="stat-lbl">avg sleep score</div></div><div class="stat-card"><div class="stat-val" style="color:var(--green)">${mx}</div><div class="stat-lbl">best</div></div><div class="stat-card"><div class="stat-val" style="color:var(--red)">${mn}</div><div class="stat-lbl">lowest</div></div><div class="stat-card"><div class="stat-val" style="color:${trCol}">${trs}</div><div class="stat-lbl">7-day trend</div></div>`;
+}
+
+// Shared 7-day trend: compare avg of most recent 3 days vs avg of prior 4 days
+function calc7DayTrend() {
+  const scored=[...entries].filter(e=>e.sleep_score).sort((a,b)=>b.ts-a.ts);
+  const last7=scored.slice(0,7);
+  if (last7.length < 3) return { delta: null, count: 0 };
+  const recent=last7.slice(0, Math.ceil(last7.length/2));
+  const older=last7.slice(Math.ceil(last7.length/2));
+  const recentAvg=ga(recent.map(e=>e.sleep_score));
+  const olderAvg=ga(older.map(e=>e.sleep_score));
+  return { delta: recentAvg - olderAvg, count: last7.length, recentAvg, olderAvg };
+}
+
+function sc(v) { return v>=75?'#16a34a':v>=60?'#52525b':'#dc2626'; }
+
+function renderSleepChart() {
+  const data=[...entries].reverse().slice(-30).filter(e=>e.sleep_score);
+  if (sleepChart){sleepChart.destroy();sleepChart=null;}
+  if (!data.length) return;
+  const labels=data.map(e=>e.date.replace(/,.*/,'')), vals=data.map(e=>e.sleep_score), colors=vals.map(v=>sc(v));
+  sleepChart=new Chart(document.getElementById('sleep-chart'),{type:'bar',data:{labels,datasets:[{data:vals,backgroundColor:colors.map(c=>c+'33'),borderColor:colors,borderWidth:1.5,borderRadius:3,borderSkipped:false},{type:'line',data:Array(vals.length).fill(85),borderColor:'#4f7cff33',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw}`},backgroundColor:'#ffffff',borderColor:'rgba(0,0,0,0.08)',borderWidth:1,titleColor:'#71717a',bodyColor:'#18181b',bodyFont:{family:'Geist Mono',size:11}}},scales:{x:{ticks:{font:{size:9,family:'Geist Mono'},color:'#a1a1aa',maxRotation:0,autoSkip:true,maxTicksLimit:10},grid:{display:false},border:{display:false}},y:{min:40,max:100,ticks:{font:{size:9,family:'Geist Mono'},color:'#a1a1aa'},grid:{color:'rgba(0,0,0,0.04)'},border:{display:false}}}}});
+}
+
+function renderHRVChart() {
+  const data=[...entries].reverse().slice(-30);
+  if (hrvChart){hrvChart.destroy();hrvChart=null;}
+  if (!data.length) return;
+  const labels=data.map(e=>e.date.replace(/,.*/,'')), vals=data.map(e=>e.hrv), colors=vals.map(v=>hc(v));
+  hrvChart=new Chart(document.getElementById('hrv-chart'),{type:'bar',data:{labels,datasets:[{data:vals,backgroundColor:colors.map(c=>c+'33'),borderColor:colors,borderWidth:1.5,borderRadius:3,borderSkipped:false},{type:'line',data:Array(vals.length).fill(65),borderColor:'#4f7cff33',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw} ms`},backgroundColor:'#ffffff',borderColor:'rgba(0,0,0,0.08)',borderWidth:1,titleColor:'#71717a',bodyColor:'#18181b',bodyFont:{family:'Geist Mono',size:11}}},scales:{x:{ticks:{font:{size:9,family:'Geist Mono'},color:'#a1a1aa',maxRotation:0,autoSkip:true,maxTicksLimit:10},grid:{display:false},border:{display:false}},y:{min:15,max:Math.max(80,Math.max(...vals)+10),ticks:{font:{size:9,family:'Geist Mono'},color:'#a1a1aa'},grid:{color:'rgba(0,0,0,0.04)'},border:{display:false}}}}});
+}
+
+function renderWeekly() {
+  if (!entries.length){document.getElementById('weekly-view').innerHTML='<div class="empty-state">No entries yet</div>';return;}
+  const weeks={};
+  entries.forEach(e=>{const d=new Date(e.ts),s=new Date(d);s.setDate(d.getDate()-d.getDay());const k=s.toLocaleDateString('en-US',{month:'short',day:'numeric'});if(!weeks[k])weeks[k]=[];weeks[k].push(e.hrv);});
+  const html=Object.keys(weeks).slice(0,8).reverse().map(k=>{const avg=Math.round(weeks[k].reduce((a,b)=>a+b,0)/weeks[k].length),pct=Math.round((avg/80)*100),col=hc(avg);return`<div class="weekly-row"><span style="font-family:'Geist Mono',monospace;font-size:0.7rem;color:var(--muted)">w/ ${k}</span><div class="week-bar-bg"><div class="week-bar-fill" style="width:${pct}%;background:${col}44"></div></div><span style="font-family:'Geist Mono',monospace;font-size:0.78rem;color:${col}">${avg} ms</span><span style="font-size:0.7rem;color:var(--muted2)">${weeks[k].length}d</span></div>`;}).join('');
+  document.getElementById('weekly-view').innerHTML=html||'<div class="empty-state">No data yet</div>';
+}
+
+function renderLog() {
+  if (!entries.length){document.getElementById('log-body').innerHTML=`<tr><td colspan="7" style="color:var(--muted2);padding:2rem 0;font-size:0.75rem;font-family:'Geist Mono',monospace;text-align:center">No entries yet</td></tr>`;return;}
+  const wl=v=>({none:'Slept through',back_quick:'Brief wake',back_slow:'30min+ awake',couldnt_sleep:'3am — 2hr+'}[v]||'—');
+  document.getElementById('log-body').innerHTML=entries.map(e=>{
+    const col=hc(e.hrv);
+    const chips=[...(e.pos||[]).slice(0,3).map(f=>`<span class="factor-chip" style="color:var(--green);border-color:rgba(22,163,74,.2)">${f.replace(/_/g,' ')}</span>`),...(e.neg||[]).slice(0,2).map(f=>`<span class="factor-chip" style="color:var(--red);border-color:rgba(220,38,38,.2)">${f.replace(/_/g,' ')}</span>`)].join('');
+    const del=isAuthenticated?`<td><button class="delete-btn" onclick="deleteEntry('${e.id}',${e.ts})">×</button></td>`:'<td></td>';
+    const note=isAuthenticated?(e.note||''):'';
+    return`<tr><td style="color:var(--muted);font-family:'Geist Mono',monospace;font-size:0.7rem;white-space:nowrap">${e.date}</td><td><span class="hrv-pill" style="background:${col}18;color:${col}">${e.hrv}</span></td><td style="font-family:'Geist Mono',monospace;font-size:0.75rem;color:var(--muted)">${e.sleep_score||'—'}</td><td style="font-size:0.75rem;color:var(--muted)">${wl(e.night_wake)}</td><td>${chips}</td><td style="font-size:0.75rem;color:var(--muted2);max-width:140px;line-height:1.4">${note}</td>${del}</tr>`;
+  }).join('');
+}
+
+// ── INSIGHTS ─────────────────────────────────────────
+function renderInsights(){renderInsightCards();renderHeatmapSleep();renderHeatmapHRV();renderScatter();generateBriefing();}
+
+// ── AI COACH ─────────────────────────────────────────
+const COACH_ENDPOINT = SUPABASE_URL + '/functions/v1/sleep-coach';
+let chatHistory = [];
+let briefingGenerated = false;
+
+function getSleepDataForCoach() {
+  // Send last 14 days of data to the coach
+  return entries.slice(0, 14).map(e => ({
+    date: e.date,
+    sleep_score: e.sleep_score,
+    hrv: e.hrv,
+    bedtime: e.bedtime,
+    waketime: e.waketime,
+    night_wake: e.night_wake,
+    pos: e.pos,
+    neg: e.neg,
+    note: e.note
+  }));
+}
+
+function parseMarkdown(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/→/g, '<span style="color:var(--accent)">→</span>')
+    .split('\n\n').filter(p => p.trim()).map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('');
+}
+
+async function streamCoachResponse(messages, targetEl, onDone) {
+  const session = (await sb.auth.getSession()).data.session;
+  const token = session ? session.access_token : SUPABASE_KEY;
+
+  const res = await fetch(COACH_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + token,
+    },
+    body: JSON.stringify({
+      messages,
+      sleepData: getSleepDataForCoach()
+    })
+  });
+
+  if (!res.ok) {
+    targetEl.innerHTML = '<p style="color:var(--red)">Could not reach coach — check your Edge Function setup.</p>';
+    return;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let fullText = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6).trim();
+      if (data === '[DONE]') continue;
+
+      try {
+        const event = JSON.parse(data);
+        if (event.type === 'content_block_delta' && event.delta?.text) {
+          fullText += event.delta.text;
+          targetEl.innerHTML = parseMarkdown(fullText);
+        }
+      } catch (e) { /* skip non-JSON lines */ }
+    }
+  }
+
+  if (onDone) onDone(fullText);
+}
+
+async function generateBriefing() {
+  const scored = entries.filter(e => e.sleep_score);
+  const briefingBody = document.getElementById('briefing-body');
+  const briefingTime = document.getElementById('briefing-time');
+
+  if (scored.length < 3) {
+    briefingBody.innerHTML = '<p style="color:var(--muted)">Log at least 3 days of data to unlock your daily briefing.</p>';
+    briefingGenerated = false;
+    return;
+  }
+
+  // Don't regenerate if already done this session (unless refresh clicked)
+  if (briefingGenerated && !event) return;
+
+  briefingBody.innerHTML = '<div class="coach-loading"><div class="coach-dots"><span></span><span></span><span></span></div> Analyzing your sleep data...</div>';
+
+  const now = new Date();
+  briefingTime.textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+  try {
+    await streamCoachResponse(
+      [{ role: 'user', content: 'Generate my daily sleep briefing based on my recent data. What patterns do you see, what\'s working, and what should I do tonight?' }],
+      briefingBody,
+      () => { briefingGenerated = true; }
+    );
+  } catch (e) {
+    briefingBody.innerHTML = '<p style="color:var(--muted)">Unable to generate briefing. Make sure the Edge Function is deployed and your API key is set.</p>';
+  }
+}
+
+async function sendChat(text) {
+  const input = document.getElementById('coach-chat-input');
+  const messagesEl = document.getElementById('chat-messages');
+  const sendBtn = document.getElementById('chat-send-btn');
+  const hintsEl = document.getElementById('chat-hints');
+
+  const msg = text || input.value.trim();
+  if (!msg) return;
+
+  input.value = '';
+  hintsEl.style.display = 'none';
+
+  // Add user message
+  const userBubble = document.createElement('div');
+  userBubble.className = 'chat-msg user';
+  userBubble.textContent = msg;
+  messagesEl.appendChild(userBubble);
+
+  // Add assistant loading bubble
+  const assistBubble = document.createElement('div');
+  assistBubble.className = 'chat-msg assistant';
+  assistBubble.innerHTML = '<div class="coach-loading"><div class="coach-dots"><span></span><span></span><span></span></div></div>';
+  messagesEl.appendChild(assistBubble);
+
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  sendBtn.disabled = true;
+
+  // Build message history
+  chatHistory.push({ role: 'user', content: msg });
+
+  try {
+    await streamCoachResponse(
+      chatHistory,
+      assistBubble,
+      (fullText) => {
+        chatHistory.push({ role: 'assistant', content: fullText });
+        sendBtn.disabled = false;
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+    );
+  } catch (e) {
+    assistBubble.innerHTML = '<p style="color:var(--red)">Failed to get response.</p>';
+    sendBtn.disabled = false;
+  }
+
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function ga(arr){return arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length):null;}
+
+function renderInsightCards(){
+  const scored=entries.filter(e=>e.sleep_score);
+  if(scored.length<3){document.getElementById('insights-top').innerHTML='<div class="insight-card" style="grid-column:1/-1"><div class="empty-state">Log at least 3 days to unlock insights</div></div>';return;}
+  const cards=[];
+
+  // ── 7-day trend ──
+  const { delta: trendDelta, count: trendCount } = calc7DayTrend();
+  if(trendDelta !== null){
+    const arrow=trendDelta>0?'↑':trendDelta<0?'↓':'→';
+    const col=trendDelta>0?'var(--green)':trendDelta<0?'var(--red)':'var(--muted)';
+    const word=trendDelta>0?'trending up':trendDelta<0?'trending down':'holding steady';
+    cards.push(`<div class="insight-card"><div class="card-label">7-day trend</div><div class="insight-headline" style="color:${col}">${arrow} ${trendDelta>0?'+':''}${trendDelta} pts</div><div class="insight-subtext">Sleep score ${word} over the past ${trendCount} days</div></div>`);
+  }
+
+  // ── Running average ──
+  const avg=ga(scored.map(e=>e.sleep_score));
+  const avgCol=avg>=75?'var(--green)':avg>=60?'var(--muted)':'var(--red)';
+  cards.push(`<div class="insight-card"><div class="card-label">Avg sleep score</div><div class="insight-headline" style="color:${avgCol}">${avg}</div><div class="insight-subtext">Running average across ${scored.length} logged days</div></div>`);
+
+  // ── No alcohol effect ──
+  const wA=scored.filter(e=>e.neg&&e.neg.includes('alcohol')),nA=scored.filter(e=>!e.neg||!e.neg.includes('alcohol'));
+  if(wA.length>=2&&nA.length>=2){const a=ga(wA.map(e=>e.sleep_score)),b=ga(nA.map(e=>e.sleep_score)),d=b-a;cards.push(`<div class="insight-card"><div class="card-label">No alcohol effect</div><div class="insight-headline" style="color:${d>0?'var(--green)':'var(--red)'}">${d>0?'+':''}${d} pts</div><div class="insight-subtext">No alcohol nights (${b}) vs alcohol nights (${a}) sleep score</div></div>`);}
+
+  // ── Stress effect ──
+  const wS=scored.filter(e=>e.neg&&e.neg.includes('high_stress')),nS=scored.filter(e=>!e.neg||!e.neg.includes('high_stress'));
+  if(wS.length>=2&&nS.length>=2){const a=ga(wS.map(e=>e.sleep_score)),b=ga(nS.map(e=>e.sleep_score)),d=a-b;cards.push(`<div class="insight-card"><div class="card-label">Stress effect</div><div class="insight-headline" style="color:var(--muted)">${d<=0?d:'+'+d} pts</div><div class="insight-subtext">High stress days (${a}) vs low stress (${b}) sleep score</div></div>`);}
+
+  // ── 3am wake impact ──
+  const bW=scored.filter(e=>e.night_wake==='couldnt_sleep'||e.night_wake==='back_slow'),gS=scored.filter(e=>e.night_wake==='none'||e.night_wake==='back_quick');
+  if(bW.length>=2&&gS.length>=2){const a=ga(bW.map(e=>e.sleep_score)),b=ga(gS.map(e=>e.sleep_score));cards.push(`<div class="insight-card"><div class="card-label">3am wake impact</div><div class="insight-headline" style="color:var(--red)">${a}</div><div class="insight-subtext">Sleep score after 2hr+ night wake vs ${b} on uninterrupted nights</div></div>`);}
+
+  // ── Distance to target (90) ──
+  cards.push(`<div class="insight-card"><div class="card-label">Distance to target</div><div class="insight-headline" style="color:${avg>=90?'var(--green)':'var(--accent)'}">${avg>=90?'On target':'+'+Math.max(0,90-avg)+' pts'}</div><div class="insight-subtext">Current avg ${avg} → target 90+. ${scored.length} days logged.</div></div>`);
+
+  document.getElementById('insights-top').innerHTML=cards.join('')||'<div class="insight-card" style="grid-column:1/-1"><div class="empty-state">More varied data needed</div></div>';
+}
+
+const FACTORS=[{key:'morning_light',label:'Morning light',type:'pos'},{key:'no_alcohol',label:'No alcohol',type:'pos'},{key:'fluids_off',label:'Fluids off 7pm',type:'pos'},{key:'early_meal',label:'Last meal <7pm',type:'pos'},{key:'exercise',label:'Exercise',type:'pos'},{key:'breathwork',label:'Breathwork',type:'pos'},{key:'ashwagandha',label:'Ashwagandha',type:'pos'},{key:'mag_glycinate',label:'Mag glycinate',type:'pos'},{key:'phosphatidylserine',label:'Phosphatidylserine',type:'pos'},{key:'cool_room',label:'Cool room',type:'pos'},{key:'no_screens',label:'No screens 1hr',type:'pos'},{key:'alcohol',label:'Alcohol',type:'neg'},{key:'late_meal',label:'Late meal 8pm+',type:'neg'},{key:'high_stress',label:'High stress',type:'neg'},{key:'late_caffeine',label:'Caffeine after 2pm',type:'neg'},{key:'emotional_stress',label:'Emotional stress',type:'neg'}];
+
+function buildHeatmapRows(metric, unit, colorFn) {
+  const pool = metric==='sleep_score' ? entries.filter(e=>e.sleep_score) : entries;
+  if(pool.length<3) return null;
+  const gAvg = ga(pool.map(e=>e[metric]));
+  const rows = FACTORS.map(f=>{
+    const wF=pool.filter(e=>(f.type==='pos'?(e.pos||[]):(e.neg||[])).includes(f.key));
+    if(wF.length<2)return`<div class="heatmap-row"><div class="heatmap-label">${f.label}</div><div class="heatmap-cell no-data" style="flex:2">need ${2-wF.length} more</div></div>`;
+    const aW=ga(wF.map(e=>e[metric])),diff=aW-gAvg,int=Math.min(Math.abs(diff)/20,1);
+    let bg,tc;
+    if(f.type==='pos'){if(diff>0){bg=`rgba(22,163,74,${0.06+int*0.18})`;tc='#16a34a';}else{bg=`rgba(220,38,38,${0.06+int*0.14})`;tc='#dc2626';}}
+    else{if(diff<0){bg=`rgba(220,38,38,${0.06+int*0.18})`;tc='#dc2626';}else{bg=`rgba(22,163,74,${0.06+int*0.14})`;tc='#16a34a';}}
+    return`<div class="heatmap-row"><div class="heatmap-label">${f.label}</div><div class="heatmap-cell" style="background:${bg};color:${tc};flex:2">${diff>=0?'+':''}${diff} ${unit}</div><div style="font-family:'Geist Mono',monospace;font-size:0.62rem;color:var(--muted2);padding-left:8px;align-self:center">${wF.length}d</div></div>`;
+  }).join('');
+  return `<div class="heatmap-grid" style="margin-top:.25rem">${rows}</div><div style="font-family:'Geist Mono',monospace;font-size:0.62rem;color:var(--muted2);margin-top:14px;letter-spacing:.04em">delta vs your overall avg (${gAvg} ${unit})</div>`;
+}
+
+function renderHeatmapSleep(){
+  const el=document.getElementById('heatmap-sleep');
+  const html=buildHeatmapRows('sleep_score','pts',sc);
+  el.innerHTML=html||'<div class="empty-state">Log at least 3 days with sleep scores to build the heatmap</div>';
+}
+
+function renderHeatmapHRV(){
+  const el=document.getElementById('heatmap-hrv');
+  const html=buildHeatmapRows('hrv','ms',hc);
+  el.innerHTML=html||'<div class="empty-state">Log at least 3 days to build the heatmap</div>';
+}
+
+function renderScatter(){
+  const pts=entries.filter(e=>e.sleep_score&&e.hrv);
+  if(scatterChart){scatterChart.destroy();scatterChart=null;}
+  if(pts.length<3){const w=document.querySelector('#scatter-chart');if(w)w.parentElement.innerHTML='<div class="empty-state">Need 3+ entries with sleep scores to plot correlation</div>';return;}
+  const data=pts.map(e=>({x:e.hrv,y:e.sleep_score}));
+  scatterChart=new Chart(document.getElementById('scatter-chart'),{type:'scatter',data:{datasets:[{data,backgroundColor:data.map(p=>p.x>=55?'#16a34a44':p.x>=40?'#52525b33':'#dc262644'),pointRadius:5,pointHoverRadius:7}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` HRV ${c.parsed.x} ms  ·  Sleep ${c.parsed.y}`},backgroundColor:'#ffffff',borderColor:'rgba(0,0,0,0.08)',borderWidth:1,bodyColor:'#18181b',bodyFont:{family:'Geist Mono',size:11}}},scales:{x:{title:{display:true,text:'HRV (ms)',color:'#a1a1aa',font:{size:9,family:'Geist Mono'}},ticks:{color:'#a1a1aa',font:{size:9,family:'Geist Mono'}},grid:{color:'rgba(0,0,0,0.04)'},border:{display:false}},y:{title:{display:true,text:'Sleep score',color:'#a1a1aa',font:{size:9,family:'Geist Mono'}},ticks:{color:'#a1a1aa',font:{size:9,family:'Geist Mono'}},grid:{color:'rgba(0,0,0,0.04)'},border:{display:false}}}}});
+}
+
+// ── EMAIL SIGNUP ─────────────────────────────────────
+async function submitSignup() {
+  const email=document.getElementById('signup-email').value.trim();
+  if(!email||!email.includes('@')){document.getElementById('signup-email').style.borderColor='var(--red)';setTimeout(()=>document.getElementById('signup-email').style.borderColor='',1500);return;}
+  try { await fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({'form-name':'waitlist',email,name:document.getElementById('signup-name').value.trim()}).toString()}); } catch(e){}
+  document.getElementById('signup-form').style.display='none';
+  document.getElementById('signup-success').style.display='block';
+}
+
+// ── BOOT ─────────────────────────────────────────────
+// Check for existing Supabase session on load
+(async function checkSession() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    isAuthenticated = true;
+    hideLandingPage();
+    updateModeUI(); initApp();
+  }
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT') {
+      isAuthenticated = false;
+      entries = [];
+      goHome();
+    }
+  });
+})();
+
+// ── TREND SVG ANIMATION ──────────────────────────────
+(function() {
+  const TREND_DURATION = 2800;
+  const TREND_PAUSE = 1500;
+  const TREND_FADE = 600;
+
+  function generateTrendData() {
+    return Array.from({ length: 30 }, (_, i) => {
+      const base = 38 + (i / 29) * 26;
+      const noise = (Math.random() - 0.5) * 10;
+      const dip = Math.random() > 0.85 ? -9 : 0;
+      return Math.max(28, Math.min(78, base + noise + dip));
+    });
+  }
+
+  function buildSVGPaths(data, progress) {
+    const n = Math.max(2, Math.floor(progress * (data.length - 1)) + 1);
+    const pts = data.slice(0, n).map((v, i) => {
+      const x = (i / (data.length - 1)) * 392 + 4;
+      const y = 72 - ((v - 25) / 53) * 58;
+      return [x, y];
+    });
+    const line = pts.map((p, i) => (i === 0 ? `M${p[0].toFixed(1)},${p[1].toFixed(1)}` : `L${p[0].toFixed(1)},${p[1].toFixed(1)}`)).join(' ');
+    const last = pts[pts.length - 1];
+    const fill = line + ` L${last[0].toFixed(1)},76 L4,76 Z`;
+    return { line, fill, dot: last };
+  }
+
+  function initTrendSVG() {
+    const lineEl = document.getElementById('trend-line-path');
+    const fillEl = document.getElementById('trend-fill-path');
+    const dotEl  = document.getElementById('trend-dot');
+    const svgEl  = document.getElementById('trend-svg');
+    if (!lineEl) return;
+
+    let data = generateTrendData();
+    let phase = 'drawing';
+    let phaseStart = null;
+
+    function animate(ts) {
+      if (!phaseStart) phaseStart = ts;
+      const elapsed = ts - phaseStart;
+
+      if (phase === 'drawing') {
+        const p = Math.min(1, elapsed / TREND_DURATION);
+        svgEl.style.opacity = 1;
+        const { line, fill, dot } = buildSVGPaths(data, p);
+        lineEl.setAttribute('d', line);
+        fillEl.setAttribute('d', fill);
+        dotEl.setAttribute('cx', dot[0]);
+        dotEl.setAttribute('cy', dot[1]);
+        if (p >= 1) { phase = 'pausing'; phaseStart = ts; }
+      } else if (phase === 'pausing') {
+        if (elapsed >= TREND_PAUSE) { phase = 'fading'; phaseStart = ts; }
+      } else if (phase === 'fading') {
+        const p = Math.min(1, elapsed / TREND_FADE);
+        svgEl.style.opacity = 1 - p;
+        if (p >= 1) { data = generateTrendData(); phase = 'drawing'; phaseStart = ts; }
+      }
+      requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+  }
+
+  window.addEventListener('load', () => {
+    document.body.classList.add('landing-active');
+    setTimeout(initTrendSVG, 50);
+  });
+})();
+
+// ── LANDING CANVAS ANIMATION ─────────────────────────
+(function() {
+  const canvas = document.getElementById('landing-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, raf;
+  let active = true;
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function draw() {
+    if (!active) return;
+    ctx.clearRect(0, 0, W, H);
+    const t = performance.now() * 0.001;
+    const spacing = 28;
+    const cx = W / 2, cy = H / 2;
+    const maxDist = Math.sqrt(cx * cx + cy * cy);
+
+    for (let x = spacing / 2; x < W; x += spacing) {
+      for (let y = spacing / 2; y < H; y += spacing) {
+        const dx = x - cx, dy = y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const normDist = dist / maxDist;
+
+        const wave = Math.sin(dist * 0.018 - t * 1.2) * 0.5 + 0.5;
+        const baseSize = 1;
+        const size = baseSize + wave * 1.4 * (1 - normDist * 0.5);
+        const alpha = 0.06 + wave * 0.14 * (1 - normDist * 0.4);
+
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(79,124,255,${alpha})`;
+        ctx.fill();
+      }
+    }
+
+    ctx.strokeStyle = 'rgba(79,124,255,0.025)';
+    ctx.lineWidth = 0.5;
+    for (let x = 0; x < W; x += spacing * 4) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y < H; y += spacing * 4) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+
+    raf = requestAnimationFrame(draw);
+  }
+
+  function hide() {
+    active = false;
+    cancelAnimationFrame(raf);
+    canvas.classList.add('hidden');
+    setTimeout(() => ctx.clearRect(0, 0, W, H), 1200);
+  }
+
+  function show() {
+    canvas.classList.remove('hidden');
+    active = true;
+    resize();
+    draw();
+  }
+
+  window.hideLandingCanvas = hide;
+  window.showLandingCanvas = show;
+
+  window.addEventListener('resize', () => { if (active) resize(); });
+
+  resize();
+  draw();
+})();
+</script>
+</body>
+</html>
