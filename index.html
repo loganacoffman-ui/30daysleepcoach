@@ -1253,16 +1253,16 @@ function renderStats() {
   document.getElementById('stat-row').innerHTML=`<div class="stat-card"><div class="stat-val" style="color:${sc(avg)}">${avg}</div><div class="stat-lbl">avg sleep score</div></div><div class="stat-card"><div class="stat-val" style="color:var(--green)">${mx}</div><div class="stat-lbl">best</div></div><div class="stat-card"><div class="stat-val" style="color:var(--red)">${mn}</div><div class="stat-lbl">lowest</div></div><div class="stat-card"><div class="stat-val" style="color:${trCol}">${trs}</div><div class="stat-lbl">7-day trend</div></div>`;
 }
 
-// Shared 7-day trend: compare avg of most recent 3 days vs avg of prior 4 days
+// Shared 7-day trend: compare avg of last 7 scored days vs the 7 scored days before that
 function calc7DayTrend() {
   const scored=[...entries].filter(e=>e.sleep_score).sort((a,b)=>b.ts-a.ts);
-  const last7=scored.slice(0,7);
-  if (last7.length < 3) return { delta: null, count: 0 };
-  const recent=last7.slice(0, Math.ceil(last7.length/2));
-  const older=last7.slice(Math.ceil(last7.length/2));
+  if (scored.length < 4) return { delta: null, count: 0 };
+  const recent=scored.slice(0,7);
+  const prior=scored.slice(7,14);
+  if (prior.length < 3) return { delta: null, count: recent.length };
   const recentAvg=ga(recent.map(e=>e.sleep_score));
-  const olderAvg=ga(older.map(e=>e.sleep_score));
-  return { delta: recentAvg - olderAvg, count: last7.length, recentAvg, olderAvg };
+  const priorAvg=ga(prior.map(e=>e.sleep_score));
+  return { delta: recentAvg - priorAvg, count: recent.length, recentAvg, priorAvg };
 }
 
 function sc(v) { return v>=75?'#16a34a':v>=60?'#52525b':'#dc2626'; }
@@ -1476,7 +1476,7 @@ function renderInsightCards(){
     const arrow=trendDelta>0?'↑':trendDelta<0?'↓':'→';
     const col=trendDelta>0?'var(--green)':trendDelta<0?'var(--red)':'var(--muted)';
     const word=trendDelta>0?'trending up':trendDelta<0?'trending down':'holding steady';
-    cards.push(`<div class="insight-card"><div class="card-label">7-day trend</div><div class="insight-headline" style="color:${col}">${arrow} ${trendDelta>0?'+':''}${trendDelta} pts</div><div class="insight-subtext">Sleep score ${word} over the past ${trendCount} days</div></div>`);
+    cards.push(`<div class="insight-card"><div class="card-label">7-day trend</div><div class="insight-headline" style="color:${col}">${arrow} ${trendDelta>0?'+':''}${trendDelta} pts</div><div class="insight-subtext">Sleep score ${word} vs your previous 7 days</div></div>`);
   }
 
   // ── Running average ──
@@ -1492,9 +1492,33 @@ function renderInsightCards(){
   const wS=scored.filter(e=>e.neg&&e.neg.includes('high_stress')),nS=scored.filter(e=>!e.neg||!e.neg.includes('high_stress'));
   if(wS.length>=2&&nS.length>=2){const a=ga(wS.map(e=>e.sleep_score)),b=ga(nS.map(e=>e.sleep_score)),d=a-b;cards.push(`<div class="insight-card"><div class="card-label">Stress effect</div><div class="insight-headline" style="color:var(--muted)">${d<=0?d:'+'+d} pts</div><div class="insight-subtext">High stress days (${a}) vs low stress (${b}) sleep score</div></div>`);}
 
-  // ── 3am wake impact ──
+  // ── Interrupted sleep impact ──
+  // Three behaviors based on the delta between interrupted and uninterrupted nights:
+  //   delta <= -3  : interrupted nights hurt → red, standard framing
+  //   delta >= +1  : surprising resilience → green, celebratory framing
+  //   otherwise    : roughly equivalent → muted, neutral framing
   const bW=scored.filter(e=>e.night_wake==='couldnt_sleep'||e.night_wake==='back_slow'),gS=scored.filter(e=>e.night_wake==='none'||e.night_wake==='back_quick');
-  if(bW.length>=2&&gS.length>=2){const a=ga(bW.map(e=>e.sleep_score)),b=ga(gS.map(e=>e.sleep_score));cards.push(`<div class="insight-card"><div class="card-label">3am wake impact</div><div class="insight-headline" style="color:var(--red)">${a}</div><div class="insight-subtext">Sleep score after 2hr+ night wake vs ${b} on uninterrupted nights</div></div>`);}
+  if(bW.length>=4&&gS.length>=4){
+    const a=ga(bW.map(e=>e.sleep_score)),b=ga(gS.map(e=>e.sleep_score)),d=a-b;
+    let label, color, headline, subtext;
+    if(d<=-3){
+      label='Interrupted sleep impact';
+      color='var(--red)';
+      headline=`${d} pts`;
+      subtext=`Interrupted nights (${a}) vs uninterrupted (${b}). Protecting sleep continuity matters.`;
+    } else if(d>=1){
+      label='Surprising resilience';
+      color='var(--green)';
+      headline=`+${d} pts`;
+      subtext=`Interrupted nights (${a}) aren't hurting you vs uninterrupted (${b}). Strong recovery signal.`;
+    } else {
+      label='Interrupted sleep impact';
+      color='var(--muted)';
+      headline=`${d>0?'+':''}${d} pts`;
+      subtext=`Interrupted nights (${a}) vs uninterrupted (${b}). Your score holds up through wake-ups.`;
+    }
+    cards.push(`<div class="insight-card"><div class="card-label">${label}</div><div class="insight-headline" style="color:${color}">${headline}</div><div class="insight-subtext">${subtext}</div></div>`);
+  }
 
   // ── Distance to target (90) ──
   cards.push(`<div class="insight-card"><div class="card-label">Distance to target</div><div class="insight-headline" style="color:${avg>=90?'var(--green)':'var(--accent)'}">${avg>=90?'On target':'+'+Math.max(0,90-avg)+' pts'}</div><div class="insight-subtext">Current avg ${avg} → target 90+. ${scored.length} days logged.</div></div>`);
