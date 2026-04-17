@@ -1532,15 +1532,25 @@ function buildHeatmapRows(metric, unit, colorFn) {
   const pool = metric==='sleep_score' ? entries.filter(e=>e.sleep_score) : entries;
   if(pool.length<3) return null;
   const gAvg = ga(pool.map(e=>e[metric]));
-  const rows = FACTORS.map(f=>{
+  const items=FACTORS.map((f,factorIndex)=>{
     const wF=pool.filter(e=>(f.type==='pos'?(e.pos||[]):(e.neg||[])).includes(f.key));
-    if(wF.length<2)return`<div class="heatmap-row"><div class="heatmap-label">${f.label}</div><div class="heatmap-cell no-data" style="flex:2">need ${2-wF.length} more</div></div>`;
+    if(wF.length<2)return{kind:'insufficient',factorIndex,html:`<div class="heatmap-row"><div class="heatmap-label">${f.label}</div><div class="heatmap-cell no-data" style="flex:2">need ${2-wF.length} more</div></div>`};
     const aW=ga(wF.map(e=>e[metric])),diff=aW-gAvg,int=Math.min(Math.abs(diff)/20,1);
     let bg,tc;
     if(f.type==='pos'){if(diff>0){bg=`rgba(22,163,74,${0.06+int*0.18})`;tc='#16a34a';}else{bg=`rgba(220,38,38,${0.06+int*0.14})`;tc='#dc2626';}}
     else{if(diff<0){bg=`rgba(220,38,38,${0.06+int*0.18})`;tc='#dc2626';}else{bg=`rgba(22,163,74,${0.06+int*0.14})`;tc='#16a34a';}}
-    return`<div class="heatmap-row"><div class="heatmap-label">${f.label}</div><div class="heatmap-cell" style="background:${bg};color:${tc};flex:2">${diff>=0?'+':''}${diff} ${unit}</div><div style="font-family:'Geist Mono',monospace;font-size:0.62rem;color:var(--muted2);padding-left:8px;align-self:center">${wF.length}d</div></div>`;
-  }).join('');
+    const html=`<div class="heatmap-row"><div class="heatmap-label">${f.label}</div><div class="heatmap-cell" style="background:${bg};color:${tc};flex:2">${diff>=0?'+':''}${diff} ${unit}</div><div style="font-family:'Geist Mono',monospace;font-size:0.62rem;color:var(--muted2);padding-left:8px;align-self:center">${wF.length}d</div></div>`;
+    return{kind:'data',positiveImpact:diff>0,diff,html};
+  });
+  items.sort((a,b)=>{
+    if(a.kind==='insufficient'&&b.kind==='insufficient')return a.factorIndex-b.factorIndex;
+    if(a.kind==='insufficient')return 1;
+    if(b.kind==='insufficient')return -1;
+    if(a.positiveImpact!==b.positiveImpact)return a.positiveImpact?-1:1;
+    if(a.positiveImpact)return b.diff-a.diff;
+    return a.diff-b.diff;
+  });
+  const rows=items.map(i=>i.html).join('');
   return `<div class="heatmap-grid" style="margin-top:.25rem">${rows}</div><div style="font-family:'Geist Mono',monospace;font-size:0.62rem;color:var(--muted2);margin-top:14px;letter-spacing:.04em">delta vs your overall avg (${gAvg} ${unit})</div>`;
 }
 
