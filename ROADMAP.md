@@ -26,6 +26,7 @@ Living document tracking what's being built, what's next, and what's done. Check
 
 ## Backlog
 
+- Supabase CLI setup — bring edge functions into local repo for version control and Cursor-based editing. Currently requires copy-paste between Cursor and Supabase dashboard for any edge function changes.
 - Onboarding flow — user-set sleep score goal (replaces hardcoded 90 in Distance to Target card)
 - Mobile layout polish — hero padding, header overflow on narrow screens, inline two-column grids in Log view, seven-column History table needs scroll wrapper, heatmap label widths
 - HRV scatterplot — decide whether to cut, add trendline, or replace with text insight

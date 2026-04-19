@@ -856,7 +856,7 @@ textarea::placeholder { color: var(--muted2); }
   <!-- AI BRIEFING -->
   <div class="coach-section">
     <div class="coach-briefing" id="coach-briefing">
-      <button class="coach-refresh" onclick="generateBriefing()" title="Refresh briefing">
+      <button type="button" class="coach-refresh" onclick="refreshBriefing()" title="Refresh briefing">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.65 2.35A7.96 7.96 0 008 0a8 8 0 108 8h-2a6 6 0 11-1.76-4.24L10 6h6V0l-2.35 2.35z" fill="currentColor"/></svg>
       </button>
       <div class="coach-briefing-header">
@@ -1222,6 +1222,12 @@ async function saveEntry() {
     const c = document.getElementById('save-confirm');
     c.textContent='✓ saved to database'; c.style.opacity='1';
     setTimeout(()=>c.style.opacity='0', 2500);
+    briefingGenerated = false;
+    try {
+      await sb.from('ai_cache').delete().eq('cache_key', getBriefingCacheKey());
+    } catch (err) {
+      console.warn('Briefing cache bust failed:', err);
+    }
   } catch(e) { alert('Save failed — check connection and try again.'); console.error(e); }
   btn.disabled = false; btn.textContent = "Save today's entry →";
 }
@@ -1311,6 +1317,14 @@ const COACH_ENDPOINT = SUPABASE_URL + '/functions/v1/sleep-coach';
 let chatHistory = [];
 let briefingGenerated = false;
 
+function getBriefingCacheKey() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `briefing_${y}-${m}-${day}`;
+}
+
 function getSleepDataForCoach() {
   // Send last 14 days of data to the coach
   return entries.slice(0, 14).map(e => ({
@@ -1333,7 +1347,7 @@ function parseMarkdown(text) {
     .split('\n\n').filter(p => p.trim()).map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('');
 }
 
-async function streamCoachResponse(messages, targetEl, onDone) {
+async function streamCoachResponse(messages, targetEl, onDone, cacheKey) {
   const session = (await sb.auth.getSession()).data.session;
   const token = session ? session.access_token : SUPABASE_KEY;
 
@@ -1345,7 +1359,8 @@ async function streamCoachResponse(messages, targetEl, onDone) {
     },
     body: JSON.stringify({
       messages,
-      sleepData: getSleepDataForCoach()
+      sleepData: getSleepDataForCoach(),
+      ...(cacheKey ? { cacheKey } : {})
     })
   });
 
@@ -1385,7 +1400,7 @@ async function streamCoachResponse(messages, targetEl, onDone) {
   if (onDone) onDone(fullText);
 }
 
-async function generateBriefing() {
+async function generateBriefing(force) {
   const scored = entries.filter(e => e.sleep_score);
   const briefingBody = document.getElementById('briefing-body');
   const briefingTime = document.getElementById('briefing-time');
@@ -1396,8 +1411,8 @@ async function generateBriefing() {
     return;
   }
 
-  // Don't regenerate if already done this session (unless refresh clicked)
-  if (briefingGenerated && !event) return;
+  // Don't regenerate if already done this session (unless forced e.g. manual refresh)
+  if (briefingGenerated && !force) return;
 
   briefingBody.innerHTML = '<div class="coach-loading"><div class="coach-dots"><span></span><span></span><span></span></div> Analyzing your sleep data...</div>';
 
@@ -1408,11 +1423,26 @@ async function generateBriefing() {
     await streamCoachResponse(
       [{ role: 'user', content: 'Generate my daily sleep briefing based on my recent data. What patterns do you see, what\'s working, and what should I do tonight?' }],
       briefingBody,
-      () => { briefingGenerated = true; }
+      () => { briefingGenerated = true; },
+      getBriefingCacheKey()
     );
   } catch (e) {
     briefingBody.innerHTML = '<p style="color:var(--muted)">Unable to generate briefing. Make sure the Edge Function is deployed and your API key is set.</p>';
   }
+}
+
+async function refreshBriefing() {
+  try {
+    await sb.from('ai_cache').delete().eq('cache_key', getBriefingCacheKey());
+  } catch (e) {
+    console.warn('Briefing cache delete failed:', e);
+  }
+  briefingGenerated = false;
+  const briefingBody = document.getElementById('briefing-body');
+  const briefingTime = document.getElementById('briefing-time');
+  if (briefingBody) briefingBody.innerHTML = '';
+  if (briefingTime) briefingTime.textContent = '';
+  await generateBriefing(true);
 }
 
 async function sendChat(text) {
