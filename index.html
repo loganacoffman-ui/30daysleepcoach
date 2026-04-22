@@ -93,6 +93,8 @@ nav { display: flex; gap: 2px; background: rgba(0,0,0,0.03); border: 1px solid v
 nav button { background: none; border: none; color: var(--muted); font-family: 'Geist', sans-serif; font-size: 0.78rem; font-weight: 400; padding: 6px 16px; border-radius: 4px; cursor: pointer; transition: all .15s; white-space: nowrap; }
 nav button.active { background: #fff; color: var(--text); border: 1px solid var(--border2); font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
 nav button:hover:not(.active) { color: var(--text); }
+.nav-badge-btn { display: inline-flex; align-items: center; gap: 6px; }
+.nav-badge { font-family: 'Geist Mono', monospace; font-size: 9px; font-weight: 500; letter-spacing: 0.04em; padding: 2px 6px; border-radius: 4px; background: #EAF3DE; color: #3B6D11; border: 1px solid rgba(59,109,17,0.16); line-height: 1; }
 .header-right { display: flex; align-items: center; gap: 10px; }
 .day-badge { font-family: 'Geist Mono', monospace; font-size: 0.68rem; font-weight: 500; letter-spacing: 0.08em; color: var(--muted); background: var(--surface2); border: 1px solid var(--border2); padding: 4px 12px; border-radius: 100px; }
 .mode-badge { font-family: 'Geist Mono', monospace; font-size: 0.65rem; font-weight: 500; letter-spacing: 0.06em; padding: 4px 10px; border-radius: 100px; cursor: pointer; transition: all .15s; }
@@ -232,6 +234,31 @@ textarea::placeholder { color: var(--muted2); }
 .chat-hints { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1rem; }
 .chat-hint { font-size: 0.72rem; color: var(--muted); padding: 5px 10px; border: 1px solid var(--border2); border-radius: 100px; cursor: pointer; transition: all .15s; font-family: 'Geist', sans-serif; background: var(--surface); }
 .chat-hint:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+/* COACH TAB */
+.coach-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.coach-card-title { font-size: 13px; color: var(--muted2); margin-bottom: 20px; }
+.coach-sec { margin-bottom: 20px; }
+.coach-sec:last-child { margin-bottom: 0; }
+.coach-sec-h { font-family: 'Geist Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted2); margin-bottom: 6px; }
+.coach-sec-b { font-size: 14px; line-height: 1.6; color: var(--text); }
+.coach-action { background: #E6F1FB; border-left: 2px solid #378ADD; padding: 14px 16px; border-top-right-radius: 8px; border-bottom-right-radius: 8px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.coach-action .coach-sec-h { color: #0C447C; }
+.coach-action .coach-sec-b { color: #042C53; }
+.coach-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; padding: 0 4px; }
+.coach-meta-left { font-size: 12px; color: var(--muted2); }
+.coach-empty-title { font-size: 15px; font-weight: 500; color: var(--text); margin-bottom: 8px; }
+.coach-empty-body { font-size: 13px; line-height: 1.6; color: var(--muted); max-width: 420px; margin: 0 auto 20px; }
+.coach-progress-pill { display: inline-flex; align-items: center; gap: 10px; background: var(--surface2); border: 1px solid var(--border); padding: 8px 14px; border-radius: 8px; margin: 0 auto; }
+.coach-progress-bar { width: 80px; height: 4px; background: rgba(0,0,0,0.06); border-radius: 999px; overflow: hidden; }
+.coach-progress-fill { height: 100%; background: #639922; width: 0%; border-radius: 999px; }
+.coach-progress-text { font-size: 12px; color: var(--muted); }
+@keyframes coachSkeletonPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.7; } }
+.skel { background: rgba(0,0,0,0.10); border-radius: 2px; height: 10px; animation: coachSkeletonPulse 1.6s ease-in-out infinite; }
+.skel.h { width: 140px; margin-bottom: 8px; }
+.skel.l { margin-bottom: 6px; }
+.skel.l.last { margin-bottom: 0; }
+.coach-action.loading { background: var(--surface2); border-left-color: rgba(0,0,0,0.18); }
 
 /* CTA FOOTER */
 .cta-section { position: relative; z-index: 1; border-top: 1px solid var(--border); background: var(--surface); }
@@ -540,6 +567,11 @@ textarea::placeholder { color: var(--muted2); }
   .landing-logo { font-size: clamp(1.8rem, 5vw, 2.6rem); white-space: normal; }
   .landing-below div[style*="grid-template-columns:1fr 1fr 1fr"] { grid-template-columns: 1fr !important; }
 }
+
+@media (max-width: 420px) {
+  nav button { padding: 5px 8px; }
+  .nav-badge { padding: 2px 5px; }
+}
 </style>
 </head>
 <body>
@@ -712,6 +744,7 @@ textarea::placeholder { color: var(--muted2); }
     <button class="active" onclick="setView('history',this)">History</button>
     <button onclick="setView('log',this)">Log</button>
     <button onclick="setView('insights',this)">Insights</button>
+    <button onclick="onCoachTabClick(this)"><span class="nav-badge-btn">Coach <span class="nav-badge" id="coach-new-badge">NEW</span></span></button>
   </nav>
   <div class="header-right">
     <div class="day-badge" id="day-badge">Day 1</div>
@@ -909,6 +942,15 @@ textarea::placeholder { color: var(--muted2); }
     <div class="chart-title">HRV vs sleep score</div>
     <div class="chart-wrap" style="height:200px"><canvas id="scatter-chart"></canvas></div>
   </div>
+</div>
+</div>
+
+<!-- COACH VIEW -->
+<div id="view-coach" class="view">
+<div class="container">
+  <div class="section-tag">Coach</div>
+  <h1 class="page-heading">Tonight's <em>recommendation.</em></h1>
+  <div id="coach-root"></div>
 </div>
 </div>
 
@@ -1176,12 +1218,138 @@ function setView(v, btn) {
   btn.classList.add('active');
   if (v==='history') renderHistory();
   if (v==='insights') renderInsights();
+  if (v==='coach') renderCoach();
 }
 
 function refreshCurrentView() {
   const id = document.querySelector('.view.active')?.id?.replace('view-','');
   if (id==='history') renderHistory();
   if (id==='insights') renderInsights();
+  if (id==='coach') renderCoach();
+}
+
+// ===== Coach Tab =====
+function onCoachTabClick(btn) {
+  try { localStorage.setItem('coach_tab_seen', 'true'); } catch (e) {}
+  const badge = document.getElementById('coach-new-badge');
+  if (badge) badge.style.display = 'none';
+  setView('coach', btn);
+}
+
+function initCoachNewBadge() {
+  const badge = document.getElementById('coach-new-badge');
+  if (!badge) return;
+  let seen = false;
+  try { seen = localStorage.getItem('coach_tab_seen') === 'true'; } catch (e) {}
+  badge.style.display = seen ? 'none' : '';
+}
+
+function getEntryCountLast14Days(userId) {
+  const cutoff = Date.now() - 14 * 86400000;
+  return entries.filter(e => (e.ts || 0) >= cutoff).length;
+}
+
+function renderCoach() {
+  const root = document.getElementById('coach-root');
+  if (!root) return;
+
+  const entryCountLast14Days = getEntryCountLast14Days();
+  if (entryCountLast14Days < 7) {
+    root.innerHTML = renderCoachEmpty(entryCountLast14Days);
+    const fill = document.getElementById('coach-progress-fill');
+    if (fill) fill.style.width = `${Math.min(100, Math.round((entryCountLast14Days / 7) * 100))}%`;
+    return;
+  }
+
+  root.innerHTML = renderCoachReady();
+}
+
+function renderCoachReady() {
+  return `
+    <div class="coach-card">
+      <div class="coach-card-title">Tonight's recommendation</div>
+
+      <div class="coach-sec">
+        <div class="coach-sec-h">Pattern</div>
+        <div class="coach-sec-b">Your HRV has dropped from a 14-day average of 54 down to 38 over the last five nights, and "stressed" shows up in your neg tags on four of those days.</div>
+      </div>
+
+      <div class="coach-sec">
+        <div class="coach-sec-h">What this likely means</div>
+        <div class="coach-sec-b">Your nervous system looks stuck in fight-or-flight mode — when the sympathetic branch stays on, HRV falls and sleep follows.</div>
+      </div>
+
+      <div class="coach-sec coach-action">
+        <div class="coach-sec-h">Tonight's action</div>
+        <div class="coach-sec-b">Before bed tonight, do 4 minutes of 2:1 breathing: inhale 3 seconds, exhale 6 seconds. Set a timer.</div>
+      </div>
+
+      <div class="coach-sec">
+        <div class="coach-sec-h">Why this, now</div>
+        <div class="coach-sec-b">Long exhales are the fastest way to activate your vagus nerve, the body's off-switch for stress.</div>
+      </div>
+    </div>
+
+    <div class="coach-meta">
+      <div class="coach-meta-left">Generated today at 7:42am</div>
+      <div></div>
+    </div>
+  `;
+}
+
+function renderCoachEmpty(entryCount) {
+  const safeCount = Math.max(0, Math.min(7, Number(entryCount) || 0));
+  return `
+    <div class="coach-card" style="padding:32px 24px;text-align:center">
+      <div class="coach-empty-title">Still learning your patterns</div>
+      <div class="coach-empty-body">The Coach starts surfacing recommendations after about a week of entries, so it has enough signal to work with.</div>
+
+      <div class="coach-progress-pill">
+        <div class="coach-progress-bar"><div class="coach-progress-fill" id="coach-progress-fill"></div></div>
+        <div class="coach-progress-text">${safeCount} of 7 entries</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCoachLoading() {
+  return `
+    <div class="coach-card">
+      <div class="coach-card-title"><div class="skel h" style="width:180px"></div></div>
+
+      <div class="coach-sec">
+        <div class="skel h" style="width:110px"></div>
+        <div class="skel l" style="width:100%"></div>
+        <div class="skel l" style="width:85%"></div>
+        <div class="skel l last" style="width:70%"></div>
+      </div>
+
+      <div class="coach-sec">
+        <div class="skel h" style="width:170px"></div>
+        <div class="skel l" style="width:92%"></div>
+        <div class="skel l" style="width:78%"></div>
+        <div class="skel l last" style="width:66%"></div>
+      </div>
+
+      <div class="coach-sec coach-action loading">
+        <div class="skel h" style="width:140px"></div>
+        <div class="skel l" style="width:96%"></div>
+        <div class="skel l" style="width:74%"></div>
+        <div class="skel l last" style="width:58%"></div>
+      </div>
+
+      <div class="coach-sec">
+        <div class="skel h" style="width:110px"></div>
+        <div class="skel l" style="width:88%"></div>
+        <div class="skel l last" style="width:64%"></div>
+      </div>
+    </div>
+
+    <div class="coach-meta">
+      <div class="coach-meta-left"><div class="skel" style="width:160px;height:10px"></div></div>
+      <div></div>
+    </div>
+  `;
 }
 
 // ── GAUGE ─────────────────────────────────────────────
@@ -1633,6 +1801,9 @@ async function submitSignup() {
     }
   });
 })();
+
+// Coach tab "NEW" badge (persisted)
+initCoachNewBadge();
 
 // ── TREND SVG ANIMATION ──────────────────────────────
 (function() {
