@@ -1249,7 +1249,7 @@ function getEntryCountLast14Days(userId) {
   return entries.filter(e => (e.ts || 0) >= cutoff).length;
 }
 
-function renderCoach() {
+async function renderCoach() {
   const root = document.getElementById('coach-root');
   if (!root) return;
 
@@ -1261,37 +1261,67 @@ function renderCoach() {
     return;
   }
 
-  root.innerHTML = renderCoachReady();
+  // Show loading while fetching real recommendation (non-streaming)
+  root.innerHTML = renderCoachLoading();
+
+  try {
+    const data = await fetchCoachRecommendation();
+
+    if (data?.status === 'insufficient_data') {
+      const c = Number(data.entry_count) || 0;
+      root.innerHTML = renderCoachEmpty(c);
+      const fill = document.getElementById('coach-progress-fill');
+      if (fill) fill.style.width = `${Math.min(100, Math.round((c / 7) * 100))}%`;
+      return;
+    }
+
+    if (data?.status === 'ok' && data?.recommendation) {
+      root.innerHTML = renderCoachReady(data.recommendation);
+      return;
+    }
+
+    root.innerHTML = renderCoachError();
+  } catch (err) {
+    console.error('Coach recommendation failed:', err);
+    root.innerHTML = renderCoachError();
+  }
 }
 
-function renderCoachReady() {
+function renderCoachReady(rec) {
+  const esc = (s) => String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  const generatedAt = rec?.generated_at ? formatGeneratedAt(rec.generated_at) : '';
+
   return `
     <div class="coach-card">
       <div class="coach-card-title">Tonight's recommendation</div>
 
       <div class="coach-sec">
         <div class="coach-sec-h">Pattern</div>
-        <div class="coach-sec-b">Your HRV has dropped from a 14-day average of 54 down to 38 over the last five nights, and "stressed" shows up in your neg tags on four of those days.</div>
+        <div class="coach-sec-b">${esc(rec?.pattern)}</div>
       </div>
 
       <div class="coach-sec">
         <div class="coach-sec-h">What this likely means</div>
-        <div class="coach-sec-b">Your nervous system looks stuck in fight-or-flight mode — when the sympathetic branch stays on, HRV falls and sleep follows.</div>
+        <div class="coach-sec-b">${esc(rec?.meaning)}</div>
       </div>
 
       <div class="coach-sec coach-action">
         <div class="coach-sec-h">Tonight's action</div>
-        <div class="coach-sec-b">Before bed tonight, do 4 minutes of 2:1 breathing: inhale 3 seconds, exhale 6 seconds. Set a timer.</div>
+        <div class="coach-sec-b">${esc(rec?.action)}</div>
       </div>
 
       <div class="coach-sec">
         <div class="coach-sec-h">Why this, now</div>
-        <div class="coach-sec-b">Long exhales are the fastest way to activate your vagus nerve, the body's off-switch for stress.</div>
+        <div class="coach-sec-b">${esc(rec?.why)}</div>
       </div>
     </div>
 
     <div class="coach-meta">
-      <div class="coach-meta-left">Generated today at 7:42am</div>
+      <div class="coach-meta-left">${esc(generatedAt)}</div>
       <div></div>
     </div>
   `;
@@ -1348,6 +1378,26 @@ function renderCoachLoading() {
     <div class="coach-meta">
       <div class="coach-meta-left"><div class="skel" style="width:160px;height:10px"></div></div>
       <div></div>
+    </div>
+  `;
+}
+
+function formatGeneratedAt(iso) {
+  const date = new Date(iso);
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  const timeStr = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return sameDay ? `Generated today at ${timeStr}` : `Generated ${date.toLocaleDateString()}`;
+}
+
+function renderCoachError() {
+  return `
+    <div class="coach-card" style="padding:32px 24px;text-align:center">
+      <div class="coach-empty-title">Couldn't generate your recommendation</div>
+      <div class="coach-empty-body">Something went wrong on our end. Try again in a few minutes.</div>
+      <div style="margin-top:16px">
+        <button type="button" onclick="renderCoach()" style="background:none;border:none;color:var(--muted);font-size:0.875rem;cursor:pointer;text-decoration:underline">Try again</button>
+      </div>
     </div>
   `;
 }
@@ -1493,6 +1543,14 @@ function getBriefingCacheKey() {
   return `briefing_${y}-${m}-${day}`;
 }
 
+function getRecommendationCacheKey() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `recommendation_${y}-${m}-${day}`;
+}
+
 function getSleepDataForCoach() {
   // Send last 14 days of data to the coach
   return entries.slice(0, 14).map(e => ({
@@ -1566,6 +1624,30 @@ async function streamCoachResponse(messages, targetEl, onDone, cacheKey) {
   }
 
   if (onDone) onDone(fullText);
+}
+
+async function fetchCoachRecommendation() {
+  const session = (await sb.auth.getSession()).data.session;
+  const token = session ? session.access_token : SUPABASE_KEY;
+
+  const res = await fetch(COACH_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + token,
+    },
+    body: JSON.stringify({
+      mode: 'recommendation',
+      sleepData: getSleepDataForCoach(),
+      cacheKey: getRecommendationCacheKey()
+    })
+  });
+
+  if (!res.ok) {
+    throw new Error('Coach endpoint returned ' + res.status);
+  }
+
+  return await res.json();
 }
 
 async function generateBriefing(force) {
