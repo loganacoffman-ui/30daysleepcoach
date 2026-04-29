@@ -744,6 +744,7 @@ textarea::placeholder { color: var(--muted2); }
     <button class="active" onclick="setView('history',this)">History</button>
     <button onclick="setView('log',this)">Log</button>
     <button onclick="setView('insights',this)">Insights</button>
+    <button onclick="setView('stress',this)"><span class="nav-badge-btn">Stress <span class="nav-badge" id="stress-new-badge">NEW</span></span></button>
     <button onclick="onCoachTabClick(this)"><span class="nav-badge-btn">Coach <span class="nav-badge" id="coach-new-badge">NEW</span></span></button>
   </nav>
   <div class="header-right">
@@ -951,6 +952,67 @@ textarea::placeholder { color: var(--muted2); }
   <div class="section-tag">Coach</div>
   <h1 class="page-heading">Tonight's <em>recommendation.</em></h1>
   <div id="coach-root"></div>
+</div>
+</div>
+
+<div id="view-stress" class="view">
+<div class="container">
+  <div class="section-tag">Oura Integration</div>
+  <h1 class="page-heading">Your stress <em>curve.</em></h1>
+
+  <!-- Token setup (shown when no token) -->
+  <div id="oura-setup" class="card" style="margin-bottom:1.5rem">
+    <div class="card-label">Connect Oura Ring</div>
+    <p style="font-size:0.85rem;color:var(--muted);line-height:1.7;margin-bottom:1rem;">Paste your Oura access token to pull stress, heart rate, and sleep data automatically. Your token is stored locally in this browser only.</p>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input type="text" id="oura-token-input" placeholder="Paste your Oura access token" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'Geist Mono',monospace;font-size:0.8rem;padding:10px 14px;outline:none;">
+      <button onclick="saveOuraToken()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:'Geist',sans-serif;font-weight:500;font-size:0.85rem;padding:10px 20px;cursor:pointer;white-space:nowrap;">Connect</button>
+    </div>
+    <div id="oura-token-error" style="font-size:0.72rem;color:var(--red);font-family:'Geist Mono',monospace;margin-top:6px;min-height:1rem;"></div>
+  </div>
+
+  <!-- Connected state -->
+  <div id="oura-connected" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--green)"></div>
+        <span style="font-family:'Geist Mono',monospace;font-size:0.72rem;color:var(--green);letter-spacing:0.04em;">Oura connected</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="fetchOuraData()" id="oura-refresh-btn" style="background:none;border:1px solid var(--border2);border-radius:var(--radius-sm);font-family:'Geist',sans-serif;font-size:0.78rem;color:var(--muted);padding:6px 14px;cursor:pointer;">Refresh data</button>
+        <button onclick="disconnectOura()" style="background:none;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'Geist',sans-serif;font-size:0.72rem;color:var(--muted2);padding:6px 10px;cursor:pointer;">Disconnect</button>
+      </div>
+    </div>
+
+    <!-- Stress summary cards -->
+    <div class="stat-row" id="oura-stat-row" style="margin-bottom:1.25rem">
+      <div class="stat-card"><div class="stat-val" id="oura-avg-stress" style="color:var(--muted2)">—</div><div class="stat-lbl">avg stress/day</div></div>
+      <div class="stat-card"><div class="stat-val" id="oura-avg-recovery" style="color:var(--muted2)">—</div><div class="stat-lbl">avg recovery/day</div></div>
+      <div class="stat-card"><div class="stat-val" id="oura-avg-sleep" style="color:var(--muted2)">—</div><div class="stat-lbl">avg sleep score</div></div>
+      <div class="stat-card"><div class="stat-val" id="oura-best-night" style="color:var(--muted2)">—</div><div class="stat-lbl">best night</div></div>
+    </div>
+
+    <!-- Stress vs Sleep chart -->
+    <div class="chart-card" style="margin-bottom:1rem">
+      <div class="chart-title">Stress minutes vs. next-night sleep score</div>
+      <div class="chart-wrap" style="height:280px"><canvas id="oura-stress-chart"></canvas></div>
+      <div class="target-note">red = high stress minutes · green = high recovery minutes · blue line = sleep score next night</div>
+    </div>
+
+    <!-- HR Curve chart -->
+    <div class="chart-card" style="margin-bottom:1rem">
+      <div class="chart-title">Heart rate curve — evening wind-down</div>
+      <div id="oura-hr-empty" class="empty-state" style="display:none">Select a day above to view the HR curve</div>
+      <div class="chart-wrap" style="height:280px"><canvas id="oura-hr-chart"></canvas></div>
+      <div class="target-note">resting HR during non-workout periods · wind-down target: below 65 bpm by 8pm</div>
+    </div>
+
+    <!-- Day selector -->
+    <div class="card">
+      <div class="card-label">Daily stress log</div>
+      <div id="oura-daily-log"><div class="empty-state">Loading Oura data…</div></div>
+    </div>
+  </div>
 </div>
 </div>
 
@@ -1219,6 +1281,13 @@ function setView(v, btn) {
   if (v==='history') renderHistory();
   if (v==='insights') renderInsights();
   if (v==='coach') renderCoach();
+  if (v==='stress') {
+    try { localStorage.setItem('stress_tab_seen', 'true'); } catch(e) {}
+    const badge = document.getElementById('stress-new-badge');
+    if (badge) badge.style.display = 'none';
+    initOuraView();
+    if (getOuraToken() && !ouraStressData.length) fetchOuraData();
+  }
 }
 
 function refreshCurrentView() {
@@ -1866,6 +1935,284 @@ async function submitSignup() {
   document.getElementById('signup-success').style.display='block';
 }
 
+// ── OURA INTEGRATION ─────────────────────────────────
+const OURA_PROXY = SUPABASE_URL + '/functions/v1/oura-proxy';
+let ouraStressChart = null, ouraHrChart = null;
+let ouraStressData = [], ouraSleepData = [], ouraHrData = [];
+
+function getOuraToken() {
+  try { return localStorage.getItem('oura_access_token') || ''; } catch(e) { return ''; }
+}
+
+function saveOuraToken() {
+  const input = document.getElementById('oura-token-input');
+  const errEl = document.getElementById('oura-token-error');
+  const token = input.value.trim();
+  if (!token) { errEl.textContent = 'please paste your access token'; return; }
+  try { localStorage.setItem('oura_access_token', token); } catch(e) {}
+  errEl.textContent = '';
+  input.value = '';
+  initOuraView();
+  fetchOuraData();
+}
+
+function disconnectOura() {
+  try { localStorage.removeItem('oura_access_token'); } catch(e) {}
+  ouraStressData = []; ouraSleepData = []; ouraHrData = [];
+  if (ouraStressChart) { ouraStressChart.destroy(); ouraStressChart = null; }
+  if (ouraHrChart) { ouraHrChart.destroy(); ouraHrChart = null; }
+  initOuraView();
+}
+
+function initOuraView() {
+  const token = getOuraToken();
+  const setup = document.getElementById('oura-setup');
+  const connected = document.getElementById('oura-connected');
+  if (!setup || !connected) return;
+  if (token) {
+    setup.style.display = 'none';
+    connected.style.display = 'block';
+  } else {
+    setup.style.display = 'block';
+    connected.style.display = 'none';
+  }
+}
+
+async function ouraFetch(endpoint, startDate, endDate) {
+  const token = getOuraToken();
+  if (!token) throw new Error('No Oura token');
+  const url = `${OURA_PROXY}?endpoint=${endpoint}&start_date=${startDate}&end_date=${endDate}`;
+  const r = await fetch(url, {
+    headers: {
+      'x-oura-token': token,
+      'Authorization': `Bearer ${SUPABASE_KEY}`
+    }
+  });
+  if (!r.ok) throw new Error(`Oura API error: ${r.status}`);
+  return r.json();
+}
+
+async function fetchOuraData() {
+  const btn = document.getElementById('oura-refresh-btn');
+  if (btn) { btn.textContent = 'Loading…'; btn.disabled = true; }
+
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - 13);
+  const startStr = start.toISOString().slice(0, 10);
+  const endStr = end.toISOString().slice(0, 10);
+
+  try {
+    const [stressRes, sleepRes, hrRes] = await Promise.all([
+      ouraFetch('daily_stress', startStr, endStr),
+      ouraFetch('daily_sleep', startStr, endStr),
+      ouraFetch('heartrate', new Date(end.getTime() - 86400000).toISOString().slice(0,10), endStr)
+    ]);
+
+    ouraStressData = stressRes?.data || [];
+    ouraSleepData = sleepRes?.data || [];
+    ouraHrData = hrRes?.data || [];
+
+    renderOuraStats();
+    renderOuraStressChart();
+    renderOuraHrChart();
+    renderOuraDailyLog();
+  } catch(e) {
+    console.error('Oura fetch error:', e);
+    const log = document.getElementById('oura-daily-log');
+    if (log) log.innerHTML = '<div class="empty-state">Error loading Oura data. Check your token or try again.</div>';
+  }
+
+  if (btn) { btn.textContent = 'Refresh data'; btn.disabled = false; }
+}
+
+function renderOuraStats() {
+  if (!ouraStressData.length) return;
+  const avgStress = Math.round(ouraStressData.reduce((s,d) => s + (d.stress_high||0), 0) / ouraStressData.length / 60);
+  const avgRecovery = Math.round(ouraStressData.reduce((s,d) => s + (d.recovery_high||0), 0) / ouraStressData.length / 60);
+  document.getElementById('oura-avg-stress').textContent = avgStress + ' min';
+  document.getElementById('oura-avg-stress').style.color = avgStress > 120 ? 'var(--red)' : 'var(--text)';
+  document.getElementById('oura-avg-recovery').textContent = avgRecovery + ' min';
+  document.getElementById('oura-avg-recovery').style.color = avgRecovery > 0 ? 'var(--green)' : 'var(--muted2)';
+
+  if (ouraSleepData.length) {
+    const avgSleep = Math.round(ouraSleepData.reduce((s,d) => s + (d.score||0), 0) / ouraSleepData.length);
+    document.getElementById('oura-avg-sleep').textContent = avgSleep;
+    document.getElementById('oura-avg-sleep').style.color = avgSleep >= 85 ? 'var(--green)' : avgSleep >= 70 ? 'var(--text)' : 'var(--red)';
+    const best = ouraSleepData.reduce((b,d) => (d.score||0) > (b.score||0) ? d : b, ouraSleepData[0]);
+    const bestDate = new Date(best.day + 'T12:00:00');
+    document.getElementById('oura-best-night').textContent = bestDate.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' (' + best.score + ')';
+    document.getElementById('oura-best-night').style.color = 'var(--text)';
+  }
+}
+
+function renderOuraStressChart() {
+  if (ouraStressChart) { ouraStressChart.destroy(); ouraStressChart = null; }
+  const canvas = document.getElementById('oura-stress-chart');
+  if (!canvas || !ouraStressData.length) return;
+
+  const labels = ouraStressData.map(d => {
+    const dt = new Date(d.day + 'T12:00:00');
+    return dt.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+  });
+  const stressMin = ouraStressData.map(d => Math.round((d.stress_high||0) / 60));
+  const recoveryMin = ouraStressData.map(d => Math.round((d.recovery_high||0) / 60));
+
+  // Build sleep scores shifted by one day (stress today → sleep tonight)
+  const sleepByDay = {};
+  ouraSleepData.forEach(d => { sleepByDay[d.day] = d.score; });
+  const sleepScores = ouraStressData.map((d, i) => {
+    const nextDay = new Date(d.day + 'T12:00:00');
+    nextDay.setDate(nextDay.getDate() + 1);
+    const key = nextDay.toISOString().slice(0, 10);
+    return sleepByDay[key] ?? null;
+  });
+
+  ouraStressChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label:'High stress (min)', data:stressMin, backgroundColor:'rgba(220,38,38,0.6)', borderRadius:4, order:2, yAxisID:'y' },
+        { label:'High recovery (min)', data:recoveryMin, backgroundColor:'rgba(22,163,74,0.6)', borderRadius:4, order:2, yAxisID:'y' },
+        { label:'Sleep score (next night)', data:sleepScores, type:'line', borderColor:'#4f7cff', backgroundColor:'rgba(79,124,255,0.08)', pointBackgroundColor:'#4f7cff', pointRadius:4, pointHoverRadius:6, borderWidth:2, tension:0.3, fill:false, order:1, yAxisID:'y1', spanGaps:true }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label: ctx => ctx.dataset.yAxisID==='y1' ? 'Sleep: '+ctx.parsed.y : ctx.dataset.label+': '+ctx.parsed.y+' min' } }
+      },
+      scales:{
+        y:{ position:'left', title:{display:true,text:'Minutes',font:{size:10,family:'Geist Mono'}}, beginAtZero:true, grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:9,family:'Geist Mono'},color:'#a1a1aa'}, border:{display:false} },
+        y1:{ position:'right', title:{display:true,text:'Sleep score',font:{size:10,family:'Geist Mono'}}, min:50, max:100, grid:{drawOnChartArea:false}, ticks:{font:{size:9,family:'Geist Mono'},color:'#a1a1aa'}, border:{display:false} },
+        x:{ ticks:{autoSkip:false,maxRotation:45,font:{size:9,family:'Geist Mono'},color:'#a1a1aa'}, grid:{display:false}, border:{display:false} }
+      }
+    }
+  });
+}
+
+function renderOuraHrChart() {
+  if (ouraHrChart) { ouraHrChart.destroy(); ouraHrChart = null; }
+  const canvas = document.getElementById('oura-hr-chart');
+  if (!canvas || !ouraHrData.length) {
+    const empty = document.getElementById('oura-hr-empty');
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+
+  // Filter to non-workout awake readings and bucket by 15-min intervals
+  const awakeReadings = ouraHrData.filter(d => d.source === 'awake' || d.source === 'rest');
+  if (!awakeReadings.length) return;
+
+  // Convert to Pacific time (UTC-7) and create scatter points
+  const colorMap = { awake:'#4f7cff', rest:'#16a34a', workout:'#dc2626' };
+  const allReadings = ouraHrData;
+
+  // Bucket into 15-min averages for cleaner visualization
+  const buckets = {};
+  allReadings.forEach(d => {
+    const dt = new Date(d.timestamp);
+    const pstH = dt.getUTCHours() - 7;
+    const adjH = pstH < 0 ? pstH + 24 : pstH >= 24 ? pstH - 24 : pstH;
+    const bucket = adjH + Math.floor(dt.getUTCMinutes() / 15) * 0.25;
+    const key = bucket.toFixed(2) + '_' + d.source;
+    if (!buckets[key]) buckets[key] = { sum: 0, count: 0, source: d.source, bucket };
+    buckets[key].sum += d.bpm;
+    buckets[key].count++;
+  });
+
+  const sources = ['awake', 'rest', 'workout'];
+  const datasets = sources.map(src => {
+    const pts = Object.values(buckets)
+      .filter(b => b.source === src)
+      .map(b => ({ x: b.bucket, y: Math.round(b.sum / b.count) }))
+      .sort((a,b) => a.x - b.x);
+    return {
+      label: src,
+      data: pts,
+      pointBackgroundColor: colorMap[src],
+      pointBorderColor: colorMap[src],
+      pointRadius: src === 'workout' ? 2 : 3,
+      showLine: src === 'rest',
+      borderColor: src === 'rest' ? '#16a34a44' : undefined,
+      borderWidth: src === 'rest' ? 1 : 0,
+      order: src === 'workout' ? 2 : 1
+    };
+  });
+
+  // Add wind-down target line
+  datasets.push({
+    label:'Wind-down target',
+    data:[{x:0,y:65},{x:24,y:65}],
+    borderColor:'#dc262666',
+    borderDash:[6,4],
+    borderWidth:1.5,
+    pointRadius:0,
+    showLine:true,
+    type:'line',
+    order:3
+  });
+
+  ouraHrChart = new Chart(canvas, {
+    type:'scatter',
+    data:{ datasets },
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:false,
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label: ctx => ctx.parsed.y + ' bpm (' + ctx.dataset.label + ')' } }
+      },
+      scales:{
+        x:{ type:'linear', min:0, max:24, ticks:{ callback: v => { const h = Math.floor(v); const ampm = h >= 12 ? 'pm' : 'am'; const h12 = h === 0 ? 12 : h > 12 ? h-12 : h; return h12+ampm; }, stepSize:3, font:{size:9,family:'Geist Mono'}, color:'#a1a1aa' }, grid:{color:'rgba(0,0,0,0.04)'}, border:{display:false}, title:{display:true,text:'Time (Pacific)',font:{size:10,family:'Geist Mono'}} },
+        y:{ min:45, max:130, title:{display:true,text:'Heart rate (bpm)',font:{size:10,family:'Geist Mono'}}, grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:9,family:'Geist Mono'},color:'#a1a1aa'}, border:{display:false} }
+      }
+    }
+  });
+}
+
+function renderOuraDailyLog() {
+  const el = document.getElementById('oura-daily-log');
+  if (!el || !ouraStressData.length) return;
+
+  const sleepByDay = {};
+  ouraSleepData.forEach(d => { sleepByDay[d.day] = d.score; });
+
+  const rows = ouraStressData.slice().reverse().map(d => {
+    const stressMin = Math.round((d.stress_high||0) / 60);
+    const recoveryMin = Math.round((d.recovery_high||0) / 60);
+    const summary = d.day_summary || '—';
+    const sleepScore = sleepByDay[d.day] ?? '—';
+    const dt = new Date(d.day + 'T12:00:00');
+    const dayLabel = dt.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+
+    const stressColor = stressMin > 240 ? 'var(--red)' : stressMin > 60 ? '#b45309' : 'var(--green)';
+    const summaryBg = summary === 'stressful' ? 'var(--red-dim)' : summary === 'normal' ? 'var(--green-dim)' : 'var(--surface2)';
+    const summaryColor = summary === 'stressful' ? 'var(--red)' : summary === 'normal' ? 'var(--green)' : 'var(--muted2)';
+
+    return `<div class="weekly-row" style="grid-template-columns:120px 1fr 80px 60px 50px">
+      <div style="font-size:0.78rem;color:var(--text);font-weight:500">${dayLabel}</div>
+      <div class="week-bar-bg"><div class="week-bar-fill" style="width:${Math.min(100,stressMin/4)}%;background:${stressColor}"></div></div>
+      <div style="font-family:'Geist Mono',monospace;font-size:0.72rem;color:${stressColor}">${stressMin}m stress</div>
+      <div style="font-family:'Geist Mono',monospace;font-size:0.72rem;color:var(--green)">${recoveryMin}m rec</div>
+      <div><span class="hrv-pill" style="background:${summaryBg};color:${summaryColor};font-size:0.65rem">${sleepScore}</span></div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = rows || '<div class="empty-state">No stress data found</div>';
+}
+
+// Init Oura badge
+function initOuraNewBadge() {
+  const badge = document.getElementById('stress-new-badge');
+  if (!badge) return;
+  let seen = false;
+  try { seen = localStorage.getItem('stress_tab_seen') === 'true'; } catch(e) {}
+  badge.style.display = seen ? 'none' : '';
+}
+
 // ── BOOT ─────────────────────────────────────────────
 // Check for existing Supabase session on load
 (async function checkSession() {
@@ -1886,6 +2233,7 @@ async function submitSignup() {
 
 // Coach tab "NEW" badge (persisted)
 initCoachNewBadge();
+initOuraNewBadge();
 
 // ── TREND SVG ANIMATION ──────────────────────────────
 (function() {
