@@ -582,7 +582,7 @@ textarea::placeholder { color: var(--muted2); }
   <nav class="landing-nav">
     <div class="landing-nav-logo"><span>30 Day</span> Sleep Coach</div>
     <div class="landing-nav-links">
-      <a href="#" onclick="event.preventDefault(); showSignupScreen()">Early Access</a>
+      <a href="#" onclick="event.preventDefault(); showSignupScreen()">Sign Up</a>
       <a href="#" class="nav-cta-btn" onclick="event.preventDefault(); showPasswordScreen()">Log In</a>
     </div>
   </nav>
@@ -628,7 +628,7 @@ textarea::placeholder { color: var(--muted2); }
       <p class="landing-desc">Your wearable tracks your sleep. This app tells you <strong>what to do about it</strong>. Log daily habits, uncover the patterns that actually move your scores, and get a personalized protocol — in 30 days.</p>
       
       <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-top:0.5rem;">
-        <button class="auth-btn primary-lg" onclick="showSignupScreen()">Get early access →</button>
+        <button class="auth-btn primary-lg" onclick="showSignupScreen()">Start free →</button>
       </div>
       <div style="margin-top:1rem; text-align:center;">
         <span class="auth-login-link" onclick="showPasswordScreen()">Already have an account? Log in</span>
@@ -637,33 +637,88 @@ textarea::placeholder { color: var(--muted2); }
 
     <!-- SIGNUP -->
     <div id="landing-signup" style="display:none">
-      <div id="auth-signup-form-wrap">
+      <div id="auth-signup-form-wrap" style="max-width:380px;margin:0 auto;">
         <div class="auth-back" onclick="showWelcomeScreen()" style="margin-top:1.5rem">← back</div>
-        <div style="text-align:center;margin-bottom:1.75rem">
-          <div style="font-family:'Geist',sans-serif;font-size:1.1rem;font-weight:500;color:var(--text);margin-bottom:6px">Thanks for your interest!</div>
-          <div style="font-size:0.8rem;color:var(--muted);font-weight:400;line-height:1.6">You'll receive a personal follow-up to get set up.</div>
+
+        <div style="text-align:center;margin-bottom:1.25rem">
+          <div style="font-family:'Geist',sans-serif;font-size:clamp(1.5rem,3vw,2rem);font-weight:700;color:var(--text);line-height:1.2;letter-spacing:-0.02em;">Sleep better<br>in 30 days.</div>
+          <div style="font-size:0.88rem;color:var(--muted);font-weight:400;line-height:1.6;margin-top:10px;">Track your habits. Find your patterns. Get coached.</div>
         </div>
-        <input class="auth-input" id="su-name" type="text" placeholder="Your name" style="letter-spacing:0;text-align:left;margin-bottom:10px" onkeydown="if(event.key==='Enter')document.getElementById('su-email').focus()">
-        <input class="auth-input" id="su-email" type="email" placeholder="your@email.com" style="letter-spacing:0;text-align:left;margin-bottom:10px" onkeydown="if(event.key==='Enter')submitSignupRequest()">
-        <div id="su-error" style="font-size:0.7rem;color:var(--red);font-family:'Geist Mono',monospace;margin-bottom:8px;min-height:1rem;text-align:left"></div>
-        <button class="auth-btn" onclick="submitSignupRequest()">Request early access →</button>
+
+        <div style="text-align:center;margin-bottom:1.5rem;">
+          <span style="font-size:0.82rem;color:var(--muted);">Already have an account? </span>
+          <span style="font-size:0.82rem;color:var(--accent);font-weight:500;cursor:pointer;" onclick="showPasswordScreen()">Log In</span>
+        </div>
+
+        <!-- Social buttons -->
+        <button onclick="tryGoogleSignup()" style="width:100%;display:flex;align-items:center;padding:14px 20px;border:1px solid var(--border2);border-radius:10px;background:var(--surface);cursor:pointer;margin-bottom:10px;transition:all .15s;font-family:'Geist',sans-serif;font-size:0.92rem;font-weight:500;color:var(--text);">
+          <svg width="20" height="20" viewBox="0 0 48 48" style="flex-shrink:0;margin-right:auto"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          <span style="flex:1;text-align:center;">Sign Up with Google</span>
+        </button>
+
+        <button onclick="tryAppleSignup()" style="width:100%;display:flex;align-items:center;padding:14px 20px;border:1px solid var(--border2);border-radius:10px;background:var(--surface);cursor:pointer;margin-bottom:10px;transition:all .15s;font-family:'Geist',sans-serif;font-size:0.92rem;font-weight:500;color:var(--text);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;margin-right:auto"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.32 2.32-1.4 4.27-3.74 4.25z"/></svg>
+          <span style="flex:1;text-align:center;">Sign Up with Apple</span>
+        </button>
+
+        <!-- Email signup button -->
+        <button id="su-email-toggle" onclick="showEmailSignupForm()" style="width:100%;padding:14px 20px;border:none;border-radius:10px;background:var(--accent);color:#fff;cursor:pointer;font-family:'Geist',sans-serif;font-size:0.92rem;font-weight:500;transition:all .15s;">Sign Up with Email</button>
+
+        <!-- Email form (hidden until email button clicked) -->
+        <div id="su-email-form" style="display:none;margin-top:10px;">
+          <input class="auth-input" id="su-name" type="text" placeholder="Your name" style="letter-spacing:0;text-align:left;margin-bottom:10px;border-radius:10px;padding:14px 16px;font-size:0.88rem;" onkeydown="if(event.key==='Enter')document.getElementById('su-email').focus()">
+          <input class="auth-input" id="su-email" type="email" placeholder="Email" style="letter-spacing:0;text-align:left;margin-bottom:10px;border-radius:10px;padding:14px 16px;font-size:0.88rem;" onkeydown="if(event.key==='Enter')document.getElementById('su-password').focus()">
+          <input class="auth-input" id="su-password" type="password" placeholder="Password (6+ characters)" style="letter-spacing:0;text-align:left;border-radius:10px;padding:14px 16px;font-size:0.88rem;" onkeydown="if(event.key==='Enter')trySignup()">
+          <div id="su-error" style="font-size:0.7rem;color:var(--red);font-family:'Geist Mono',monospace;margin-bottom:8px;min-height:1rem;text-align:left"></div>
+          <button class="auth-btn" id="su-submit-btn" onclick="trySignup()" style="border-radius:10px;padding:14px;font-size:0.92rem;">Create account →</button>
+        </div>
+
+        <div style="text-align:center;margin-top:1.25rem;font-size:0.72rem;color:var(--muted2);line-height:1.6;max-width:300px;margin-left:auto;margin-right:auto;">
+          By signing up, you agree to our Terms of Service and Privacy Policy.
+        </div>
       </div>
       <div id="auth-signup-success" style="display:none;text-align:center;padding:1.5rem 0">
         <div style="font-size:1.75rem;margin-bottom:1rem">✦</div>
-        <div style="font-family:'Geist',sans-serif;font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:8px">You're on the list.</div>
-        <div style="font-size:0.8rem;color:var(--muted);font-weight:400;line-height:1.6;margin-bottom:1.5rem">I'll be in touch shortly.</div>
-        <button class="auth-btn" onclick="showWelcomeScreen()">← Back to home</button>
+        <div style="font-family:'Geist',sans-serif;font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:8px">You're in.</div>
+        <div style="font-size:0.8rem;color:var(--muted);font-weight:400;line-height:1.6;margin-bottom:1.5rem">Taking you to your dashboard…</div>
       </div>
     </div>
 
     <!-- LOGIN -->
     <div id="landing-password" style="display:none">
-      <div style="margin-top:1.5rem">
+      <div style="margin-top:1.5rem;max-width:380px;margin-left:auto;margin-right:auto;">
         <div class="auth-back" onclick="showWelcomeScreen()">← back</div>
-        <input class="auth-input" id="auth-email" type="email" placeholder="your@email.com" style="letter-spacing:0;text-align:left;margin-bottom:10px" onkeydown="if(event.key==='Enter')document.getElementById('auth-password-input').focus()">
-        <input class="auth-input" id="auth-password-input" type="password" placeholder="Password" style="letter-spacing:0;text-align:left" onkeydown="if(event.key==='Enter')tryAuth()">
+        <div style="text-align:center;margin-bottom:1.25rem">
+          <div style="font-family:'Geist',sans-serif;font-size:clamp(1.5rem,3vw,2rem);font-weight:700;color:var(--text);line-height:1.2;letter-spacing:-0.02em;">Welcome back.</div>
+        </div>
+
+        <div style="text-align:center;margin-bottom:1.5rem;">
+          <span style="font-size:0.82rem;color:var(--muted);">Don't have an account? </span>
+          <span style="font-size:0.82rem;color:var(--accent);font-weight:500;cursor:pointer;" onclick="showSignupScreen()">Sign Up</span>
+        </div>
+
+        <!-- Social login buttons -->
+        <button onclick="tryGoogleSignup()" style="width:100%;display:flex;align-items:center;padding:14px 20px;border:1px solid var(--border2);border-radius:10px;background:var(--surface);cursor:pointer;margin-bottom:10px;transition:all .15s;font-family:'Geist',sans-serif;font-size:0.92rem;font-weight:500;color:var(--text);">
+          <svg width="20" height="20" viewBox="0 0 48 48" style="flex-shrink:0;margin-right:auto"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          <span style="flex:1;text-align:center;">Log In with Google</span>
+        </button>
+
+        <button onclick="tryAppleSignup()" style="width:100%;display:flex;align-items:center;padding:14px 20px;border:1px solid var(--border2);border-radius:10px;background:var(--surface);cursor:pointer;margin-bottom:10px;transition:all .15s;font-family:'Geist',sans-serif;font-size:0.92rem;font-weight:500;color:var(--text);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;margin-right:auto"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.32 2.32-1.4 4.27-3.74 4.25z"/></svg>
+          <span style="flex:1;text-align:center;">Log In with Apple</span>
+        </button>
+
+        <!-- Divider -->
+        <div style="display:flex;align-items:center;gap:12px;margin:16px 0 14px;">
+          <div style="flex:1;height:1px;background:var(--border2)"></div>
+          <span style="font-size:0.72rem;color:var(--muted2);font-family:'Geist Mono',monospace;letter-spacing:0.06em;">or</span>
+          <div style="flex:1;height:1px;background:var(--border2)"></div>
+        </div>
+
+        <input class="auth-input" id="auth-email" type="email" placeholder="Email" style="letter-spacing:0;text-align:left;margin-bottom:10px;border-radius:10px;padding:14px 16px;font-size:0.88rem;" onkeydown="if(event.key==='Enter')document.getElementById('auth-password-input').focus()">
+        <input class="auth-input" id="auth-password-input" type="password" placeholder="Password" style="letter-spacing:0;text-align:left;border-radius:10px;padding:14px 16px;font-size:0.88rem;" onkeydown="if(event.key==='Enter')tryAuth()">
         <div class="auth-error" id="auth-error"></div>
-        <button class="auth-btn" id="auth-submit-btn" onclick="tryAuth()">Sign in →</button>
+        <button class="auth-btn" id="auth-submit-btn" onclick="tryAuth()" style="border-radius:10px;padding:14px;font-size:0.92rem;">Log In →</button>
       </div>
     </div>
 
@@ -1141,25 +1196,107 @@ function showSignupScreen() {
   setTimeout(() => document.getElementById('su-name').focus(), 50);
 }
 
-async function submitSignupRequest() {
+function showEmailSignupForm() {
+  document.getElementById('su-email-toggle').style.display = 'none';
+  document.getElementById('su-email-form').style.display = 'block';
+  setTimeout(() => document.getElementById('su-name').focus(), 50);
+}
+
+async function tryGoogleSignup() {
+  try {
+    const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+    if (error) throw error;
+  } catch(e) {
+    alert('Google sign-in is not configured yet. Please use email signup for now.');
+  }
+}
+
+async function tryAppleSignup() {
+  try {
+    const { error } = await sb.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo: window.location.origin } });
+    if (error) throw error;
+  } catch(e) {
+    alert('Apple sign-in is not configured yet. Please use email signup for now.');
+  }
+}
+
+async function trySignup() {
   const name = document.getElementById('su-name').value.trim();
   const email = document.getElementById('su-email').value.trim();
+  const password = document.getElementById('su-password').value;
   const errEl = document.getElementById('su-error');
+  const btn = document.getElementById('su-submit-btn');
 
-  if (!name) { errEl.textContent = 'name is required'; document.getElementById('su-name').style.borderColor='var(--red)'; return; }
-  if (!email || !email.includes('@')) { errEl.textContent = 'valid email is required'; document.getElementById('su-email').style.borderColor='var(--red)'; return; }
+  if (!name) { errEl.textContent = 'name is required'; return; }
+  if (!email || !email.includes('@')) { errEl.textContent = 'valid email is required'; return; }
+  if (!password || password.length < 6) { errEl.textContent = 'password must be at least 6 characters'; return; }
   errEl.textContent = '';
 
-  try {
-    await fetch('/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ 'form-name': 'signup-request', name, email }).toString()
-    });
-  } catch(e) {}
+  btn.disabled = true; btn.textContent = 'Creating account…';
 
-  document.getElementById('auth-signup-form-wrap').style.display = 'none';
-  document.getElementById('auth-signup-success').style.display = 'block';
+  try {
+    const { data, error } = await sb.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: name } }
+    });
+    if (error) throw error;
+
+    // Check if email confirmation is required
+    if (data.user && !data.session) {
+      // Email confirmation required — show success but don't redirect
+      document.getElementById('auth-signup-form-wrap').style.display = 'none';
+      const successEl = document.getElementById('auth-signup-success');
+      successEl.style.display = 'block';
+      successEl.querySelector('div:nth-child(2)').textContent = 'Check your email.';
+      successEl.querySelector('div:nth-child(3)').textContent = 'Click the confirmation link to activate your account, then come back and log in.';
+      return;
+    }
+
+    // Auto-confirmed — sign them in immediately
+    document.getElementById('auth-signup-form-wrap').style.display = 'none';
+    document.getElementById('auth-signup-success').style.display = 'block';
+
+    // Brief pause to show success state, then enter app
+    setTimeout(() => {
+      isAuthenticated = true;
+      hideLandingPage();
+      updateModeUI();
+      initApp();
+      // Show welcome card for new users
+      showNewUserWelcome();
+    }, 1200);
+
+  } catch(e) {
+    errEl.textContent = e.message || 'signup failed — please try again';
+  }
+
+  btn.disabled = false; btn.textContent = 'Create account →';
+}
+
+function showNewUserWelcome() {
+  // Only show if this is their first time (no entries)
+  if (entries.length > 0) return;
+
+  // Set the view to Log tab to guide first action
+  const logBtn = document.querySelectorAll('nav button')[1];
+  if (logBtn) setView('log', logBtn);
+
+  // Insert a welcome banner at the top of the log view
+  const container = document.querySelector('#view-log .container');
+  if (!container) return;
+  const existing = document.getElementById('welcome-banner');
+  if (existing) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'welcome-banner';
+  banner.style.cssText = 'background:var(--accent-dim);border:1px solid rgba(79,124,255,0.18);border-radius:var(--radius);padding:1.25rem 1.5rem;margin-bottom:1.5rem;position:relative;';
+  banner.innerHTML = `
+    <button onclick="this.parentElement.remove()" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted2);cursor:pointer;font-size:1rem;padding:4px;">×</button>
+    <div style="font-size:0.95rem;font-weight:500;color:var(--text);margin-bottom:6px;">Welcome to 30 Day Sleep Coach</div>
+    <div style="font-size:0.82rem;color:var(--muted);line-height:1.65;">Start by logging last night's sleep below — your sleep score and HRV from your wearable, plus any habits that might have helped or hurt. After a few days, patterns will start to emerge.</div>
+  `;
+  container.insertBefore(banner, container.firstChild);
 }
 
 function showPasswordScreen() {
