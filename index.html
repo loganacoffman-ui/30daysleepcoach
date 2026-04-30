@@ -2119,10 +2119,13 @@ async function ouraFetch(endpoint, startDate, endDate) {
   const token = getOuraToken();
   if (!token) throw new Error('No Oura token');
   const url = `${OURA_PROXY}?endpoint=${endpoint}&start_date=${startDate}&end_date=${endDate}`;
+  const { data: { session } } = await sb.auth.getSession();
+  const authToken = session ? session.access_token : SUPABASE_KEY;
   const r = await fetch(url, {
     headers: {
       'x-oura-token': token,
-      'Authorization': `Bearer ${SUPABASE_KEY}`
+      'Authorization': `Bearer ${authToken}`,
+      'apikey': SUPABASE_KEY
     }
   });
   if (!r.ok) throw new Error(`Oura API error: ${r.status}`);
