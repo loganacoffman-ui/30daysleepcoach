@@ -1127,6 +1127,7 @@ textarea::placeholder { color: var(--muted2); }
 // ── CONFIG ──────────────────────────────────────────
 const SUPABASE_URL = 'https://qfnouotdhfltgvjhfbld.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmbm91b3RkaGZsdGd2amhmYmxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NTEyODksImV4cCI6MjA4OTUyNzI4OX0.fI0QrHf1qutTlLtRH8JLoiv5UnHwjqulnKGPDtH1610';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_1csWLFwsCRBlVAXag1rcHQ_Jpz9t2_l';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ── STATE ────────────────────────────────────────────
@@ -2118,14 +2119,12 @@ function initOuraView() {
 async function ouraFetch(endpoint, startDate, endDate) {
   const token = getOuraToken();
   if (!token) throw new Error('No Oura token');
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) throw new Error('Not signed in');
   const r = await fetch(
     `${SUPABASE_URL}/functions/v1/oura-proxy?endpoint=${endpoint}&start_date=${startDate}&end_date=${endDate}`,
     { headers: {
       'x-oura-token': token,
-      'Authorization': `Bearer ${session.access_token}`,
-      'apikey': SUPABASE_KEY
+      'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+      'apikey': SUPABASE_PUBLISHABLE_KEY
     }}
   );
   if (!r.ok) throw new Error(`Oura API error: ${r.status}`);
