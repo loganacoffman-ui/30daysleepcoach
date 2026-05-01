@@ -1128,7 +1128,7 @@ textarea::placeholder { color: var(--muted2); }
 const SUPABASE_URL = 'https://qfnouotdhfltgvjhfbld.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmbm91b3RkaGZsdGd2amhmYmxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NTEyODksImV4cCI6MjA4OTUyNzI4OX0.fI0QrHf1qutTlLtRH8JLoiv5UnHwjqulnKGPDtH1610';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_1csWLFwsCRBlVAXag1rcHQ_Jpz9t2_l';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ── STATE ────────────────────────────────────────────
 let entries = [];
@@ -2119,11 +2119,20 @@ function initOuraView() {
 async function ouraFetch(endpoint, startDate, endDate) {
   const token = getOuraToken();
   if (!token) throw new Error('No Oura token');
-  const { data, error } = await sb.functions.invoke('oura-proxy', {
-    body: { endpoint, start_date: startDate, end_date: endDate, oura_token: token }
-  });
-  if (error) throw new Error(`Oura API error: ${error.message}`);
-  return data;
+  const r = await fetch(
+    `${SUPABASE_URL}/functions/v1/oura-proxy`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+        'apikey': SUPABASE_PUBLISHABLE_KEY
+      },
+      body: JSON.stringify({ endpoint, start_date: startDate, end_date: endDate, oura_token: token })
+    }
+  );
+  if (!r.ok) throw new Error(`Oura API error: ${r.status}`);
+  return r.json();
 }
 
 async function fetchOuraData() {
