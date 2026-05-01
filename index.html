@@ -1128,7 +1128,7 @@ textarea::placeholder { color: var(--muted2); }
 const SUPABASE_URL = 'https://qfnouotdhfltgvjhfbld.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmbm91b3RkaGZsdGd2amhmYmxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NTEyODksImV4cCI6MjA4OTUyNzI4OX0.fI0QrHf1qutTlLtRH8JLoiv5UnHwjqulnKGPDtH1610';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_1csWLFwsCRBlVAXag1rcHQ_Jpz9t2_l';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 // ── STATE ────────────────────────────────────────────
 let entries = [];
