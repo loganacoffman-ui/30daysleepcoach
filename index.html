@@ -1211,6 +1211,21 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { detectSessionInUrl: true, persistSession: true }
 });
 
+// ── TOAST NOTIFICATIONS ──────────────────────────────
+function showToast(message, type = 'info') {
+  const existing = document.getElementById('app-toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.id = 'app-toast';
+  toast.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;font-family:'Geist',sans-serif;font-size:0.82rem;padding:12px 20px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.12);transition:opacity .4s;max-width:400px;text-align:center;`;
+  toast.style.background = type === 'error' ? '#fef2f2' : '#f0f9ff';
+  toast.style.color = type === 'error' ? '#991b1b' : '#1e40af';
+  toast.style.border = type === 'error' ? '1px solid rgba(220,38,38,0.2)' : '1px solid rgba(59,130,246,0.2)';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 5000);
+}
+
 // ── STATE ────────────────────────────────────────────
 let entries = [];
 let hrvChart = null, scatterChart = null, sleepChart = null;
@@ -1275,7 +1290,11 @@ async function sbFetch(path, opts = {}) {
 async function loadEntries() {
   setLoading(true);
   try { entries = await sbFetch('entries?order=ts.desc&limit=120') || []; }
-  catch(e) { console.error('Load error:', e); entries = []; }
+  catch(e) {
+    console.error('Load error:', e);
+    entries = [];
+    showToast('Could not load your entries — check your connection and refresh.', 'error');
+  }
   setLoading(false);
 }
 
@@ -1344,11 +1363,18 @@ function openEmailSignup() {
 }
 
 async function tryOAuthSignup(provider) {
+  const label = provider.charAt(0).toUpperCase() + provider.slice(1);
   try {
     const { error } = await sb.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.origin } });
     if (error) throw error;
   } catch(e) {
-    alert(`${provider.charAt(0).toUpperCase() + provider.slice(1)} sign-in is not configured yet. Please use email signup for now.`);
+    const msg = (e.message || '').toLowerCase();
+    if (msg.includes('not enabled') || msg.includes('not configured') || msg.includes('provider')) {
+      alert(`${label} sign-in is not configured yet. Please use email signup for now.`);
+    } else {
+      alert(`${label} sign-in failed: ` + (e.message || 'unknown error'));
+    }
+    console.error(`${label} signup error:`, e);
   }
 }
 
@@ -1485,7 +1511,11 @@ async function tryAuth() {
 }
 
 async function signOut() {
-  await sb.auth.signOut();
+  try {
+    await sb.auth.signOut();
+  } catch (e) {
+    console.warn('Sign-out request failed:', e);
+  }
   isAuthenticated = false;
   entries = [];
   goHome();
@@ -1535,6 +1565,9 @@ async function enterApp({ showWelcome = false } = {}) {
     await handleOuraOAuthReturn();
     if (!ouraStatusChecked) await checkOuraOAuthStatus();
     if (showWelcome && entries.length === 0) showNewUserWelcome();
+  } catch (e) {
+    console.error('App initialization failed:', e);
+    showToast('Something went wrong loading the app. Try refreshing.', 'error');
   } finally {
     appEntering = false;
   }
@@ -2085,7 +2118,7 @@ async function deleteEntry(id, ts) {
     await sbFetch(`entries?id=eq.${id}`, {method:'DELETE'});
     entries = entries.filter(e=>e.id!==id&&e.ts!==ts);
     renderHistory(); updateDayBadge();
-  } catch(e) { alert('Delete failed.'); }
+  } catch(e) { alert('Delete failed — check connection and try again.'); console.error('Delete error:', e); }
 }
 
 // ── COLOR ─────────────────────────────────────────────
@@ -2209,8 +2242,9 @@ async function streamCoachResponse(messages, targetEl, onDone, cacheKey) {
   });
 
   if (!res.ok) {
-    targetEl.innerHTML = '<p style="color:var(--red)">Could not reach coach — check your Edge Function setup.</p>';
-    return;
+    const errDetail = await res.text().catch(() => '');
+    console.error('Coach endpoint error:', res.status, errDetail);
+    throw new Error('Coach endpoint returned ' + res.status);
   }
 
   const reader = res.body.getReader();
@@ -2294,6 +2328,7 @@ async function generateBriefing(force) {
       getBriefingCacheKey()
     );
   } catch (e) {
+    console.error('Briefing generation failed:', e);
     briefingBody.innerHTML = '<p style="color:var(--muted)">Unable to generate briefing. Make sure the Edge Function is deployed and your API key is set.</p>';
   }
 }
@@ -2673,17 +2708,22 @@ async function fetchOuraData() {
   const endStr = end.toISOString().slice(0, 10);
 
   try {
-    const [stressRes, dailySleepRes, sleepSessionRes, hrRes] = await Promise.all([
+    const [stressRes, dailySleepRes, sleepSessionRes, hrRes] = await Promise.allSettled([
       ouraFetch('daily_stress', startStr, endStr),
       ouraFetch('daily_sleep', startStr, endStr),
       ouraFetch('sleep', startStr, endStr),
       ouraFetch('heartrate', new Date(end.getTime() - 86400000).toISOString().slice(0,10), endStr)
     ]);
 
-    ouraStressData = stressRes?.data || [];
-    ouraSleepData = dailySleepRes?.data || [];
-    ouraSleepSessionData = sleepSessionRes?.data || [];
-    ouraHrData = hrRes?.data || [];
+    const settled = [stressRes, dailySleepRes, sleepSessionRes, hrRes];
+    const failures = settled.filter(r => r.status === 'rejected');
+    if (failures.length) console.warn('Some Oura fetches failed:', failures.map(f => f.reason?.message || f.reason));
+    if (failures.length === settled.length) throw failures[0].reason;
+
+    ouraStressData = stressRes.status === 'fulfilled' ? (stressRes.value?.data || []) : ouraStressData;
+    ouraSleepData = dailySleepRes.status === 'fulfilled' ? (dailySleepRes.value?.data || []) : ouraSleepData;
+    ouraSleepSessionData = sleepSessionRes.status === 'fulfilled' ? (sleepSessionRes.value?.data || []) : ouraSleepSessionData;
+    ouraHrData = hrRes.status === 'fulfilled' ? (hrRes.value?.data || []) : ouraHrData;
 
     renderOuraStats();
     renderOuraStressChart();
@@ -2884,9 +2924,14 @@ function initOuraNewBadge() { initNewBadge('stress-new-badge', 'stress_tab_seen'
 // ── BOOT ─────────────────────────────────────────────
 // Check for existing Supabase session on load
 (async function checkSession() {
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) {
-    await enterApp();
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) {
+      await enterApp();
+    }
+  } catch (e) {
+    console.error('Session check failed:', e);
+    showToast('Could not restore your session — try refreshing.', 'error');
   }
   sb.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_IN' && session && !isAuthenticated) {
