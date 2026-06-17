@@ -1,14 +1,22 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+const ALLOWED_ORIGINS = ['https://30daysleepcoach.com', 'https://www.30daysleepcoach.com', 'http://localhost:8000'];
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('Origin') || '';
+  const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  };
+}
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405);
+  if (req.method !== 'POST') return jsonResponse(req, { error: 'Method not allowed' }, 405);
 
   try {
     const supabaseUrl = mustEnv('SUPABASE_URL');
@@ -18,11 +26,11 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization') || '';
     const jwt = authHeader.replace(/^Bearer\s+/i, '');
-    if (!jwt) return jsonResponse({ error: 'Missing Supabase session' }, 401);
+    if (!jwt) return jsonResponse(req, { error: 'Missing Supabase session' }, 401);
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
     const { data: userData, error: userError } = await supabase.auth.getUser(jwt);
-    if (userError || !userData.user) return jsonResponse({ error: 'Invalid Supabase session' }, 401);
+    if (userError || !userData.user) return jsonResponse(req, { error: 'Invalid Supabase session' }, 401);
 
     const { redirect_to } = await req.json().catch(() => ({}));
     const redirectTo = sanitizeRedirect(redirect_to);
@@ -38,7 +46,7 @@ Deno.serve(async (req) => {
         expires_at: expiresAt,
       });
 
-    if (insertError) return jsonResponse({ error: insertError.message }, 500);
+    if (insertError) return jsonResponse(req, { error: insertError.message }, 500);
 
     const authorizeUrl = new URL('https://cloud.ouraring.com/oauth/authorize');
     authorizeUrl.searchParams.set('response_type', 'code');
@@ -46,9 +54,9 @@ Deno.serve(async (req) => {
     authorizeUrl.searchParams.set('redirect_uri', redirectUri);
     authorizeUrl.searchParams.set('state', state);
 
-    return jsonResponse({ authorizeUrl: authorizeUrl.toString() });
+    return jsonResponse(req, { authorizeUrl: authorizeUrl.toString() });
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : 'Unknown Oura OAuth start error' }, 500);
+    return jsonResponse(req, { error: error instanceof Error ? error.message : 'Unknown Oura OAuth start error' }, 500);
   }
 });
 
@@ -74,11 +82,11 @@ function mustEnv(name: string) {
   return value;
 }
 
-function jsonResponse(body: Record<string, unknown>, status = 200) {
+function jsonResponse(req: Request, body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
-      ...corsHeaders,
+      ...getCorsHeaders(req),
       'Content-Type': 'application/json',
     },
   });
