@@ -132,6 +132,34 @@ main { position: relative; z-index: 1; padding-top: 58px; }
 
 /* LOG */
 .log-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+.baseline-progress { margin-bottom: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.baseline-progress-copy { min-width: 0; }
+.baseline-progress-title { font-size: 0.9rem; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.baseline-progress-body { font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
+.baseline-body { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 18px; align-items: stretch; margin-top: 14px; }
+.baseline-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.baseline-stat { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; }
+.baseline-stat-value { font-family: 'Geist', sans-serif; font-size: 1.15rem; font-weight: 600; color: var(--text); line-height: 1.1; }
+.baseline-stat-label { font-family: 'Geist Mono', monospace; font-size: 0.58rem; color: var(--muted2); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 5px; }
+.baseline-pill { font-family: 'Geist Mono', monospace; font-size: 0.72rem; color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(79,124,255,0.18); border-radius: 100px; padding: 6px 12px; white-space: nowrap; }
+.baseline-meter { width: 120px; height: 5px; background: rgba(0,0,0,0.06); border-radius: 999px; overflow: hidden; }
+.baseline-meter-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 999px; }
+.baseline-trend { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; min-height: 190px; }
+.baseline-trend-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.baseline-trend-label { font-family: 'Geist Mono', monospace; font-size: 0.6rem; color: var(--muted2); letter-spacing: 0.08em; text-transform: uppercase; }
+.baseline-trend-svg { width: 100%; height: 150px; overflow: visible; }
+.baseline-trend-empty { display: flex; align-items: center; justify-content: center; min-height: 150px; color: var(--muted2); font-family: 'Geist Mono', monospace; font-size: 0.65rem; text-align: center; line-height: 1.5; border: 1px dashed var(--border2); border-radius: var(--radius-sm); background: var(--surface2); }
+.oura-autofill-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 1rem; }
+.oura-autofill-item { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; }
+.oura-autofill-label { font-family: 'Geist Mono', monospace; font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted2); margin-bottom: 6px; }
+.oura-autofill-value { font-family: 'Geist', sans-serif; font-size: 1.05rem; font-weight: 600; color: var(--text); }
+.oura-autofill-note { font-size: 0.75rem; color: var(--muted2); line-height: 1.5; margin-top: 10px; }
+.checkin-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 1rem; }
+.baseline-factor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+.scale-field { display: flex; flex-direction: column; gap: 6px; }
+.scale-field input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: 'Geist Mono', monospace; font-size: 1rem; padding: 9px 10px; outline: none; -moz-appearance: textfield; }
+.scale-field input::-webkit-outer-spin-button,.scale-field input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.scale-field input:focus { border-color: var(--accent); }
 .big-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: 'Geist Mono', monospace; font-size: 2.4rem; font-weight: 400; padding: 12px 16px; outline: none; transition: border-color .15s; -moz-appearance: textfield; }
 .big-input::-webkit-outer-spin-button,.big-input::-webkit-inner-spin-button { -webkit-appearance: none; }
 .big-input:focus { border-color: var(--accent); }
@@ -547,6 +575,12 @@ textarea::placeholder { color: var(--muted2); }
   .container { padding: 1.25rem 1rem 3rem; }
   .log-grid { grid-template-columns: 1fr; }
   .field-row { grid-template-columns: 1fr 1fr; }
+  .baseline-body { grid-template-columns: 1fr; }
+  .baseline-stats { grid-template-columns: 1fr 1fr; }
+  .baseline-meter { width: 100%; }
+  .oura-autofill-grid { grid-template-columns: 1fr 1fr; }
+  .checkin-grid { grid-template-columns: 1fr 1fr; }
+  .baseline-factor-grid { grid-template-columns: 1fr; }
   .stat-row { grid-template-columns: 1fr 1fr; }
   .stat-card { border-bottom: 1px solid var(--border); }
   .stat-card:nth-child(odd) { border-right: 1px solid var(--border); }
@@ -587,12 +621,12 @@ textarea::placeholder { color: var(--muted2); }
     </div>
   </nav>
   <div class="landing-banner">
-    AI-powered sleep coaching — track habits, find patterns, sleep better in 30 days.
-    <a href="#" onclick="event.preventDefault(); showSignupScreen()">Get early access →</a>
+    A 30-day Recovery Audit for high performers who wake up tired.
+    <a href="#" onclick="event.preventDefault(); showSignupScreen()">Start your audit →</a>
   </div>
   <div class="landing-box">
     <div class="landing-logo"><span>30 Day</span> Sleep Coach</div>
-    <p class="landing-sub">Control Cortisol. Master Your Sleep.</p>
+    <p class="landing-sub">A Recovery Audit for high performers who wake up tired.</p>
 
     <!-- WELCOME -->
     <div id="landing-welcome">
@@ -625,10 +659,10 @@ textarea::placeholder { color: var(--muted2); }
           <text x="396" y="86" fill="rgba(113,113,122,0.7)" font-size="8" font-family="monospace" text-anchor="end">Day 30</text>
         </svg>
       </div>
-      <p class="landing-desc">Your wearable tracks your sleep. This app tells you <strong>what to do about it</strong>. Log daily habits, uncover the patterns that actually move your scores, and get a personalized protocol — in 30 days.</p>
+      <p class="landing-desc">A 30-day concierge audit using your wearable data, symptoms, and routines to identify your biggest recovery bottleneck, then turn it into a simple experiment plan.</p>
       
       <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-top:0.5rem;">
-        <button class="auth-btn primary-lg" onclick="showSignupScreen()">Start free →</button>
+        <button class="auth-btn primary-lg" onclick="showSignupScreen()">Start your Recovery Audit →</button>
       </div>
       <div style="margin-top:1rem; text-align:center;">
         <span class="auth-login-link" onclick="showPasswordScreen()">Already have an account? Log in</span>
@@ -641,8 +675,8 @@ textarea::placeholder { color: var(--muted2); }
         <div class="auth-back" onclick="showWelcomeScreen()" style="margin-top:1.5rem">← back</div>
 
         <div style="text-align:center;margin-bottom:1.25rem">
-          <div style="font-family:'Geist',sans-serif;font-size:clamp(1.5rem,3vw,2rem);font-weight:700;color:var(--text);line-height:1.2;letter-spacing:-0.02em;">Sleep better<br>in 30 days.</div>
-          <div style="font-size:0.88rem;color:var(--muted);font-weight:400;line-height:1.6;margin-top:10px;">Track your habits. Find your patterns. Get coached.</div>
+          <div style="font-family:'Geist',sans-serif;font-size:clamp(1.5rem,3vw,2rem);font-weight:700;color:var(--text);line-height:1.2;letter-spacing:-0.02em;">Find your recovery bottleneck <br>in 30 days.</div>
+          <div style="font-size:0.88rem;color:var(--muted);font-weight:400;line-height:1.6;margin-top:10px;">Use your wearable data, symptoms, and routines to build a practical recovery plan.</div>
         </div>
 
         <div style="text-align:center;margin-bottom:1.5rem;">
@@ -730,38 +764,38 @@ textarea::placeholder { color: var(--muted2); }
     <!-- How it works -->
     <div style="margin-bottom:3.5rem;">
       <div style="font-family:'Geist Mono',monospace; font-size:0.65rem; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;">How it works</div>
-      <h2 style="font-size:1.6rem; font-weight:600; letter-spacing:-0.02em; margin-bottom:2rem; color:var(--text);">Three steps. Thirty days.</h2>
+      <h2 style="font-size:1.6rem; font-weight:600; letter-spacing:-0.02em; margin-bottom:2rem; color:var(--text);">Diagnose first. Experiment second.</h2>
       <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.5rem; text-align:left;">
         <div style="background:#fff; border:1px solid rgba(0,0,0,0.06); border-radius:8px; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
           <div style="font-family:'Geist Mono',monospace; font-size:0.7rem; color:var(--accent); font-weight:500; margin-bottom:8px;">01</div>
-          <div style="font-weight:600; font-size:0.92rem; margin-bottom:6px;">Log daily</div>
-          <div style="font-size:0.82rem; color:var(--muted); line-height:1.6;">90-second journal. Sleep score, HRV, habits, and how you feel. That's it.</div>
+          <div style="font-weight:600; font-size:0.92rem; margin-bottom:6px;">Voice-led intake</div>
+          <div style="font-size:0.82rem; color:var(--muted); line-height:1.6;">Map your sleep, stress, symptoms, schedule, and recovery history without another long form.</div>
         </div>
         <div style="background:#fff; border:1px solid rgba(0,0,0,0.06); border-radius:8px; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
           <div style="font-family:'Geist Mono',monospace; font-size:0.7rem; color:var(--accent); font-weight:500; margin-bottom:8px;">02</div>
-          <div style="font-weight:600; font-size:0.92rem; margin-bottom:6px;">Find patterns</div>
-          <div style="font-size:0.82rem; color:var(--muted); line-height:1.6;">AI correlates your behaviors with your biometrics. See what actually moves the needle.</div>
+          <div style="font-weight:600; font-size:0.92rem; margin-bottom:6px;">Review your data</div>
+          <div style="font-size:0.82rem; color:var(--muted); line-height:1.6;">Bring Oura, WHOOP, Apple Watch, Eight Sleep, labs, notes, or whatever signal you already have.</div>
         </div>
         <div style="background:#fff; border:1px solid rgba(0,0,0,0.06); border-radius:8px; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
           <div style="font-family:'Geist Mono',monospace; font-size:0.7rem; color:var(--accent); font-weight:500; margin-bottom:8px;">03</div>
-          <div style="font-weight:600; font-size:0.92rem; margin-bottom:6px;">Sleep better</div>
-          <div style="font-size:0.82rem; color:var(--muted); line-height:1.6;">Personalized protocol that adapts to your life. Not generic tips — your data, your plan.</div>
+          <div style="font-weight:600; font-size:0.92rem; margin-bottom:6px;">Run one experiment</div>
+          <div style="font-size:0.82rem; color:var(--muted); line-height:1.6;">Get a clear recovery baseline, your likely bottleneck, and the next practical experiment to test.</div>
         </div>
       </div>
     </div>
 
     <!-- Product preview placeholder -->
     <div style="margin-bottom:3.5rem;">
-      <div style="font-family:'Geist Mono',monospace; font-size:0.65rem; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;">See it in action</div>
-      <h2 style="font-size:1.6rem; font-weight:600; letter-spacing:-0.02em; margin-bottom:1.5rem; color:var(--text);">Your dashboard, personalized.</h2>
+      <div style="font-family:'Geist Mono',monospace; font-size:0.65rem; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;">What you get</div>
+      <h2 style="font-size:1.6rem; font-weight:600; letter-spacing:-0.02em; margin-bottom:1.5rem; color:var(--text);">A Recovery Baseline Report and experiment plan.</h2>
       <div id="product-preview" style="background:#fff; border:1px solid rgba(0,0,0,0.06); border-radius:12px; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.06);">
         <!-- Replace this div with a <video>, <iframe>, or <img> when ready -->
         <div style="aspect-ratio:16/9; display:flex; flex-direction:column; align-items:center; justify-content:center; background:linear-gradient(135deg, rgba(79,124,255,0.03) 0%, rgba(79,124,255,0.08) 100%); gap:12px;">
           <div style="width:48px; height:48px; border-radius:12px; background:var(--accent-dim); display:flex; align-items:center; justify-content:center;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           </div>
-          <div style="font-size:0.85rem; color:var(--muted); font-weight:400;">Product walkthrough coming soon</div>
-          <div style="font-family:'Geist Mono',monospace; font-size:0.65rem; color:var(--muted2); letter-spacing:0.04em;">Track sleep · Spot patterns · Get coached</div>
+          <div style="font-size:0.85rem; color:var(--muted); font-weight:400;">Recovery Audit preview coming soon</div>
+          <div style="font-family:'Geist Mono',monospace; font-size:0.65rem; color:var(--muted2); letter-spacing:0.04em;">Baseline · Bottleneck · Experiment plan</div>
         </div>
       </div>
     </div>
@@ -769,8 +803,8 @@ textarea::placeholder { color: var(--muted2); }
     <!-- Built for -->
     <div style="margin-bottom:3.5rem;">
       <div style="font-family:'Geist Mono',monospace; font-size:0.65rem; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;">Built for</div>
-      <h2 style="font-size:1.6rem; font-weight:600; letter-spacing:-0.02em; margin-bottom:1.5rem; color:var(--text);">People who track, not just sleep.</h2>
-      <p style="font-size:0.95rem; color:var(--muted); line-height:1.7; max-width:480px; margin:0 auto 1.5rem;">If you own an Oura Ring, WHOOP, or Apple Watch — you already have the data. 30 Day Sleep Coach is the coaching layer that makes it actionable.</p>
+      <h2 style="font-size:1.6rem; font-weight:600; letter-spacing:-0.02em; margin-bottom:1.5rem; color:var(--text);">High performers with data, but no clear answer.</h2>
+      <p style="font-size:0.95rem; color:var(--muted); line-height:1.7; max-width:480px; margin:0 auto 1.5rem;">If you wake up tired despite doing the obvious things, 30 Day Sleep Coach helps turn your wearable data and lived symptoms into a focused recovery diagnosis.</p>
       <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
         <span style="font-size:0.78rem; color:var(--muted); padding:6px 16px; border:1px solid rgba(0,0,0,0.08); border-radius:100px; background:#fff;">Oura Ring</span>
         <span style="font-size:0.78rem; color:var(--muted); padding:6px 16px; border:1px solid rgba(0,0,0,0.08); border-radius:100px; background:#fff;">WHOOP</span>
@@ -813,90 +847,146 @@ textarea::placeholder { color: var(--muted2); }
 <!-- LOG VIEW -->
 <div id="view-log" class="view">
 <div class="container">
-  <div class="section-tag">Daily Entry</div>
-  <h1 class="page-heading">How did you <em>sleep?</em></h1>
+  <div class="section-tag">7-Day Baseline</div>
+  <h1 class="page-heading">Today’s recovery <em>check-in.</em></h1>
 
-  <!-- Row 1: HRV input + Reading gauge -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
-    <div class="card">
-      <div class="card-label">HRV this morning</div>
-      <input class="big-input" type="number" id="hrv" placeholder="—" min="10" max="120" oninput="updateGauge()">
-      <div class="input-unit">milliseconds · from Oura or WHOOP</div>
+  <div class="baseline-progress">
+    <div class="baseline-progress-copy">
+      <div class="baseline-progress-title" id="baseline-progress-title">Building baseline: Day 1 of 7</div>
+      <div class="baseline-progress-body">Oura handles the objective signals. You add the 30-second context layer so the baseline can separate real bottlenecks from noise.</div>
     </div>
-    <div class="card">
-      <div class="card-label">Reading</div>
-      <div class="hrv-display">
-        <div class="hrv-number" id="gauge-num" style="color:var(--muted2)">—</div>
-        <div class="hrv-unit">ms HRV</div>
-        <div class="hrv-zone" id="gauge-zone" style="background:var(--surface2);color:var(--muted2)">enter HRV above</div>
+    <div class="baseline-body">
+      <div class="baseline-trend">
+        <div class="baseline-trend-top">
+          <div class="baseline-trend-label">Last 7 sleep scores</div>
+          <div class="baseline-pill" id="baseline-progress-pill">0 of 7 entries</div>
+        </div>
+        <div id="baseline-trend-wrap" class="baseline-trend-empty">Add entries to build your baseline trend</div>
+        <div class="baseline-meter"><div class="baseline-meter-fill" id="baseline-meter-fill"></div></div>
+      </div>
+      <div class="baseline-stats">
+        <div class="baseline-stat">
+          <div class="baseline-stat-value" id="baseline-avg-sleep">—</div>
+          <div class="baseline-stat-label">sleep score</div>
+        </div>
+        <div class="baseline-stat">
+          <div class="baseline-stat-value" id="baseline-avg-hrv">—</div>
+          <div class="baseline-stat-label">HRV</div>
+        </div>
+        <div class="baseline-stat">
+          <div class="baseline-stat-value" id="baseline-avg-energy">—</div>
+          <div class="baseline-stat-label">energy</div>
+        </div>
+        <div class="baseline-stat">
+          <div class="baseline-stat-value" id="baseline-avg-stress">—</div>
+          <div class="baseline-stat-label">stress/load</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Row 2: Sleep metrics full width -->
+  <!-- Subjective check-in -->
   <div class="card" style="margin-bottom:1rem">
-    <div class="card-label">Sleep metrics</div>
-    <div class="field-row">
-      <label class="field">
-        <span class="field-name">Sleep score</span>
-        <input type="number" id="sleep_score" placeholder="—" min="0" max="100" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'Geist Mono',monospace;font-size:1.2rem;font-weight:400;padding:8px 12px;outline:none;width:100%;-moz-appearance:textfield;">
+    <div class="card-label">30-second check-in</div>
+    <div class="checkin-grid">
+      <label class="scale-field">
+        <span class="field-name">Energy</span>
+        <input type="number" id="energy_level" placeholder="1-10" min="1" max="10">
       </label>
-      <label class="field">
-        <span class="field-name">Bedtime</span>
-        <input type="time" id="bedtime">
+      <label class="scale-field">
+        <span class="field-name">Mood</span>
+        <input type="number" id="mood_level" placeholder="1-10" min="1" max="10">
       </label>
-      <label class="field">
-        <span class="field-name">Wake time</span>
-        <input type="time" id="waketime">
+      <label class="scale-field">
+        <span class="field-name">Stress/load</span>
+        <input type="number" id="stress_level" placeholder="1-10" min="1" max="10">
       </label>
-      <label class="field">
-        <span class="field-name">Night wake</span>
-        <select id="night_wake">
-          <option value="">— select —</option>
-          <option value="none">None — slept through</option>
-          <option value="back_quick">Brief wake, fell back fast</option>
-          <option value="back_slow">Woke, took 30+ min to sleep</option>
-          <option value="couldnt_sleep">Woke at 3am, 2+ hrs awake</option>
-        </select>
+      <label class="scale-field">
+        <span class="field-name">Focus</span>
+        <input type="number" id="focus_level" placeholder="1-10" min="1" max="10">
+      </label>
+      <label class="scale-field">
+        <span class="field-name">Soreness</span>
+        <input type="number" id="soreness_level" placeholder="1-10" min="1" max="10">
       </label>
     </div>
+    <label class="field">
+      <span class="field-name">Night wake</span>
+      <select id="night_wake">
+        <option value="">— select —</option>
+        <option value="none">None — slept through</option>
+        <option value="back_quick">Brief wake, fell back fast</option>
+        <option value="back_slow">Woke, took 30+ min to sleep</option>
+        <option value="couldnt_sleep">Woke at 3am, 2+ hrs awake</option>
+      </select>
+    </label>
   </div>
 
-  <!-- Row 3: Positives + Negatives side by side -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+  <div class="card" style="margin-bottom:1rem">
+    <div class="card-label">Auto-filled from Oura</div>
+    <div class="oura-autofill-grid">
+      <div class="oura-autofill-item">
+        <div class="oura-autofill-label">Sleep score</div>
+        <div class="oura-autofill-value" id="oura-fill-sleep">—</div>
+      </div>
+      <div class="oura-autofill-item">
+        <div class="oura-autofill-label">HRV</div>
+        <div class="oura-autofill-value" id="oura-fill-hrv">—</div>
+      </div>
+      <div class="oura-autofill-item">
+        <div class="oura-autofill-label">Bedtime</div>
+        <div class="oura-autofill-value" id="oura-fill-bedtime">—</div>
+      </div>
+      <div class="oura-autofill-item">
+        <div class="oura-autofill-label">Wake time</div>
+        <div class="oura-autofill-value" id="oura-fill-waketime">—</div>
+      </div>
+      <div class="oura-autofill-item">
+        <div class="oura-autofill-label">Stress / recovery</div>
+        <div class="oura-autofill-value" id="oura-fill-stress-recovery">—</div>
+      </div>
+    </div>
+    <div class="oura-autofill-note" id="oura-fill-note">Connect Oura in the Stress tab, then this section will prefill today’s objective data.</div>
+  </div>
+
+  <div style="display:none">
+    <input type="number" id="sleep_score" min="0" max="100">
+    <input type="number" id="hrv" min="10" max="120">
+    <input type="time" id="bedtime">
+    <input type="time" id="waketime">
+  </div>
+
+  <div class="baseline-factor-grid">
     <div class="card">
-      <div class="card-label">Positives yesterday</div>
+      <div class="card-label">What likely helped?</div>
       <div class="tags" id="pos-tags">
         <span class="tag" data-val="morning_light">Morning light</span>
         <span class="tag" data-val="no_alcohol">No alcohol</span>
-        <span class="tag" data-val="fluids_off">Fluids off 7pm</span>
         <span class="tag" data-val="early_meal">Last meal &lt;7pm</span>
         <span class="tag" data-val="exercise">Exercise</span>
         <span class="tag" data-val="breathwork">Breathwork</span>
-        <span class="tag" data-val="ashwagandha">Ashwagandha</span>
-        <span class="tag" data-val="mag_glycinate">Mag glycinate</span>
-        <span class="tag" data-val="phosphatidylserine">Phosphatidylserine</span>
         <span class="tag" data-val="cool_room">Cool room</span>
         <span class="tag" data-val="no_screens">No screens 1hr</span>
         <span class="tag" data-val="low_stress">Low stress</span>
       </div>
     </div>
     <div class="card">
-      <div class="card-label">Negatives yesterday</div>
+      <div class="card-label">What may have constrained recovery?</div>
       <div class="tags" id="neg-tags">
         <span class="tag" data-val="alcohol">Alcohol</span>
         <span class="tag" data-val="late_meal">Late meal 8pm+</span>
         <span class="tag" data-val="high_stress">High stress</span>
-        <span class="tag" data-val="sleep_debt">Sleep deprived</span>
         <span class="tag" data-val="intense_exercise">Intense workout</span>
         <span class="tag" data-val="late_screens">Late screens</span>
         <span class="tag" data-val="late_caffeine">Caffeine after 2pm</span>
+        <span class="tag" data-val="travel">Travel</span>
+        <span class="tag" data-val="illness">Illness</span>
         <span class="tag" data-val="emotional_stress">Emotional stress</span>
       </div>
     </div>
   </div>
-  <textarea id="note" rows="2" placeholder="eg - woke up at 3a but managed to fall back asleep within 30 mins. Length of REM sleep increased."></textarea>
-  <button class="save-btn" id="save-btn" onclick="saveEntry()">Save today's entry →</button>
+  <textarea id="note" rows="2" placeholder="Voice note / anything unusual: travel, argument, big workout, late dinner, weird dream, or anything that might explain today."></textarea>
+  <button class="save-btn" id="save-btn" onclick="saveEntry()">Save baseline check-in →</button>
   <div id="save-confirm" style="text-align:center;margin-top:.75rem;font-size:0.75rem;font-family:'Geist Mono',monospace;color:var(--green);letter-spacing:.04em;opacity:0;transition:opacity .3s"></div>
 </div>
 </div>
@@ -1018,11 +1108,16 @@ textarea::placeholder { color: var(--muted2); }
   <!-- Token setup (shown when no token) -->
   <div id="oura-setup" class="card" style="margin-bottom:1.5rem">
     <div class="card-label">Connect Oura Ring</div>
-    <p style="font-size:0.85rem;color:var(--muted);line-height:1.7;margin-bottom:1rem;">Paste your Oura access token to pull stress, heart rate, and sleep data automatically. Your token is stored locally in this browser only.</p>
+    <p style="font-size:0.85rem;color:var(--muted);line-height:1.7;margin-bottom:1rem;">Connect your Oura account once. 30 Day Sleep Coach will securely pull sleep, HRV, heart rate, and stress data when you refresh your baseline.</p>
+    <button onclick="startOuraOAuth()" id="oura-oauth-btn" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:'Geist',sans-serif;font-weight:500;font-size:0.9rem;padding:11px 20px;cursor:pointer;width:100%;margin-bottom:12px;">Connect with Oura →</button>
+    <details style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px;">
+      <summary style="font-size:0.76rem;color:var(--muted);cursor:pointer;">Use a personal access token instead</summary>
+      <p style="font-size:0.78rem;color:var(--muted2);line-height:1.6;margin:10px 0;">Founder/testing fallback. Tokens are stored locally in this browser only.</p>
     <div style="display:flex;gap:8px;align-items:center">
       <input type="text" id="oura-token-input" placeholder="Paste your Oura access token" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'Geist Mono',monospace;font-size:0.8rem;padding:10px 14px;outline:none;">
       <button onclick="saveOuraToken()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:'Geist',sans-serif;font-weight:500;font-size:0.85rem;padding:10px 20px;cursor:pointer;white-space:nowrap;">Connect</button>
     </div>
+    </details>
     <div id="oura-token-error" style="font-size:0.72rem;color:var(--red);font-family:'Geist Mono',monospace;margin-top:6px;min-height:1rem;"></div>
   </div>
 
@@ -1077,12 +1172,12 @@ textarea::placeholder { color: var(--muted2); }
     <div class="cta-grid">
       <div class="cta-left">
         <div class="section-tag" style="margin-bottom:12px">Get in touch</div>
-        <h2>Interested in what I'm building?</h2>
-        <p>I'm experimenting on myself — tracking HRV, cortisol patterns, and intervention protocols to fix early morning waking. If you're dealing with the same thing, or curious about the app, I'd love to hear from you.</p>
+        <h2>Want help finding your recovery bottleneck?</h2>
+        <p>I'm building a concierge Recovery Audit for high performers who wake up tired despite tracking sleep, HRV, stress, and routines. If that sounds familiar, I'd love to compare notes.</p>
         <div class="cta-links">
           <a href="https://calendly.com/logancoffman/30min" target="_blank" class="cta-link">
             <div class="cta-link-icon" style="background:var(--accent-dim);color:var(--accent)">📅</div>
-            <div class="cta-link-text"><h4>Book a free 30-min call</h4><p>Talk about your sleep, HRV, or the app</p></div>
+            <div class="cta-link-text"><h4>Book a free 30-min call</h4><p>Talk through your sleep, recovery data, and next experiment</p></div>
           </a>
           <a href="mailto:logan@30daysleepcoach.com" class="cta-link">
             <div class="cta-link-icon" style="background:var(--accent-dim);color:var(--accent)">✉</div>
@@ -1092,9 +1187,9 @@ textarea::placeholder { color: var(--muted2); }
       </div>
       <div>
         <div class="signup-card">
-          <h3>Start tracking tonight</h3>
-          <p>Create a free account to log sleep, HRV, and habits — and see what patterns emerge over 30 days.</p>
-          <button class="signup-btn" onclick="openEmailSignup()">Sign up with email →</button>
+          <h3>Start your Recovery Audit</h3>
+          <p>Create an account to begin the 30-day audit and turn your data, symptoms, and routines into a focused recovery plan.</p>
+          <button class="signup-btn" onclick="openEmailSignup()">Start with email →</button>
         </div>
       </div>
     </div>
@@ -1119,7 +1214,8 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 // ── STATE ────────────────────────────────────────────
 let entries = [];
 let hrvChart = null, scatterChart = null, sleepChart = null;
-let isAuthenticated = false, tagsInitialized = false;
+let isAuthenticated = false, tagsInitialized = false, appEntering = false;
+let ouraOAuthConnected = false, ouraStatusChecked = false;
 const posSelected = new Set(), negSelected = new Set();
 
 // ── SUPABASE ─────────────────────────────────────────
@@ -1187,7 +1283,9 @@ function resetSignupForm() {
 }
 
 function showSignupScreen() {
-  document.getElementById('landing-page').classList.remove('exit','gone');
+  const lp = document.getElementById('landing-page');
+  lp.classList.remove('exit','gone');
+  lp.scrollTo({ top: 0, behavior: 'smooth' });
   document.getElementById('landing-welcome').style.display = 'none';
   document.getElementById('landing-password').style.display = 'none';
   document.getElementById('landing-signup').style.display = 'block';
@@ -1201,12 +1299,10 @@ function showSignupScreen() {
 function showEmailSignupForm() {
   document.getElementById('su-email-toggle').style.display = 'none';
   document.getElementById('su-email-form').style.display = 'block';
-  setTimeout(() => document.getElementById('su-name').focus(), 50);
+  setTimeout(() => document.getElementById('su-name').focus({ preventScroll: true }), 50);
 }
 
 function openEmailSignup() {
-  const lp = document.getElementById('landing-page');
-  if (lp) lp.scrollIntoView({ behavior: 'smooth', block: 'start' });
   showSignupScreen();
   showEmailSignupForm();
 }
@@ -1270,19 +1366,15 @@ async function trySignup() {
     document.getElementById('auth-signup-success').style.display = 'block';
 
     // Brief pause to show success state, then enter app
-    setTimeout(() => {
-      isAuthenticated = true;
-      hideLandingPage();
-      updateModeUI();
-      initApp();
-      // Show welcome card for new users
-      showNewUserWelcome();
-    }, 1200);
+    setTimeout(() => enterApp({ showWelcome: true }), 1200);
 
   } catch(e) {
     const msg = (e.message || '').toLowerCase();
+    console.error('Signup failed:', e);
     if (msg.includes('already registered') || msg.includes('already been registered')) {
       errEl.textContent = 'account exists — log in instead';
+    } else if (msg.includes('confirmation email')) {
+      errEl.textContent = 'confirmation email failed — try again or log in if you already have an account';
     } else {
       errEl.textContent = e.message || 'signup failed — please try again';
     }
@@ -1317,13 +1409,15 @@ function showNewUserWelcome() {
 }
 
 function showPasswordScreen() {
-  document.getElementById('landing-page').classList.remove('exit','gone');
+  const lp = document.getElementById('landing-page');
+  lp.classList.remove('exit','gone');
+  lp.scrollTo({ top: 0, behavior: 'smooth' });
   document.getElementById('landing-welcome').style.display = 'none';
   document.getElementById('landing-signup').style.display = 'none';
   document.getElementById('landing-password').style.display = 'block';
   document.body.classList.add('landing-active');
   if (window.showLandingCanvas) window.showLandingCanvas();
-  setTimeout(() => document.getElementById('auth-email').focus(), 50);
+  setTimeout(() => document.getElementById('auth-email').focus({ preventScroll: true }), 50);
 }
 
 function hideLandingPage() {
@@ -1352,9 +1446,7 @@ async function tryAuth() {
   try {
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) throw error;
-    isAuthenticated = true;
-    hideLandingPage();
-    updateModeUI(); initApp();
+    await enterApp({ showWelcome: true });
   } catch(e) {
     const inp = document.getElementById('auth-password-input');
     inp.classList.add('shake');
@@ -1385,6 +1477,7 @@ function updateModeUI() {
   const badge = document.getElementById('mode-badge');
   const saveBtn = document.getElementById('save-btn');
 
+  if (isAuthenticated) document.body.classList.remove('landing-active');
   badge.textContent = isAuthenticated ? '● signed in' : '● public';
   badge.className = 'mode-badge ' + (isAuthenticated ? 'private' : 'public');
   badge.title = isAuthenticated ? 'Click to sign out' : 'Click to sign in';
@@ -1401,6 +1494,22 @@ async function initApp() {
   updateDayBadge();
   updateModeUI();
   renderHistory();
+}
+
+async function enterApp({ showWelcome = false } = {}) {
+  if (appEntering) return;
+  appEntering = true;
+  isAuthenticated = true;
+  try {
+    hideLandingPage();
+    updateModeUI();
+    await initApp();
+    await handleOuraOAuthReturn();
+    if (!ouraStatusChecked) await checkOuraOAuthStatus();
+    if (showWelcome && entries.length === 0) showNewUserWelcome();
+  } finally {
+    appEntering = false;
+  }
 }
 
 function setupTags() {
@@ -1426,12 +1535,145 @@ function updateDayBadge() {
   document.getElementById('day-badge').textContent = `Day ${Math.min(Math.floor((Date.now()-first)/86400000)+1, 30)}`;
 }
 
+function getBaselineEntryCount() {
+  const days = new Set(entries.map(e => e.date).filter(Boolean));
+  return Math.min(days.size, 7);
+}
+
+function getRecentBaselineEntries() {
+  return [...entries]
+    .filter(e => e && e.ts)
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, 7)
+    .reverse();
+}
+
+function avg(values) {
+  const nums = values.map(Number).filter(v => Number.isFinite(v));
+  if (!nums.length) return null;
+  return Math.round(nums.reduce((sum, v) => sum + v, 0) / nums.length);
+}
+
+function extractCheckinScore(entry, label) {
+  const note = entry?.note || '';
+  const match = note.match(new RegExp(`${label}\\\\s+(\\\\d{1,2})\\\\/10`, 'i'));
+  if (!match) return null;
+  const value = Number(match[1]);
+  return value >= 1 && value <= 10 ? value : null;
+}
+
+function setBaselineValue(id, value, suffix = '') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = value === null || value === undefined ? '—' : `${value}${suffix}`;
+}
+
+function formatShortDate(entry) {
+  const source = entry?.ts ? new Date(entry.ts) : new Date(entry?.date || '');
+  if (Number.isNaN(source.getTime())) return (entry?.date || '').replace(/,.*/, '');
+  return source.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
+}
+
+function renderBaselineTrend(recent) {
+  const wrap = document.getElementById('baseline-trend-wrap');
+  if (!wrap) return;
+  const points = recent.filter(e => e.sleep_score).map(e => ({
+    label: formatShortDate(e),
+    value: Number(e.sleep_score)
+  }));
+
+  if (points.length < 2) {
+    wrap.className = 'baseline-trend-empty';
+    wrap.innerHTML = 'Add 2+ sleep scores to see your trend';
+    return;
+  }
+
+  let min = Math.max(0, Math.min(...points.map(p => p.value)) - 5);
+  let max = Math.min(100, Math.max(...points.map(p => p.value)) + 5);
+  if (max - min < 10) {
+    min = Math.max(0, min - 5);
+    max = Math.min(100, max + 5);
+  }
+  const width = 520;
+  const height = 150;
+  const padX = 26;
+  const padTop = 30;
+  const padBottom = 32;
+  const padY = padTop;
+  const usableW = width - padX * 2;
+  const usableH = height - padTop - padBottom;
+  const coords = points.map((p, i) => {
+    const x = padX + (points.length === 1 ? usableW : (i / (points.length - 1)) * usableW);
+    const y = padY + (1 - ((p.value - min) / (max - min || 1))) * usableH;
+    return { ...p, x, y };
+  });
+  const path = coords.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const floorY = height - padBottom;
+  const area = `${path} L${coords[coords.length - 1].x.toFixed(1)},${floorY} L${coords[0].x.toFixed(1)},${floorY} Z`;
+  const dots = coords.map(p => `
+    <g>
+      <text x="${p.x.toFixed(1)}" y="${Math.max(12, p.y - 9).toFixed(1)}" text-anchor="middle" fill="#18181b" font-size="11" font-weight="600" font-family="Geist, sans-serif">${p.value}</text>
+      <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.6" fill="#ffffff" stroke="#4f7cff" stroke-width="2"><title>${p.label}: ${p.value}</title></circle>
+      <text x="${p.x.toFixed(1)}" y="${(height - 8).toFixed(1)}" text-anchor="middle" fill="#a1a1aa" font-size="9" font-family="Geist Mono, monospace">${p.label}</text>
+    </g>
+  `).join('');
+  const guideLines = [min, Math.round((min + max) / 2), max].map(v => {
+    const y = padY + (1 - ((v - min) / (max - min || 1))) * usableH;
+    return `<line x1="${padX}" y1="${y.toFixed(1)}" x2="${width - padX}" y2="${y.toFixed(1)}" stroke="rgba(0,0,0,0.045)" stroke-width="1"></line>`;
+  }).join('');
+
+  wrap.className = '';
+  wrap.innerHTML = `
+    <svg class="baseline-trend-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" aria-label="Last 7 sleep score trend">
+      <defs>
+        <linearGradient id="baselineTrendFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#4f7cff" stop-opacity="0.18"/>
+          <stop offset="100%" stop-color="#4f7cff" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      ${guideLines}
+      <path d="${area}" fill="url(#baselineTrendFill)"></path>
+      <path d="${path}" fill="none" stroke="#4f7cff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+      ${dots}
+    </svg>
+  `;
+}
+
+function renderBaselineProgress() {
+  const recent = getRecentBaselineEntries();
+  const count = Math.min(recent.length, 7);
+  const nextDay = Math.min(count + 1, 7);
+  const title = document.getElementById('baseline-progress-title');
+  const pill = document.getElementById('baseline-progress-pill');
+  const fill = document.getElementById('baseline-meter-fill');
+  const body = document.querySelector('.baseline-progress-body');
+  if (title) title.textContent = count >= 7 ? 'Current 7-day baseline' : `Building baseline: Day ${nextDay} of 7`;
+  if (body) body.textContent = count >= 7
+    ? 'This is your rolling baseline from the latest 7 entries. Each new check-in updates it.'
+    : 'Oura handles the objective signals. Add quick check-ins until you have enough signal for a current baseline.';
+  if (pill) pill.textContent = `${count} of 7 entries`;
+  if (fill) fill.style.width = `${Math.round((count / 7) * 100)}%`;
+  const sleepAvg = avg(recent.map(e => e.sleep_score));
+  const hrvAvg = avg(recent.map(e => e.hrv));
+  const energyAvg = avg(recent.map(e => extractCheckinScore(e, 'Energy')));
+  const stressAvg = avg(recent.map(e => extractCheckinScore(e, 'Stress/load')));
+  setBaselineValue('baseline-avg-sleep', sleepAvg);
+  setBaselineValue('baseline-avg-hrv', hrvAvg, hrvAvg === null ? '' : 'ms');
+  setBaselineValue('baseline-avg-energy', energyAvg, energyAvg === null ? '' : '/10');
+  setBaselineValue('baseline-avg-stress', stressAvg, stressAvg === null ? '' : '/10');
+  renderBaselineTrend(recent);
+}
+
 // ── VIEWS ────────────────────────────────────────────
 function setView(v, btn) {
   document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
   btn.classList.add('active');
+  if (v==='log') {
+    renderBaselineProgress();
+    hydrateLogFromOura();
+  }
   if (v==='history') renderHistory();
   if (v==='insights') renderInsights();
   if (v==='coach') renderCoach();
@@ -1440,12 +1682,15 @@ function setView(v, btn) {
     const badge = document.getElementById('stress-new-badge');
     if (badge) badge.style.display = 'none';
     initOuraView();
-    if (getOuraToken() && !ouraStressData.length) fetchOuraData();
+    checkOuraOAuthStatus().then(() => {
+      if (hasOuraConnection() && !ouraStressData.length) fetchOuraData();
+    });
   }
 }
 
 function refreshCurrentView() {
   const id = document.querySelector('.view.active')?.id?.replace('view-','');
+  if (id==='log') { renderBaselineProgress(); renderLogOuraAutofill(); }
   if (id==='history') renderHistory();
   if (id==='insights') renderInsights();
   if (id==='coach') renderCoach();
@@ -1555,11 +1800,11 @@ function renderCoachEmpty(entryCount) {
   return `
     <div class="coach-card" style="padding:32px 24px;text-align:center">
       <div class="coach-empty-title">Still learning your patterns</div>
-      <div class="coach-empty-body">The Coach starts surfacing recommendations after about a week of entries, so it has enough signal to work with.</div>
+      <div class="coach-empty-body">The Coach uses your last 14 days of logs and starts surfacing recommendations after about 7 recent entries.</div>
 
       <div class="coach-progress-pill">
         <div class="coach-progress-bar"><div class="coach-progress-fill" id="coach-progress-fill"></div></div>
-        <div class="coach-progress-text">${safeCount} of 7 entries</div>
+        <div class="coach-progress-text">${safeCount} of 7 recent entries</div>
       </div>
     </div>
   `;
@@ -1629,34 +1874,161 @@ function renderCoachError() {
 function updateGauge() {
   const v = parseInt(document.getElementById('hrv').value);
   const num = document.getElementById('gauge-num'), zone = document.getElementById('gauge-zone');
+  if (!num || !zone) return;
   if (!v||v<10) { num.style.color='var(--muted2)'; num.textContent='—'; zone.style.background='var(--surface2)'; zone.style.color='var(--muted2)'; zone.textContent='enter HRV above'; return; }
   num.textContent = v;
   const cfg = v>=55?['var(--green)','var(--green-dim)','good']:v>=40?['var(--muted)','var(--surface2)','moderate']:['var(--red)','var(--red-dim)','low'];
   num.style.color=cfg[0]; zone.style.background=cfg[1]; zone.style.color=cfg[0]; zone.textContent=cfg[2];
 }
 
+function getLatestByDay(items) {
+  return (items || []).slice().sort((a, b) => String(b.day || '').localeCompare(String(a.day || '')))[0] || null;
+}
+
+function getByDay(items, day) {
+  return (items || []).find(item => item.day === day) || null;
+}
+
+function getLatestSleepSession(day) {
+  const sessions = (ouraSleepSessionData || []).filter(item => !day || item.day === day);
+  return sessions
+    .slice()
+    .sort((a, b) => String(b.bedtime_end || b.bedtime_start || b.day || '').localeCompare(String(a.bedtime_end || a.bedtime_start || a.day || '')))[0] || null;
+}
+
+function getSleepSessionForDailySleep(dailySleep) {
+  if (!dailySleep) return getLatestSleepSession();
+  return getLatestSleepSession(dailySleep.day) || getLatestSleepSession();
+}
+
+function formatOuraTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function toTimeInputValue(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function normalizeNumber(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function renderLogOuraAutofill() {
+  const note = document.getElementById('oura-fill-note');
+  if (!note) return;
+
+  if (!hasOuraConnection()) {
+    setText('oura-fill-sleep', '—');
+    setText('oura-fill-hrv', '—');
+    setText('oura-fill-bedtime', '—');
+    setText('oura-fill-waketime', '—');
+    setText('oura-fill-stress-recovery', '—');
+    note.textContent = 'Connect Oura in the Stress tab, then this section will prefill today’s objective data.';
+    return;
+  }
+
+  const latestSleep = getLatestByDay(ouraSleepData);
+  const latestSession = getSleepSessionForDailySleep(latestSleep);
+  const latestStress = latestSleep ? getByDay(ouraStressData, latestSleep.day) : getLatestByDay(ouraStressData);
+
+  if (!latestSleep && !latestSession && !latestStress) {
+    setText('oura-fill-sleep', 'Loading');
+    setText('oura-fill-hrv', '—');
+    setText('oura-fill-bedtime', '—');
+    setText('oura-fill-waketime', '—');
+    setText('oura-fill-stress-recovery', '—');
+    note.textContent = 'Looking for recent Oura data. If this stays blank, refresh Oura from the Stress tab.';
+    return;
+  }
+
+  const sleepScore = latestSleep?.score ?? latestSession?.score ?? null;
+  const hrv = normalizeNumber(latestSession?.average_hrv ?? latestSession?.hrv ?? latestSleep?.average_hrv ?? latestSleep?.hrv);
+  const bedtimeSource = latestSession?.bedtime_start || latestSleep?.bedtime_start || latestSleep?.bedtimeStart || latestSleep?.sleep_start || latestSleep?.start_datetime;
+  const wakeSource = latestSession?.bedtime_end || latestSleep?.bedtime_end || latestSleep?.bedtimeEnd || latestSleep?.sleep_end || latestSleep?.end_datetime;
+  const bedLabel = formatOuraTime(bedtimeSource);
+  const wakeLabel = formatOuraTime(wakeSource);
+  const stressMin = latestStress ? Math.round((latestStress.stress_high || 0) / 60) : null;
+  const recoveryMin = latestStress ? Math.round((latestStress.recovery_high || 0) / 60) : null;
+
+  setText('oura-fill-sleep', sleepScore ?? '—');
+  setText('oura-fill-hrv', hrv !== null ? `${Math.round(hrv)}ms` : '—');
+  setText('oura-fill-bedtime', bedLabel || '—');
+  setText('oura-fill-waketime', wakeLabel || '—');
+  setText('oura-fill-stress-recovery', stressMin !== null || recoveryMin !== null ? `${stressMin ?? '—'}m / ${recoveryMin ?? '—'}m` : '—');
+
+  if (sleepScore !== null && !document.getElementById('sleep_score').value) document.getElementById('sleep_score').value = sleepScore;
+  if (hrv !== null && !document.getElementById('hrv').value) document.getElementById('hrv').value = Math.round(hrv);
+  if (bedtimeSource && !document.getElementById('bedtime').value) document.getElementById('bedtime').value = toTimeInputValue(bedtimeSource);
+  if (wakeSource && !document.getElementById('waketime').value) document.getElementById('waketime').value = toTimeInputValue(wakeSource);
+
+  const dayLabel = latestSleep?.day || latestSession?.day || latestStress?.day || 'latest day';
+  note.textContent = `Using Oura data from ${dayLabel}. Stress / recovery is shown as high-stress minutes / recovery minutes.`;
+}
+
+async function hydrateLogFromOura() {
+  renderLogOuraAutofill();
+  if (hasOuraConnection() && !ouraSleepData.length && !ouraSleepSessionData.length && !ouraStressData.length) {
+    await fetchOuraData();
+  }
+}
+
+function readScale(id) {
+  const value = parseInt(document.getElementById(id)?.value, 10);
+  return value >= 1 && value <= 10 ? value : null;
+}
+
+function buildCheckinNote() {
+  const manualNote = document.getElementById('note').value.trim();
+  const parts = [
+    ['Energy', readScale('energy_level')],
+    ['Mood', readScale('mood_level')],
+    ['Stress/load', readScale('stress_level')],
+    ['Focus', readScale('focus_level')],
+    ['Soreness', readScale('soreness_level')]
+  ].filter(([, value]) => value !== null).map(([label, value]) => `${label} ${value}/10`);
+
+  const checkin = parts.length ? `Check-in: ${parts.join(', ')}.` : '';
+  return [checkin, manualNote].filter(Boolean).join('\n\n') || null;
+}
+
 // ── SAVE ─────────────────────────────────────────────
 async function saveEntry() {
   if (!isAuthenticated) return;
   const hrv = parseInt(document.getElementById('hrv').value);
-  if (!hrv||hrv<10||hrv>120) { alert('Please enter a valid HRV reading (10–120 ms)'); return; }
+  if (hrv && (hrv < 10 || hrv > 120)) { alert('HRV from Oura looks invalid. Refresh Oura and try again.'); return; }
   const btn = document.getElementById('save-btn');
   btn.disabled = true; btn.textContent = 'Saving…';
   const entry = {
     date: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
-    ts: Date.now(), hrv,
+    ts: Date.now(), hrv: hrv || null,
     sleep_score: parseInt(document.getElementById('sleep_score').value)||null,
     bedtime: document.getElementById('bedtime').value||null,
     waketime: document.getElementById('waketime').value||null,
     night_wake: document.getElementById('night_wake').value||null,
-    note: document.getElementById('note').value.trim()||null,
+    note: buildCheckinNote(),
     pos: [...posSelected], neg: [...negSelected]
   };
   try {
     const saved = await sbFetch('entries', {method:'POST', body:JSON.stringify(entry)});
     entries.unshift(saved?.[0] || entry);
     updateDayBadge();
-    ['hrv','sleep_score','bedtime','waketime','night_wake','note'].forEach(id => document.getElementById(id).value='');
+    renderBaselineProgress();
+    ['hrv','sleep_score','bedtime','waketime','night_wake','note','energy_level','mood_level','stress_level','focus_level','soreness_level'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
     posSelected.clear(); negSelected.clear();
     document.querySelectorAll('.tag').forEach(t=>t.classList.remove('pos-on','neg-on'));
     updateGauge();
@@ -1670,7 +2042,7 @@ async function saveEntry() {
       console.warn('Briefing cache bust failed:', err);
     }
   } catch(e) { alert('Save failed — check connection and try again.'); console.error(e); }
-  btn.disabled = false; btn.textContent = "Save today's entry →";
+  btn.disabled = false; btn.textContent = "Save baseline check-in →";
 }
 
 // ── DELETE ────────────────────────────────────────────
@@ -1723,7 +2095,7 @@ function renderSleepChart() {
 }
 
 function renderHRVChart() {
-  const data=[...entries].reverse().slice(-30);
+  const data=[...entries].reverse().slice(-30).filter(e=>e.hrv);
   if (hrvChart){hrvChart.destroy();hrvChart=null;}
   if (!data.length) return;
   const labels=data.map(e=>e.date.replace(/,.*/,'')), vals=data.map(e=>e.hrv), colors=vals.map(v=>hc(v));
@@ -1733,7 +2105,7 @@ function renderHRVChart() {
 function renderWeekly() {
   if (!entries.length){document.getElementById('weekly-view').innerHTML='<div class="empty-state">No entries yet</div>';return;}
   const weeks={};
-  entries.forEach(e=>{const d=new Date(e.ts),s=new Date(d);s.setDate(d.getDate()-d.getDay());const k=s.toLocaleDateString('en-US',{month:'short',day:'numeric'});if(!weeks[k])weeks[k]=[];weeks[k].push(e.hrv);});
+  entries.filter(e=>e.hrv).forEach(e=>{const d=new Date(e.ts),s=new Date(d);s.setDate(d.getDate()-d.getDay());const k=s.toLocaleDateString('en-US',{month:'short',day:'numeric'});if(!weeks[k])weeks[k]=[];weeks[k].push(e.hrv);});
   const html=Object.keys(weeks).slice(0,8).reverse().map(k=>{const avg=Math.round(weeks[k].reduce((a,b)=>a+b,0)/weeks[k].length),pct=Math.round((avg/80)*100),col=hc(avg);return`<div class="weekly-row"><span style="font-family:'Geist Mono',monospace;font-size:0.7rem;color:var(--muted)">w/ ${k}</span><div class="week-bar-bg"><div class="week-bar-fill" style="width:${pct}%;background:${col}44"></div></div><span style="font-family:'Geist Mono',monospace;font-size:0.78rem;color:${col}">${avg} ms</span><span style="font-size:0.7rem;color:var(--muted2)">${weeks[k].length}d</span></div>`;}).join('');
   document.getElementById('weekly-view').innerHTML=html||'<div class="empty-state">No data yet</div>';
 }
@@ -1742,11 +2114,11 @@ function renderLog() {
   if (!entries.length){document.getElementById('log-body').innerHTML=`<tr><td colspan="7" style="color:var(--muted2);padding:2rem 0;font-size:0.75rem;font-family:'Geist Mono',monospace;text-align:center">No entries yet</td></tr>`;return;}
   const wl=v=>({none:'Slept through',back_quick:'Brief wake',back_slow:'30min+ awake',couldnt_sleep:'3am — 2hr+'}[v]||'—');
   document.getElementById('log-body').innerHTML=entries.map(e=>{
-    const col=hc(e.hrv);
+    const col=e.hrv ? hc(e.hrv) : 'var(--muted2)';
     const chips=[...(e.pos||[]).slice(0,3).map(f=>`<span class="factor-chip" style="color:var(--green);border-color:rgba(22,163,74,.2)">${f.replace(/_/g,' ')}</span>`),...(e.neg||[]).slice(0,2).map(f=>`<span class="factor-chip" style="color:var(--red);border-color:rgba(220,38,38,.2)">${f.replace(/_/g,' ')}</span>`)].join('');
     const del=isAuthenticated?`<td><button class="delete-btn" onclick="deleteEntry('${e.id}',${e.ts})">×</button></td>`:'<td></td>';
     const note=isAuthenticated?(e.note||''):'';
-    return`<tr><td style="color:var(--muted);font-family:'Geist Mono',monospace;font-size:0.7rem;white-space:nowrap">${e.date}</td><td><span class="hrv-pill" style="background:${col}18;color:${col}">${e.hrv}</span></td><td style="font-family:'Geist Mono',monospace;font-size:0.75rem;color:var(--muted)">${e.sleep_score||'—'}</td><td style="font-size:0.75rem;color:var(--muted)">${wl(e.night_wake)}</td><td>${chips}</td><td style="font-size:0.75rem;color:var(--muted2);max-width:140px;line-height:1.4">${note}</td>${del}</tr>`;
+    return`<tr><td style="color:var(--muted);font-family:'Geist Mono',monospace;font-size:0.7rem;white-space:nowrap">${e.date}</td><td><span class="hrv-pill" style="background:${col}18;color:${col}">${e.hrv||'—'}</span></td><td style="font-family:'Geist Mono',monospace;font-size:0.75rem;color:var(--muted)">${e.sleep_score||'—'}</td><td style="font-size:0.75rem;color:var(--muted)">${wl(e.night_wake)}</td><td>${chips}</td><td style="font-size:0.75rem;color:var(--muted2);max-width:140px;line-height:1.4">${note}</td>${del}</tr>`;
   }).join('');
 }
 
@@ -2032,7 +2404,7 @@ function renderInsightCards(){
 const FACTORS=[{key:'morning_light',label:'Morning light',type:'pos'},{key:'no_alcohol',label:'No alcohol',type:'pos'},{key:'fluids_off',label:'Fluids off 7pm',type:'pos'},{key:'early_meal',label:'Last meal <7pm',type:'pos'},{key:'exercise',label:'Exercise',type:'pos'},{key:'breathwork',label:'Breathwork',type:'pos'},{key:'ashwagandha',label:'Ashwagandha',type:'pos'},{key:'mag_glycinate',label:'Mag glycinate',type:'pos'},{key:'phosphatidylserine',label:'Phosphatidylserine',type:'pos'},{key:'cool_room',label:'Cool room',type:'pos'},{key:'no_screens',label:'No screens 1hr',type:'pos'},{key:'alcohol',label:'Alcohol',type:'neg'},{key:'late_meal',label:'Late meal 8pm+',type:'neg'},{key:'high_stress',label:'High stress',type:'neg'},{key:'late_caffeine',label:'Caffeine after 2pm',type:'neg'},{key:'emotional_stress',label:'Emotional stress',type:'neg'}];
 
 function buildHeatmapRows(metric, unit, colorFn) {
-  const pool = metric==='sleep_score' ? entries.filter(e=>e.sleep_score) : entries;
+  const pool = metric==='sleep_score' ? entries.filter(e=>e.sleep_score) : entries.filter(e=>e[metric]);
   if(pool.length<3) return null;
   const gAvg = ga(pool.map(e=>e[metric]));
   const items=FACTORS.map((f,factorIndex)=>{
@@ -2083,10 +2455,104 @@ function renderScatter(){
 // ── OURA INTEGRATION ─────────────────────────────────
 const OURA_PROXY = SUPABASE_URL + '/functions/v1/oura-proxy';
 let ouraStressChart = null, ouraHrChart = null;
-let ouraStressData = [], ouraSleepData = [], ouraHrData = [];
+let ouraStressData = [], ouraSleepData = [], ouraSleepSessionData = [], ouraHrData = [];
 
 function getOuraToken() {
   try { return localStorage.getItem('oura_access_token') || ''; } catch(e) { return ''; }
+}
+
+function hasOuraConnection() {
+  return !!getOuraToken() || ouraOAuthConnected;
+}
+
+async function getSessionAccessToken() {
+  const { data: { session } } = await sb.auth.getSession();
+  return session?.access_token || '';
+}
+
+async function checkOuraOAuthStatus() {
+  if (!isAuthenticated) return false;
+  const accessToken = await getSessionAccessToken();
+  if (!accessToken) return false;
+
+  try {
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/oura-oauth-status`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'apikey': SUPABASE_PUBLISHABLE_KEY,
+      },
+    });
+    const data = await r.json().catch(() => ({}));
+    ouraOAuthConnected = !!data.connected;
+    ouraStatusChecked = true;
+    initOuraView();
+    return ouraOAuthConnected;
+  } catch (e) {
+    console.warn('Oura status check failed:', e);
+    ouraStatusChecked = true;
+    return false;
+  }
+}
+
+async function startOuraOAuth() {
+  const btn = document.getElementById('oura-oauth-btn');
+  const errEl = document.getElementById('oura-token-error');
+  const accessToken = await getSessionAccessToken();
+  if (!accessToken) {
+    if (errEl) errEl.textContent = 'Please log in before connecting Oura.';
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Opening Oura…'; }
+  if (errEl) errEl.textContent = '';
+
+  try {
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/oura-oauth-start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'apikey': SUPABASE_PUBLISHABLE_KEY,
+      },
+      body: JSON.stringify({
+        redirect_to: window.location.href,
+      }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || !data.authorizeUrl) {
+      throw new Error(data.error || 'Could not start Oura OAuth.');
+    }
+    window.location.href = data.authorizeUrl;
+  } catch (e) {
+    if (errEl) errEl.textContent = e.message || 'Could not start Oura OAuth.';
+    if (btn) { btn.disabled = false; btn.textContent = 'Connect with Oura →'; }
+  }
+}
+
+async function handleOuraOAuthReturn() {
+  const params = new URLSearchParams(window.location.search);
+  const connected = params.get('oura') === 'connected';
+  const error = params.get('oura_error');
+
+  if (!connected && !error) return;
+
+  params.delete('oura');
+  params.delete('oura_error');
+  const cleanUrl = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}${window.location.hash}`;
+  window.history.replaceState({}, '', cleanUrl);
+
+  const note = document.getElementById('oura-fill-note');
+  const errEl = document.getElementById('oura-token-error');
+  if (connected) {
+    ouraOAuthConnected = true;
+    ouraStatusChecked = true;
+    initOuraView();
+    if (note) note.textContent = 'Oura connected. Loading your latest recovery data…';
+    await fetchOuraData();
+  } else if (errEl) {
+    errEl.textContent = `Oura connection failed: ${error}`;
+  }
 }
 
 function saveOuraToken() {
@@ -2101,20 +2567,37 @@ function saveOuraToken() {
   fetchOuraData();
 }
 
-function disconnectOura() {
+async function disconnectOura() {
+  const accessToken = await getSessionAccessToken();
+  if (accessToken && ouraOAuthConnected) {
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/oura-oauth-disconnect`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': SUPABASE_PUBLISHABLE_KEY,
+        },
+      });
+    } catch (e) {
+      console.warn('Oura server disconnect failed:', e);
+    }
+  }
   try { localStorage.removeItem('oura_access_token'); } catch(e) {}
-  ouraStressData = []; ouraSleepData = []; ouraHrData = [];
+  ouraOAuthConnected = false;
+  ouraStatusChecked = false;
+  ouraStressData = []; ouraSleepData = []; ouraSleepSessionData = []; ouraHrData = [];
   if (ouraStressChart) { ouraStressChart.destroy(); ouraStressChart = null; }
   if (ouraHrChart) { ouraHrChart.destroy(); ouraHrChart = null; }
   initOuraView();
+  renderLogOuraAutofill();
 }
 
 function initOuraView() {
-  const token = getOuraToken();
+  const connectedByAnyPath = hasOuraConnection();
   const setup = document.getElementById('oura-setup');
   const connected = document.getElementById('oura-connected');
   if (!setup || !connected) return;
-  if (token) {
+  if (connectedByAnyPath) {
     setup.style.display = 'none';
     connected.style.display = 'block';
   } else {
@@ -2124,21 +2607,31 @@ function initOuraView() {
 }
 
 async function ouraFetch(endpoint, startDate, endDate) {
-  const token = getOuraToken();
-  if (!token) throw new Error('No Oura token');
+  const manualToken = getOuraToken();
+  const accessToken = await getSessionAccessToken();
+  if (!manualToken && !accessToken) throw new Error('No Oura connection');
   const r = await fetch(
     `${SUPABASE_URL}/functions/v1/oura-proxy`,
     {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+        'Authorization': `Bearer ${accessToken || SUPABASE_PUBLISHABLE_KEY}`,
         'apikey': SUPABASE_PUBLISHABLE_KEY
       },
-      body: JSON.stringify({ endpoint, start_date: startDate, end_date: endDate, oura_token: token })
+      body: JSON.stringify({
+        endpoint,
+        start_date: startDate,
+        end_date: endDate,
+        ...(manualToken ? { oura_token: manualToken } : {})
+      })
     }
   );
-  if (!r.ok) throw new Error(`Oura API error: ${r.status}`);
+  if (!r.ok) {
+    let detail = '';
+    try { detail = await r.text(); } catch(e) {}
+    throw new Error(`Oura API error: ${r.status}${detail ? ' — ' + detail.slice(0, 180) : ''}`);
+  }
   return r.json();
 }
 
@@ -2153,24 +2646,29 @@ async function fetchOuraData() {
   const endStr = end.toISOString().slice(0, 10);
 
   try {
-    const [stressRes, sleepRes, hrRes] = await Promise.all([
+    const [stressRes, dailySleepRes, sleepSessionRes, hrRes] = await Promise.all([
       ouraFetch('daily_stress', startStr, endStr),
       ouraFetch('daily_sleep', startStr, endStr),
+      ouraFetch('sleep', startStr, endStr),
       ouraFetch('heartrate', new Date(end.getTime() - 86400000).toISOString().slice(0,10), endStr)
     ]);
 
     ouraStressData = stressRes?.data || [];
-    ouraSleepData = sleepRes?.data || [];
+    ouraSleepData = dailySleepRes?.data || [];
+    ouraSleepSessionData = sleepSessionRes?.data || [];
     ouraHrData = hrRes?.data || [];
 
     renderOuraStats();
     renderOuraStressChart();
     renderOuraHrChart();
     renderOuraDailyLog();
+    renderLogOuraAutofill();
   } catch(e) {
     console.error('Oura fetch error:', e);
     const log = document.getElementById('oura-daily-log');
     if (log) log.innerHTML = '<div class="empty-state">Error loading Oura data. Check your token or try again.</div>';
+    const fillNote = document.getElementById('oura-fill-note');
+    if (fillNote) fillNote.textContent = e.message || 'Error loading Oura data. Check your token or try again.';
   }
 
   if (btn) { btn.textContent = 'Refresh data'; btn.disabled = false; }
@@ -2368,16 +2866,11 @@ function initOuraNewBadge() {
 (async function checkSession() {
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
-    isAuthenticated = true;
-    hideLandingPage();
-    updateModeUI(); initApp();
+    await enterApp();
   }
   sb.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_IN' && session && !isAuthenticated) {
-      isAuthenticated = true;
-      hideLandingPage();
-      updateModeUI();
-      initApp();
+      enterApp({ showWelcome: true });
     }
     if (event === 'SIGNED_OUT') {
       isAuthenticated = false;
@@ -2396,6 +2889,7 @@ initOuraNewBadge();
   const TREND_DURATION = 2800;
   const TREND_PAUSE = 1500;
   const TREND_FADE = 600;
+  let trendStarted = false;
 
   function generateTrendData() {
     return Array.from({ length: 30 }, (_, i) => {
@@ -2420,15 +2914,24 @@ initOuraNewBadge();
   }
 
   function initTrendSVG() {
+    if (trendStarted) return;
     const lineEl = document.getElementById('trend-line-path');
     const fillEl = document.getElementById('trend-fill-path');
     const dotEl  = document.getElementById('trend-dot');
     const svgEl  = document.getElementById('trend-svg');
     if (!lineEl) return;
+    trendStarted = true;
 
     let data = generateTrendData();
     let phase = 'drawing';
     let phaseStart = null;
+
+    const initial = buildSVGPaths(data, 1);
+    lineEl.setAttribute('d', initial.line);
+    fillEl.setAttribute('d', initial.fill);
+    dotEl.setAttribute('cx', initial.dot[0]);
+    dotEl.setAttribute('cy', initial.dot[1]);
+    svgEl.style.opacity = 1;
 
     function animate(ts) {
       if (!phaseStart) phaseStart = ts;
@@ -2455,10 +2958,17 @@ initOuraNewBadge();
     requestAnimationFrame(animate);
   }
 
-  window.addEventListener('load', () => {
+  function initLandingHero() {
     document.body.classList.add('landing-active');
     setTimeout(initTrendSVG, 50);
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initLandingHero, { once: true });
+  } else {
+    initLandingHero();
+  }
+  window.addEventListener('load', initLandingHero, { once: true });
 })();
 
 // ── LANDING CANVAS ANIMATION ─────────────────────────

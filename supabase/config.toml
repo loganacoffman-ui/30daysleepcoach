@@ -1,0 +1,2 @@
+[functions.oura-oauth-callback]
+verify_jwt = false
