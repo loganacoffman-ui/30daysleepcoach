@@ -184,19 +184,32 @@ textarea { width: 100%; background: var(--surface2); border: 1px solid var(--bor
 textarea:focus { border-color: var(--border2); }
 textarea::placeholder { color: var(--muted2); }
 
-.note-wrap { position: relative; margin-bottom: 1rem; }
-.note-wrap textarea { margin-bottom: 0; padding-right: 48px; }
-.mic-btn { position: absolute; right: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 4px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--muted); padding: 5px 8px; font-family: 'Geist', sans-serif; font-size: 0.7rem; cursor: pointer; transition: background .15s, color .15s, border-color .15s; line-height: 1; }
-.mic-btn:hover { background: var(--surface3); color: var(--text); }
-.mic-btn.recording { background: var(--red-dim); border-color: var(--red); color: var(--red); }
-.mic-btn.recording .mic-icon svg { display: none; }
-.mic-btn.recording .mic-icon::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--red); animation: mic-pulse 1s ease-in-out infinite; }
-.mic-btn.transcribing { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); pointer-events: none; opacity: 0.8; }
-.mic-btn.transcribing .mic-icon svg { display: none; }
-.mic-btn.transcribing .mic-icon::before { content: ''; display: inline-block; width: 12px; height: 12px; border: 2px solid var(--accent); border-top-color: transparent; border-radius: 50%; animation: mic-spin 0.6s linear infinite; }
-@keyframes mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-@keyframes mic-spin { to { transform: rotate(360deg); } }
-.mic-error { position: absolute; right: 0; bottom: -20px; font-size: 0.68rem; color: var(--red); font-family: 'Geist Mono', monospace; opacity: 0; transition: opacity .3s; }
+.note-wrap { position: relative; margin-bottom: 1.25rem; }
+.note-wrap textarea { margin-bottom: 0; }
+.voice-note-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.mic-btn { position: relative; display: inline-flex; align-items: center; gap: 10px; background: none; border: none; cursor: pointer; padding: 0; font-family: 'Geist', sans-serif; outline: none; -webkit-tap-highlight-color: transparent; }
+.mic-btn:disabled { cursor: not-allowed; }
+.mic-orb { position: relative; width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, #c8b6ff 0%, #7c6fef 30%, #4f7cff 60%, #a5b4fc 100%); box-shadow: 0 2px 12px rgba(79,124,255,0.18); transition: transform 0.25s ease, box-shadow 0.25s ease; overflow: hidden; flex-shrink: 0; }
+.mic-orb::before { content: ''; position: absolute; inset: 0; border-radius: 50%; background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E"); opacity: 0.5; mix-blend-mode: overlay; pointer-events: none; }
+.mic-orb svg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.15)); z-index: 1; }
+.mic-btn:hover .mic-orb { transform: scale(1.08); box-shadow: 0 4px 20px rgba(79,124,255,0.28); }
+.mic-label { font-size: 0.82rem; font-weight: 500; color: var(--muted); letter-spacing: 0.01em; transition: color 0.2s; white-space: nowrap; }
+.mic-btn:hover .mic-label { color: var(--text); }
+
+.mic-btn.recording .mic-orb { background: linear-gradient(135deg, #fca5a5 0%, #ef4444 35%, #dc2626 65%, #f87171 100%); box-shadow: 0 0 0 0 rgba(239,68,68,0.4); animation: orb-pulse 1.8s ease-in-out infinite; }
+.mic-btn.recording .mic-label { color: var(--red); font-weight: 600; }
+.mic-btn.recording .mic-orb svg { display: none; }
+.mic-btn.recording .mic-orb::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 16px; height: 16px; border-radius: 3px; background: #fff; z-index: 1; }
+
+.mic-btn.transcribing .mic-orb { background: linear-gradient(135deg, #a5b4fc 0%, #4f7cff 40%, #818cf8 70%, #c7d2fe 100%); animation: orb-shimmer 2s ease-in-out infinite; }
+.mic-btn.transcribing .mic-label { color: var(--accent); }
+.mic-btn.transcribing .mic-orb svg { display: none; }
+.mic-btn.transcribing .mic-orb::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 20px; height: 20px; border: 2.5px solid rgba(255,255,255,0.9); border-top-color: transparent; border-radius: 50%; animation: mic-spin 0.7s linear infinite; z-index: 1; }
+
+@keyframes orb-pulse { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.35); transform: scale(1); } 50% { box-shadow: 0 0 0 10px rgba(239,68,68,0); transform: scale(1.06); } 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); transform: scale(1); } }
+@keyframes orb-shimmer { 0%, 100% { opacity: 1; filter: brightness(1); } 50% { opacity: 0.85; filter: brightness(1.12); } }
+@keyframes mic-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+.mic-error { font-size: 0.7rem; color: var(--red); font-family: 'Geist Mono', monospace; opacity: 0; transition: opacity .3s; margin-left: 4px; }
 .mic-error.visible { opacity: 1; }
 .save-btn { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-family: 'Geist', sans-serif; font-weight: 500; font-size: 0.95rem; padding: 15px 80px; cursor: pointer; transition: all .2s; display: block; margin: 0 auto; }
 .save-btn:hover { background: #3d6ae8; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79,124,255,0.2); }
@@ -1001,14 +1014,16 @@ textarea::placeholder { color: var(--muted2); }
     </div>
   </div>
   <div class="note-wrap">
-    <textarea id="note" rows="2" placeholder="Voice note / anything unusual: travel, argument, big workout, late dinner, weird dream, or anything that might explain today."></textarea>
-    <button type="button" class="mic-btn" id="mic-btn" onclick="toggleVoiceNote()" title="Record voice note">
-      <span class="mic-icon" id="mic-icon">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="1" width="6" height="11" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-      </span>
-      <span class="mic-label" id="mic-label"></span>
-    </button>
-    <div class="mic-error" id="mic-error"></div>
+    <textarea id="note" rows="2" placeholder="Anything unusual: travel, argument, big workout, late dinner, weird dream, or anything that might explain today."></textarea>
+    <div class="voice-note-row">
+      <button type="button" class="mic-btn" id="mic-btn" onclick="toggleVoiceNote()" title="Record voice note">
+        <div class="mic-orb" id="mic-orb">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="1" width="6" height="11" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </div>
+        <span class="mic-label" id="mic-label">Record voice note</span>
+      </button>
+      <div class="mic-error" id="mic-error"></div>
+    </div>
   </div>
   <button class="save-btn" id="save-btn" onclick="saveEntry()">Save baseline check-in →</button>
   <div id="save-confirm" style="text-align:center;margin-top:.75rem;font-size:0.75rem;font-family:'Geist Mono',monospace;color:var(--green);letter-spacing:.04em;opacity:0;transition:opacity .3s"></div>
@@ -2234,12 +2249,12 @@ function setMicState(state) {
   const err = document.getElementById('mic-error');
   btn.classList.remove('recording', 'transcribing');
   btn.disabled = false;
-  label.textContent = '';
+  label.textContent = 'Record voice note';
   err.classList.remove('visible');
   err.textContent = '';
   if (state === 'recording') {
     btn.classList.add('recording');
-    label.textContent = 'Stop';
+    label.textContent = 'Stop recording';
   } else if (state === 'transcribing') {
     btn.classList.add('transcribing');
     btn.disabled = true;
