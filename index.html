@@ -1218,10 +1218,52 @@ let isAuthenticated = false, tagsInitialized = false, appEntering = false;
 let ouraOAuthConnected = false, ouraStatusChecked = false;
 const posSelected = new Set(), negSelected = new Set();
 
+// ── SHARED UTILITIES ─────────────────────────────────
+
+function emptyState(msg) {
+  return `<div class="empty-state">${msg}</div>`;
+}
+
+async function getAuthToken() {
+  const session = (await sb.auth.getSession()).data.session;
+  return session ? session.access_token : SUPABASE_KEY;
+}
+
+function todayCacheKey(prefix) {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${prefix}_${y}-${m}-${day}`;
+}
+
+function setLandingScreen(screen) {
+  document.getElementById('landing-welcome').style.display = screen === 'welcome' ? 'block' : 'none';
+  document.getElementById('landing-password').style.display = screen === 'password' ? 'block' : 'none';
+  document.getElementById('landing-signup').style.display = screen === 'signup' ? 'block' : 'none';
+}
+
+function resetChart(chart) {
+  if (chart) chart.destroy();
+  return null;
+}
+
+const CHART_TICK_FONT = { size: 9, family: 'Geist Mono' };
+const CHART_TICK_COLOR = '#a1a1aa';
+const CHART_GRID_STYLE = { color: 'rgba(0,0,0,0.04)' };
+const CHART_BORDER_HIDE = { display: false };
+
+function chartTooltipDefaults(labelCb) {
+  return { callbacks: { label: labelCb }, backgroundColor: '#ffffff', borderColor: 'rgba(0,0,0,0.08)', borderWidth: 1, titleColor: '#71717a', bodyColor: '#18181b', bodyFont: { family: 'Geist Mono', size: 11 } };
+}
+
+function chartAxis(extra) {
+  return { ticks: { font: CHART_TICK_FONT, color: CHART_TICK_COLOR }, grid: CHART_GRID_STYLE, border: CHART_BORDER_HIDE, ...extra };
+}
+
 // ── SUPABASE ─────────────────────────────────────────
 async function sbFetch(path, opts = {}) {
-  const session = (await sb.auth.getSession()).data.session;
-  const token = session ? session.access_token : SUPABASE_KEY;
+  const token = await getAuthToken();
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation', ...(opts.headers||{}) }
@@ -1238,27 +1280,23 @@ async function loadEntries() {
 }
 
 // ── AUTH ─────────────────────────────────────────────
-function showWelcomeScreen() {
-  document.getElementById('landing-welcome').style.display = 'block';
-  document.getElementById('landing-password').style.display = 'none';
-  document.getElementById('landing-signup').style.display = 'none';
-  document.getElementById('auth-error').textContent = '';
+function clearAuthInputs() {
   const emailEl = document.getElementById('auth-email');
   const passEl = document.getElementById('auth-password-input');
   if (emailEl) emailEl.value = '';
   if (passEl) passEl.value = '';
+  document.getElementById('auth-error').textContent = '';
+}
+
+function showWelcomeScreen() {
+  setLandingScreen('welcome');
+  clearAuthInputs();
 }
 
 function goHome() {
   document.getElementById('landing-page').classList.remove('exit','gone');
-  document.getElementById('landing-welcome').style.display = 'block';
-  document.getElementById('landing-password').style.display = 'none';
-  document.getElementById('landing-signup').style.display = 'none';
-  document.getElementById('auth-error').textContent = '';
-  const emailEl = document.getElementById('auth-email');
-  const passEl = document.getElementById('auth-password-input');
-  if (emailEl) emailEl.value = '';
-  if (passEl) passEl.value = '';
+  setLandingScreen('welcome');
+  clearAuthInputs();
   document.body.classList.add('landing-active');
   const lnav = document.querySelector('.landing-nav');
   const lban = document.querySelector('.landing-banner');
@@ -1286,9 +1324,7 @@ function showSignupScreen() {
   const lp = document.getElementById('landing-page');
   lp.classList.remove('exit','gone');
   lp.scrollTo({ top: 0, behavior: 'smooth' });
-  document.getElementById('landing-welcome').style.display = 'none';
-  document.getElementById('landing-password').style.display = 'none';
-  document.getElementById('landing-signup').style.display = 'block';
+  setLandingScreen('signup');
   document.getElementById('auth-signup-form-wrap').style.display = 'block';
   document.getElementById('auth-signup-success').style.display = 'none';
   resetSignupForm();
@@ -1307,23 +1343,17 @@ function openEmailSignup() {
   showEmailSignupForm();
 }
 
-async function tryGoogleSignup() {
+async function tryOAuthSignup(provider) {
   try {
-    const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+    const { error } = await sb.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.origin } });
     if (error) throw error;
   } catch(e) {
-    alert('Google sign-in is not configured yet. Please use email signup for now.');
+    alert(`${provider.charAt(0).toUpperCase() + provider.slice(1)} sign-in is not configured yet. Please use email signup for now.`);
   }
 }
 
-async function tryAppleSignup() {
-  try {
-    const { error } = await sb.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo: window.location.origin } });
-    if (error) throw error;
-  } catch(e) {
-    alert('Apple sign-in is not configured yet. Please use email signup for now.');
-  }
-}
+async function tryGoogleSignup() { return tryOAuthSignup('google'); }
+async function tryAppleSignup() { return tryOAuthSignup('apple'); }
 
 async function trySignup() {
   const name = document.getElementById('su-name').value.trim();
@@ -1412,9 +1442,7 @@ function showPasswordScreen() {
   const lp = document.getElementById('landing-page');
   lp.classList.remove('exit','gone');
   lp.scrollTo({ top: 0, behavior: 'smooth' });
-  document.getElementById('landing-welcome').style.display = 'none';
-  document.getElementById('landing-signup').style.display = 'none';
-  document.getElementById('landing-password').style.display = 'block';
+  setLandingScreen('password');
   document.body.classList.add('landing-active');
   if (window.showLandingCanvas) window.showLandingCanvas();
   setTimeout(() => document.getElementById('auth-email').focus({ preventScroll: true }), 50);
@@ -1704,13 +1732,15 @@ function onCoachTabClick(btn) {
   setView('coach', btn);
 }
 
-function initCoachNewBadge() {
-  const badge = document.getElementById('coach-new-badge');
+function initNewBadge(badgeId, storageKey) {
+  const badge = document.getElementById(badgeId);
   if (!badge) return;
   let seen = false;
-  try { seen = localStorage.getItem('coach_tab_seen') === 'true'; } catch (e) {}
+  try { seen = localStorage.getItem(storageKey) === 'true'; } catch (e) {}
   badge.style.display = seen ? 'none' : '';
 }
+
+function initCoachNewBadge() { initNewBadge('coach-new-badge', 'coach_tab_seen'); }
 
 function getEntryCountLast14Days(userId) {
   const cutoff = Date.now() - 14 * 86400000;
@@ -2064,10 +2094,14 @@ function hc(v) { return v>=55?'#16a34a':v>=40?'#52525b':'#dc2626'; }
 // ── HISTORY ──────────────────────────────────────────
 function renderHistory() { renderStats(); renderSleepChart(); renderHRVChart(); renderWeekly(); renderLog(); }
 
+function emptyStatRow() {
+  return ['avg sleep score','best','lowest','7-day trend'].map(lbl=>`<div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">${lbl}</div></div>`).join('');
+}
+
 function renderStats() {
-  if (!entries.length) { document.getElementById('stat-row').innerHTML='<div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">avg sleep score</div></div><div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">best</div></div><div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">lowest</div></div><div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">7-day trend</div></div>'; return; }
+  if (!entries.length) { document.getElementById('stat-row').innerHTML=emptyStatRow(); return; }
   const svs=entries.filter(e=>e.sleep_score).map(e=>e.sleep_score);
-  if (!svs.length) { document.getElementById('stat-row').innerHTML='<div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">avg sleep score</div></div><div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">best</div></div><div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">lowest</div></div><div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">7-day trend</div></div>'; return; }
+  if (!svs.length) { document.getElementById('stat-row').innerHTML=emptyStatRow(); return; }
   const avg=Math.round(svs.reduce((a,b)=>a+b,0)/svs.length), mx=Math.max(...svs), mn=Math.min(...svs);
   const { delta: tr, count: trCount } = calc7DayTrend();
   const trs = tr !== null ? (tr>=0?'+':'')+tr+' pts' : '—';
@@ -2091,26 +2125,26 @@ function sc(v) { return v>=75?'#16a34a':v>=60?'#52525b':'#dc2626'; }
 
 function renderSleepChart() {
   const data=[...entries].reverse().slice(-30).filter(e=>e.sleep_score);
-  if (sleepChart){sleepChart.destroy();sleepChart=null;}
+  sleepChart=resetChart(sleepChart);
   if (!data.length) return;
   const labels=data.map(e=>e.date.replace(/,.*/,'')), vals=data.map(e=>e.sleep_score), colors=vals.map(v=>sc(v));
-  sleepChart=new Chart(document.getElementById('sleep-chart'),{type:'bar',data:{labels,datasets:[{data:vals,backgroundColor:colors.map(c=>c+'33'),borderColor:colors,borderWidth:1.5,borderRadius:3,borderSkipped:false},{type:'line',data:Array(vals.length).fill(85),borderColor:'#4f7cff33',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw}`},backgroundColor:'#ffffff',borderColor:'rgba(0,0,0,0.08)',borderWidth:1,titleColor:'#71717a',bodyColor:'#18181b',bodyFont:{family:'Geist Mono',size:11}}},scales:{x:{ticks:{font:{size:9,family:'Geist Mono'},color:'#a1a1aa',maxRotation:0,autoSkip:true,maxTicksLimit:10},grid:{display:false},border:{display:false}},y:{min:40,max:100,ticks:{font:{size:9,family:'Geist Mono'},color:'#a1a1aa'},grid:{color:'rgba(0,0,0,0.04)'},border:{display:false}}}}});
+  sleepChart=new Chart(document.getElementById('sleep-chart'),{type:'bar',data:{labels,datasets:[{data:vals,backgroundColor:colors.map(c=>c+'33'),borderColor:colors,borderWidth:1.5,borderRadius:3,borderSkipped:false},{type:'line',data:Array(vals.length).fill(85),borderColor:'#4f7cff33',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:chartTooltipDefaults(c=>` ${c.raw}`)},scales:{x:chartAxis({ticks:{font:CHART_TICK_FONT,color:CHART_TICK_COLOR,maxRotation:0,autoSkip:true,maxTicksLimit:10},grid:{display:false}}),y:chartAxis({min:40,max:100})}}});
 }
 
 function renderHRVChart() {
   const data=[...entries].reverse().slice(-30).filter(e=>e.hrv);
-  if (hrvChart){hrvChart.destroy();hrvChart=null;}
+  hrvChart=resetChart(hrvChart);
   if (!data.length) return;
   const labels=data.map(e=>e.date.replace(/,.*/,'')), vals=data.map(e=>e.hrv), colors=vals.map(v=>hc(v));
-  hrvChart=new Chart(document.getElementById('hrv-chart'),{type:'bar',data:{labels,datasets:[{data:vals,backgroundColor:colors.map(c=>c+'33'),borderColor:colors,borderWidth:1.5,borderRadius:3,borderSkipped:false},{type:'line',data:Array(vals.length).fill(65),borderColor:'#4f7cff33',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw} ms`},backgroundColor:'#ffffff',borderColor:'rgba(0,0,0,0.08)',borderWidth:1,titleColor:'#71717a',bodyColor:'#18181b',bodyFont:{family:'Geist Mono',size:11}}},scales:{x:{ticks:{font:{size:9,family:'Geist Mono'},color:'#a1a1aa',maxRotation:0,autoSkip:true,maxTicksLimit:10},grid:{display:false},border:{display:false}},y:{min:15,max:Math.max(80,Math.max(...vals)+10),ticks:{font:{size:9,family:'Geist Mono'},color:'#a1a1aa'},grid:{color:'rgba(0,0,0,0.04)'},border:{display:false}}}}});
+  hrvChart=new Chart(document.getElementById('hrv-chart'),{type:'bar',data:{labels,datasets:[{data:vals,backgroundColor:colors.map(c=>c+'33'),borderColor:colors,borderWidth:1.5,borderRadius:3,borderSkipped:false},{type:'line',data:Array(vals.length).fill(65),borderColor:'#4f7cff33',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:chartTooltipDefaults(c=>` ${c.raw} ms`)},scales:{x:chartAxis({ticks:{font:CHART_TICK_FONT,color:CHART_TICK_COLOR,maxRotation:0,autoSkip:true,maxTicksLimit:10},grid:{display:false}}),y:chartAxis({min:15,max:Math.max(80,Math.max(...vals)+10)})}}});
 }
 
 function renderWeekly() {
-  if (!entries.length){document.getElementById('weekly-view').innerHTML='<div class="empty-state">No entries yet</div>';return;}
+  if (!entries.length){document.getElementById('weekly-view').innerHTML=emptyState('No entries yet');return;}
   const weeks={};
   entries.filter(e=>e.hrv).forEach(e=>{const d=new Date(e.ts),s=new Date(d);s.setDate(d.getDate()-d.getDay());const k=s.toLocaleDateString('en-US',{month:'short',day:'numeric'});if(!weeks[k])weeks[k]=[];weeks[k].push(e.hrv);});
   const html=Object.keys(weeks).slice(0,8).reverse().map(k=>{const avg=Math.round(weeks[k].reduce((a,b)=>a+b,0)/weeks[k].length),pct=Math.round((avg/80)*100),col=hc(avg);return`<div class="weekly-row"><span style="font-family:'Geist Mono',monospace;font-size:0.7rem;color:var(--muted)">w/ ${k}</span><div class="week-bar-bg"><div class="week-bar-fill" style="width:${pct}%;background:${col}44"></div></div><span style="font-family:'Geist Mono',monospace;font-size:0.78rem;color:${col}">${avg} ms</span><span style="font-size:0.7rem;color:var(--muted2)">${weeks[k].length}d</span></div>`;}).join('');
-  document.getElementById('weekly-view').innerHTML=html||'<div class="empty-state">No data yet</div>';
+  document.getElementById('weekly-view').innerHTML=html||emptyState('No data yet');
 }
 
 function renderLog() {
@@ -2133,21 +2167,8 @@ const COACH_ENDPOINT = SUPABASE_URL + '/functions/v1/sleep-coach';
 let chatHistory = [];
 let briefingGenerated = false;
 
-function getBriefingCacheKey() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `briefing_${y}-${m}-${day}`;
-}
-
-function getRecommendationCacheKey() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `recommendation_${y}-${m}-${day}`;
-}
+function getBriefingCacheKey() { return todayCacheKey('briefing'); }
+function getRecommendationCacheKey() { return todayCacheKey('recommendation'); }
 
 function getSleepDataForCoach() {
   // Send last 14 days of data to the coach
@@ -2172,8 +2193,7 @@ function parseMarkdown(text) {
 }
 
 async function streamCoachResponse(messages, targetEl, onDone, cacheKey) {
-  const session = (await sb.auth.getSession()).data.session;
-  const token = session ? session.access_token : SUPABASE_KEY;
+  const token = await getAuthToken();
 
   const res = await fetch(COACH_ENDPOINT, {
     method: 'POST',
@@ -2225,8 +2245,7 @@ async function streamCoachResponse(messages, targetEl, onDone, cacheKey) {
 }
 
 async function fetchCoachRecommendation() {
-  const session = (await sb.auth.getSession()).data.session;
-  const token = session ? session.access_token : SUPABASE_KEY;
+  const token = await getAuthToken();
 
   const res = await fetch(COACH_ENDPOINT, {
     method: 'POST',
@@ -2341,11 +2360,11 @@ async function sendChat(text) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-function ga(arr){return arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length):null;}
+function ga(arr){return avg(arr);}
 
 function renderInsightCards(){
   const scored=entries.filter(e=>e.sleep_score);
-  if(scored.length<3){document.getElementById('insights-top').innerHTML='<div class="insight-card" style="grid-column:1/-1"><div class="empty-state">Log at least 3 days to unlock insights</div></div>';return;}
+  if(scored.length<3){document.getElementById('insights-top').innerHTML=`<div class="insight-card" style="grid-column:1/-1">${emptyState('Log at least 3 days to unlock insights')}</div>`;return;}
   const cards=[];
 
   // ── 7-day trend ──
@@ -2401,7 +2420,7 @@ function renderInsightCards(){
   // ── Distance to target (90) ──
   cards.push(`<div class="insight-card"><div class="card-label">Distance to target</div><div class="insight-headline" style="color:${avg>=90?'var(--green)':'var(--accent)'}">${avg>=90?'On target':'+'+Math.max(0,90-avg)+' pts'}</div><div class="insight-subtext">Current avg ${avg} → target 90+. ${scored.length} days logged.</div></div>`);
 
-  document.getElementById('insights-top').innerHTML=cards.join('')||'<div class="insight-card" style="grid-column:1/-1"><div class="empty-state">More varied data needed</div></div>';
+  document.getElementById('insights-top').innerHTML=cards.join('')||`<div class="insight-card" style="grid-column:1/-1">${emptyState('More varied data needed')}</div>`;
 }
 
 const FACTORS=[{key:'morning_light',label:'Morning light',type:'pos'},{key:'no_alcohol',label:'No alcohol',type:'pos'},{key:'fluids_off',label:'Fluids off 7pm',type:'pos'},{key:'early_meal',label:'Last meal <7pm',type:'pos'},{key:'exercise',label:'Exercise',type:'pos'},{key:'breathwork',label:'Breathwork',type:'pos'},{key:'ashwagandha',label:'Ashwagandha',type:'pos'},{key:'mag_glycinate',label:'Mag glycinate',type:'pos'},{key:'phosphatidylserine',label:'Phosphatidylserine',type:'pos'},{key:'cool_room',label:'Cool room',type:'pos'},{key:'no_screens',label:'No screens 1hr',type:'pos'},{key:'alcohol',label:'Alcohol',type:'neg'},{key:'late_meal',label:'Late meal 8pm+',type:'neg'},{key:'high_stress',label:'High stress',type:'neg'},{key:'late_caffeine',label:'Caffeine after 2pm',type:'neg'},{key:'emotional_stress',label:'Emotional stress',type:'neg'}];
@@ -2438,21 +2457,21 @@ function buildHeatmapRows(metric, unit, colorFn) {
 function renderHeatmapSleep(){
   const el=document.getElementById('heatmap-sleep');
   const html=buildHeatmapRows('sleep_score','pts',sc);
-  el.innerHTML=html||'<div class="empty-state">Log at least 3 days with sleep scores to build the heatmap</div>';
+  el.innerHTML=html||emptyState('Log at least 3 days with sleep scores to build the heatmap');
 }
 
 function renderHeatmapHRV(){
   const el=document.getElementById('heatmap-hrv');
   const html=buildHeatmapRows('hrv','ms',hc);
-  el.innerHTML=html||'<div class="empty-state">Log at least 3 days to build the heatmap</div>';
+  el.innerHTML=html||emptyState('Log at least 3 days to build the heatmap');
 }
 
 function renderScatter(){
   const pts=entries.filter(e=>e.sleep_score&&e.hrv);
-  if(scatterChart){scatterChart.destroy();scatterChart=null;}
-  if(pts.length<3){const w=document.querySelector('#scatter-chart');if(w)w.parentElement.innerHTML='<div class="empty-state">Need 3+ entries with sleep scores to plot correlation</div>';return;}
+  scatterChart=resetChart(scatterChart);
+  if(pts.length<3){const w=document.querySelector('#scatter-chart');if(w)w.parentElement.innerHTML=emptyState('Need 3+ entries with sleep scores to plot correlation');return;}
   const data=pts.map(e=>({x:e.hrv,y:e.sleep_score}));
-  scatterChart=new Chart(document.getElementById('scatter-chart'),{type:'scatter',data:{datasets:[{data,backgroundColor:data.map(p=>p.x>=55?'#16a34a44':p.x>=40?'#52525b33':'#dc262644'),pointRadius:5,pointHoverRadius:7}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` HRV ${c.parsed.x} ms  ·  Sleep ${c.parsed.y}`},backgroundColor:'#ffffff',borderColor:'rgba(0,0,0,0.08)',borderWidth:1,bodyColor:'#18181b',bodyFont:{family:'Geist Mono',size:11}}},scales:{x:{title:{display:true,text:'HRV (ms)',color:'#a1a1aa',font:{size:9,family:'Geist Mono'}},ticks:{color:'#a1a1aa',font:{size:9,family:'Geist Mono'}},grid:{color:'rgba(0,0,0,0.04)'},border:{display:false}},y:{title:{display:true,text:'Sleep score',color:'#a1a1aa',font:{size:9,family:'Geist Mono'}},ticks:{color:'#a1a1aa',font:{size:9,family:'Geist Mono'}},grid:{color:'rgba(0,0,0,0.04)'},border:{display:false}}}}});
+  scatterChart=new Chart(document.getElementById('scatter-chart'),{type:'scatter',data:{datasets:[{data,backgroundColor:data.map(p=>p.x>=55?'#16a34a44':p.x>=40?'#52525b33':'#dc262644'),pointRadius:5,pointHoverRadius:7}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:chartTooltipDefaults(c=>` HRV ${c.parsed.x} ms  ·  Sleep ${c.parsed.y}`)},scales:{x:chartAxis({title:{display:true,text:'HRV (ms)',color:CHART_TICK_COLOR,font:CHART_TICK_FONT}}),y:chartAxis({title:{display:true,text:'Sleep score',color:CHART_TICK_COLOR,font:CHART_TICK_FONT}})}}});
 }
 
 // ── OURA INTEGRATION ─────────────────────────────────
@@ -2593,8 +2612,8 @@ async function disconnectOura() {
   ouraOAuthConnected = false;
   ouraStatusChecked = false;
   ouraStressData = []; ouraSleepData = []; ouraSleepSessionData = []; ouraHrData = [];
-  if (ouraStressChart) { ouraStressChart.destroy(); ouraStressChart = null; }
-  if (ouraHrChart) { ouraHrChart.destroy(); ouraHrChart = null; }
+  ouraStressChart = resetChart(ouraStressChart);
+  ouraHrChart = resetChart(ouraHrChart);
   initOuraView();
   renderLogOuraAutofill();
 }
@@ -2674,7 +2693,7 @@ async function fetchOuraData() {
   } catch(e) {
     console.error('Oura fetch error:', e);
     const log = document.getElementById('oura-daily-log');
-    if (log) log.innerHTML = '<div class="empty-state">Error loading Oura data. Check your token or try again.</div>';
+    if (log) log.innerHTML = emptyState('Error loading Oura data. Check your token or try again.');
     const fillNote = document.getElementById('oura-fill-note');
     if (fillNote) fillNote.textContent = e.message || 'Error loading Oura data. Check your token or try again.';
   }
@@ -2684,15 +2703,15 @@ async function fetchOuraData() {
 
 function renderOuraStats() {
   if (!ouraStressData.length) return;
-  const avgStress = Math.round(ouraStressData.reduce((s,d) => s + (d.stress_high||0), 0) / ouraStressData.length / 60);
-  const avgRecovery = Math.round(ouraStressData.reduce((s,d) => s + (d.recovery_high||0), 0) / ouraStressData.length / 60);
+  const avgStress = avg(ouraStressData.map(d => Math.round((d.stress_high||0) / 60)));
+  const avgRecovery = avg(ouraStressData.map(d => Math.round((d.recovery_high||0) / 60)));
   document.getElementById('oura-avg-stress').textContent = avgStress + ' min';
   document.getElementById('oura-avg-stress').style.color = avgStress > 120 ? 'var(--red)' : 'var(--text)';
   document.getElementById('oura-avg-recovery').textContent = avgRecovery + ' min';
   document.getElementById('oura-avg-recovery').style.color = avgRecovery > 0 ? 'var(--green)' : 'var(--muted2)';
 
   if (ouraSleepData.length) {
-    const avgSleep = Math.round(ouraSleepData.reduce((s,d) => s + (d.score||0), 0) / ouraSleepData.length);
+    const avgSleep = avg(ouraSleepData.map(d => d.score||0));
     document.getElementById('oura-avg-sleep').textContent = avgSleep;
     document.getElementById('oura-avg-sleep').style.color = avgSleep >= 85 ? 'var(--green)' : avgSleep >= 70 ? 'var(--text)' : 'var(--red)';
     const best = ouraSleepData.reduce((b,d) => (d.score||0) > (b.score||0) ? d : b, ouraSleepData[0]);
@@ -2703,7 +2722,7 @@ function renderOuraStats() {
 }
 
 function renderOuraStressChart() {
-  if (ouraStressChart) { ouraStressChart.destroy(); ouraStressChart = null; }
+  ouraStressChart = resetChart(ouraStressChart);
   const canvas = document.getElementById('oura-stress-chart');
   if (!canvas || !ouraStressData.length) return;
 
@@ -2742,16 +2761,16 @@ function renderOuraStressChart() {
         tooltip:{ callbacks:{ label: ctx => ctx.dataset.yAxisID==='y1' ? 'Sleep: '+ctx.parsed.y : ctx.dataset.label+': '+ctx.parsed.y+' min' } }
       },
       scales:{
-        y:{ position:'left', title:{display:true,text:'Minutes',font:{size:10,family:'Geist Mono'}}, beginAtZero:true, grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:9,family:'Geist Mono'},color:'#a1a1aa'}, border:{display:false} },
-        y1:{ position:'right', title:{display:true,text:'Sleep score',font:{size:10,family:'Geist Mono'}}, min:50, max:100, grid:{drawOnChartArea:false}, ticks:{font:{size:9,family:'Geist Mono'},color:'#a1a1aa'}, border:{display:false} },
-        x:{ ticks:{autoSkip:false,maxRotation:45,font:{size:9,family:'Geist Mono'},color:'#a1a1aa'}, grid:{display:false}, border:{display:false} }
+        y: chartAxis({ position:'left', title:{display:true,text:'Minutes',font:{size:10,family:'Geist Mono'}}, beginAtZero:true }),
+        y1: chartAxis({ position:'right', title:{display:true,text:'Sleep score',font:{size:10,family:'Geist Mono'}}, min:50, max:100, grid:{drawOnChartArea:false} }),
+        x: chartAxis({ ticks:{autoSkip:false,maxRotation:45,font:CHART_TICK_FONT,color:CHART_TICK_COLOR}, grid:{display:false} })
       }
     }
   });
 }
 
 function renderOuraHrChart() {
-  if (ouraHrChart) { ouraHrChart.destroy(); ouraHrChart = null; }
+  ouraHrChart = resetChart(ouraHrChart);
   const canvas = document.getElementById('oura-hr-chart');
   if (!canvas || !ouraHrData.length) {
     const empty = document.getElementById('oura-hr-empty');
@@ -2822,8 +2841,8 @@ function renderOuraHrChart() {
         tooltip:{ callbacks:{ label: ctx => ctx.parsed.y + ' bpm (' + ctx.dataset.label + ')' } }
       },
       scales:{
-        x:{ type:'linear', min:0, max:24, ticks:{ callback: v => { const h = Math.floor(v); const ampm = h >= 12 ? 'pm' : 'am'; const h12 = h === 0 ? 12 : h > 12 ? h-12 : h; return h12+ampm; }, stepSize:3, font:{size:9,family:'Geist Mono'}, color:'#a1a1aa' }, grid:{color:'rgba(0,0,0,0.04)'}, border:{display:false}, title:{display:true,text:'Time (Pacific)',font:{size:10,family:'Geist Mono'}} },
-        y:{ min:45, max:130, title:{display:true,text:'Heart rate (bpm)',font:{size:10,family:'Geist Mono'}}, grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:9,family:'Geist Mono'},color:'#a1a1aa'}, border:{display:false} }
+        x: chartAxis({ type:'linear', min:0, max:24, ticks:{ callback: v => { const h = Math.floor(v); const ampm = h >= 12 ? 'pm' : 'am'; const h12 = h === 0 ? 12 : h > 12 ? h-12 : h; return h12+ampm; }, stepSize:3, font:CHART_TICK_FONT, color:CHART_TICK_COLOR }, title:{display:true,text:'Time (Pacific)',font:{size:10,family:'Geist Mono'}} }),
+        y: chartAxis({ min:45, max:130, title:{display:true,text:'Heart rate (bpm)',font:{size:10,family:'Geist Mono'}} })
       }
     }
   });
@@ -2857,17 +2876,10 @@ function renderOuraDailyLog() {
     </div>`;
   }).join('');
 
-  el.innerHTML = rows || '<div class="empty-state">No stress data found</div>';
+  el.innerHTML = rows || emptyState('No stress data found');
 }
 
-// Init Oura badge
-function initOuraNewBadge() {
-  const badge = document.getElementById('stress-new-badge');
-  if (!badge) return;
-  let seen = false;
-  try { seen = localStorage.getItem('stress_tab_seen') === 'true'; } catch(e) {}
-  badge.style.display = seen ? 'none' : '';
-}
+function initOuraNewBadge() { initNewBadge('stress-new-badge', 'stress_tab_seen'); }
 
 // ── BOOT ─────────────────────────────────────────────
 // Check for existing Supabase session on load
