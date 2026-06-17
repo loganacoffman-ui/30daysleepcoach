@@ -1,10 +1,17 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+const ALLOWED_ORIGINS = ['https://30daysleepcoach.com', 'https://www.30daysleepcoach.com', 'http://localhost:8000'];
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('Origin') || '';
+  const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  };
+}
 
 const ALLOWED_ENDPOINTS = new Set([
   'daily_stress',
@@ -14,23 +21,24 @@ const ALLOWED_ENDPOINTS = new Set([
 ]);
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405);
+  if (req.method !== 'POST') return jsonResponse(req, { error: 'Method not allowed' }, 405);
 
   try {
     const { endpoint, start_date, end_date, oura_token } = await req.json();
 
     if (!ALLOWED_ENDPOINTS.has(endpoint)) {
-      return jsonResponse({ error: 'Unsupported Oura endpoint' }, 400);
+      return jsonResponse(req, { error: 'Unsupported Oura endpoint' }, 400);
     }
 
     if (!start_date || !end_date) {
-      return jsonResponse({ error: 'Missing endpoint date range' }, 400);
+      return jsonResponse(req, { error: 'Missing endpoint date range' }, 400);
     }
 
     const accessToken = oura_token || await getOAuthAccessToken(req);
     if (!accessToken) {
-      return jsonResponse({ error: 'No Oura connection found' }, 401);
+      return jsonResponse(req, { error: 'No Oura connection found' }, 401);
     }
 
     const url = new URL(`https://api.ouraring.com/v2/usercollection/${endpoint}`);
@@ -53,7 +61,7 @@ Deno.serve(async (req) => {
       },
     });
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : 'Unknown Oura proxy error' }, 500);
+    return jsonResponse(req, { error: error instanceof Error ? error.message : 'Unknown Oura proxy error' }, 500);
   }
 });
 
@@ -131,11 +139,11 @@ function mustEnv(name: string) {
   return value;
 }
 
-function jsonResponse(body: Record<string, unknown>, status: number) {
+function jsonResponse(req: Request, body: Record<string, unknown>, status: number) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
-      ...corsHeaders,
+      ...getCorsHeaders(req),
       'Content-Type': 'application/json',
     },
   });

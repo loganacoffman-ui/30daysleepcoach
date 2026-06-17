@@ -11,8 +11,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" integrity="sha384-JWEyvHh+lRf0sN/WWY+QTQwX+CyWqmNg4tkc8GQzAMEtR2wGNrCJlvnu1lHD1kDm" crossorigin="anonymous"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1204,6 +1204,7 @@ textarea::placeholder { color: var(--muted2); }
 
 <script>
 // ── CONFIG ──────────────────────────────────────────
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 const SUPABASE_URL = 'https://qfnouotdhfltgvjhfbld.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmbm91b3RkaGZsdGd2amhmYmxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NTEyODksImV4cCI6MjA4OTUyNzI4OX0.fI0QrHf1qutTlLtRH8JLoiv5UnHwjqulnKGPDtH1610';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_1csWLFwsCRBlVAXag1rcHQ_Jpz9t2_l';
@@ -1819,10 +1820,6 @@ async function renderCoach() {
 }
 
 function renderCoachReady(rec) {
-  const esc = (s) => String(s || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
 
   const generatedAt = rec?.generated_at ? formatGeneratedAt(rec.generated_at) : '';
 
@@ -2176,7 +2173,7 @@ function renderWeekly() {
   if (!entries.length){document.getElementById('weekly-view').innerHTML=emptyState('No entries yet');return;}
   const weeks={};
   entries.filter(e=>e.hrv).forEach(e=>{const d=new Date(e.ts),s=new Date(d);s.setDate(d.getDate()-d.getDay());const k=s.toLocaleDateString('en-US',{month:'short',day:'numeric'});if(!weeks[k])weeks[k]=[];weeks[k].push(e.hrv);});
-  const html=Object.keys(weeks).slice(0,8).reverse().map(k=>{const avg=Math.round(weeks[k].reduce((a,b)=>a+b,0)/weeks[k].length),pct=Math.round((avg/80)*100),col=hc(avg);return`<div class="weekly-row"><span style="font-family:'Geist Mono',monospace;font-size:0.7rem;color:var(--muted)">w/ ${k}</span><div class="week-bar-bg"><div class="week-bar-fill" style="width:${pct}%;background:${col}44"></div></div><span style="font-family:'Geist Mono',monospace;font-size:0.78rem;color:${col}">${avg} ms</span><span style="font-size:0.7rem;color:var(--muted2)">${weeks[k].length}d</span></div>`;}).join('');
+  const html=Object.keys(weeks).slice(0,8).reverse().map(k=>{const avg=Math.round(weeks[k].reduce((a,b)=>a+b,0)/weeks[k].length),pct=Math.round((avg/80)*100),col=hc(avg);return`<div class="weekly-row"><span style="font-family:'Geist Mono',monospace;font-size:0.7rem;color:var(--muted)">w/ ${esc(k)}</span><div class="week-bar-bg"><div class="week-bar-fill" style="width:${pct}%;background:${col}44"></div></div><span style="font-family:'Geist Mono',monospace;font-size:0.78rem;color:${col}">${avg} ms</span><span style="font-size:0.7rem;color:var(--muted2)">${weeks[k].length}d</span></div>`;}).join('');
   document.getElementById('weekly-view').innerHTML=html||emptyState('No data yet');
 }
 
@@ -2185,10 +2182,12 @@ function renderLog() {
   const wl=v=>({none:'Slept through',back_quick:'Brief wake',back_slow:'30min+ awake',couldnt_sleep:'3am — 2hr+'}[v]||'—');
   document.getElementById('log-body').innerHTML=entries.map(e=>{
     const col=e.hrv ? hc(e.hrv) : 'var(--muted2)';
-    const chips=[...(e.pos||[]).slice(0,3).map(f=>`<span class="factor-chip" style="color:var(--green);border-color:rgba(22,163,74,.2)">${f.replace(/_/g,' ')}</span>`),...(e.neg||[]).slice(0,2).map(f=>`<span class="factor-chip" style="color:var(--red);border-color:rgba(220,38,38,.2)">${f.replace(/_/g,' ')}</span>`)].join('');
-    const del=isAuthenticated?`<td><button class="delete-btn" onclick="deleteEntry('${e.id}',${e.ts})">×</button></td>`:'<td></td>';
-    const note=isAuthenticated?(e.note||''):'';
-    return`<tr><td style="color:var(--muted);font-family:'Geist Mono',monospace;font-size:0.7rem;white-space:nowrap">${e.date}</td><td><span class="hrv-pill" style="background:${col}18;color:${col}">${e.hrv||'—'}</span></td><td style="font-family:'Geist Mono',monospace;font-size:0.75rem;color:var(--muted)">${e.sleep_score||'—'}</td><td style="font-size:0.75rem;color:var(--muted)">${wl(e.night_wake)}</td><td>${chips}</td><td style="font-size:0.75rem;color:var(--muted2);max-width:140px;line-height:1.4">${note}</td>${del}</tr>`;
+    const chips=[...(e.pos||[]).slice(0,3).map(f=>`<span class="factor-chip" style="color:var(--green);border-color:rgba(22,163,74,.2)">${esc(f.replace(/_/g,' '))}</span>`),...(e.neg||[]).slice(0,2).map(f=>`<span class="factor-chip" style="color:var(--red);border-color:rgba(220,38,38,.2)">${esc(f.replace(/_/g,' '))}</span>`)].join('');
+    const safeId=esc(String(e.id||'')).replace(/[^a-zA-Z0-9-]/g,'');
+    const safeTs=Number(e.ts)||0;
+    const del=isAuthenticated?`<td><button class="delete-btn" onclick="deleteEntry('${safeId}',${safeTs})">×</button></td>`:'<td></td>';
+    const note=isAuthenticated?esc(e.note||''):'';
+    return`<tr><td style="color:var(--muted);font-family:'Geist Mono',monospace;font-size:0.7rem;white-space:nowrap">${esc(e.date)}</td><td><span class="hrv-pill" style="background:${col}18;color:${col}">${esc(e.hrv||'—')}</span></td><td style="font-family:'Geist Mono',monospace;font-size:0.75rem;color:var(--muted)">${esc(e.sleep_score||'—')}</td><td style="font-size:0.75rem;color:var(--muted)">${esc(wl(e.night_wake))}</td><td>${chips}</td><td style="font-size:0.75rem;color:var(--muted2);max-width:140px;line-height:1.4">${note}</td>${del}</tr>`;
   }).join('');
 }
 
@@ -2219,7 +2218,8 @@ function getSleepDataForCoach() {
 }
 
 function parseMarkdown(text) {
-  return text
+  const safe = esc(text);
+  return safe
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/→/g, '<span style="color:var(--accent)">→</span>')
     .split('\n\n').filter(p => p.trim()).map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('');
@@ -2898,8 +2898,8 @@ function renderOuraDailyLog() {
   const rows = ouraStressData.slice().reverse().map(d => {
     const stressMin = Math.round((d.stress_high||0) / 60);
     const recoveryMin = Math.round((d.recovery_high||0) / 60);
-    const summary = d.day_summary || '—';
-    const sleepScore = sleepByDay[d.day] ?? '—';
+    const summary = esc(d.day_summary || '—');
+    const sleepScore = esc(String(sleepByDay[d.day] ?? '—'));
     const dt = new Date(d.day + 'T12:00:00');
     const dayLabel = dt.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
 
@@ -2908,7 +2908,7 @@ function renderOuraDailyLog() {
     const summaryColor = summary === 'stressful' ? 'var(--red)' : summary === 'normal' ? 'var(--green)' : 'var(--muted2)';
 
     return `<div class="weekly-row" style="grid-template-columns:120px 1fr 80px 60px 50px">
-      <div style="font-size:0.78rem;color:var(--text);font-weight:500">${dayLabel}</div>
+      <div style="font-size:0.78rem;color:var(--text);font-weight:500">${esc(dayLabel)}</div>
       <div class="week-bar-bg"><div class="week-bar-fill" style="width:${Math.min(100,stressMin/4)}%;background:${stressColor}"></div></div>
       <div style="font-family:'Geist Mono',monospace;font-size:0.72rem;color:${stressColor}">${stressMin}m stress</div>
       <div style="font-family:'Geist Mono',monospace;font-size:0.72rem;color:var(--green)">${recoveryMin}m rec</div>
