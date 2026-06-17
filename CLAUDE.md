@@ -22,6 +22,10 @@ Everything is in a single file: `index.html` (~1,737 lines) containing all HTML,
 **Backend:** Supabase (PostgreSQL + Auth + Edge Functions). Config is hardcoded near the top of the `<script>` block:
 - `SUPABASE_URL`, `SUPABASE_KEY` (public anon key — intentional)
 - `COACH_ENDPOINT` — Supabase Edge Function for streaming AI responses
+- `TRANSCRIBE_ENDPOINT` — Supabase Edge Function for voice-to-text via ElevenLabs Scribe
+
+**Edge Function Secrets:**
+- `ELEVENLABS_API_KEY` — required by the `elevenlabs-transcribe` function. Set via `supabase secrets set ELEVENLABS_API_KEY=...`
 
 **Auth flow:** `checkSession()` (IIFE on load) → `tryAuth()` → `hideLandingPage()` → `initApp()` → `loadEntries()` → `renderHistory()`
 

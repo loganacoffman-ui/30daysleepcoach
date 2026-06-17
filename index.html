@@ -183,6 +183,21 @@ select option { background: #ffffff; }
 textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: 'Geist', sans-serif; font-size: 0.85rem; padding: 12px 14px; resize: none; outline: none; line-height: 1.6; transition: border-color .15s; margin-bottom: 1rem; }
 textarea:focus { border-color: var(--border2); }
 textarea::placeholder { color: var(--muted2); }
+
+.note-wrap { position: relative; margin-bottom: 1rem; }
+.note-wrap textarea { margin-bottom: 0; padding-right: 48px; }
+.mic-btn { position: absolute; right: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 4px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--muted); padding: 5px 8px; font-family: 'Geist', sans-serif; font-size: 0.7rem; cursor: pointer; transition: background .15s, color .15s, border-color .15s; line-height: 1; }
+.mic-btn:hover { background: var(--surface3); color: var(--text); }
+.mic-btn.recording { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+.mic-btn.recording .mic-icon svg { display: none; }
+.mic-btn.recording .mic-icon::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--red); animation: mic-pulse 1s ease-in-out infinite; }
+.mic-btn.transcribing { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); pointer-events: none; opacity: 0.8; }
+.mic-btn.transcribing .mic-icon svg { display: none; }
+.mic-btn.transcribing .mic-icon::before { content: ''; display: inline-block; width: 12px; height: 12px; border: 2px solid var(--accent); border-top-color: transparent; border-radius: 50%; animation: mic-spin 0.6s linear infinite; }
+@keyframes mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes mic-spin { to { transform: rotate(360deg); } }
+.mic-error { position: absolute; right: 0; bottom: -20px; font-size: 0.68rem; color: var(--red); font-family: 'Geist Mono', monospace; opacity: 0; transition: opacity .3s; }
+.mic-error.visible { opacity: 1; }
 .save-btn { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-family: 'Geist', sans-serif; font-weight: 500; font-size: 0.95rem; padding: 15px 80px; cursor: pointer; transition: all .2s; display: block; margin: 0 auto; }
 .save-btn:hover { background: #3d6ae8; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79,124,255,0.2); }
 .save-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
@@ -985,7 +1000,16 @@ textarea::placeholder { color: var(--muted2); }
       </div>
     </div>
   </div>
-  <textarea id="note" rows="2" placeholder="Voice note / anything unusual: travel, argument, big workout, late dinner, weird dream, or anything that might explain today."></textarea>
+  <div class="note-wrap">
+    <textarea id="note" rows="2" placeholder="Voice note / anything unusual: travel, argument, big workout, late dinner, weird dream, or anything that might explain today."></textarea>
+    <button type="button" class="mic-btn" id="mic-btn" onclick="toggleVoiceNote()" title="Record voice note">
+      <span class="mic-icon" id="mic-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="1" width="6" height="11" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </span>
+      <span class="mic-label" id="mic-label"></span>
+    </button>
+    <div class="mic-error" id="mic-error"></div>
+  </div>
   <button class="save-btn" id="save-btn" onclick="saveEntry()">Save baseline check-in →</button>
   <div id="save-confirm" style="text-align:center;margin-top:.75rem;font-size:0.75rem;font-family:'Geist Mono',monospace;color:var(--green);letter-spacing:.04em;opacity:0;transition:opacity .3s"></div>
 </div>
@@ -2196,8 +2220,90 @@ function renderInsights(){renderInsightCards();renderHeatmapSleep();renderHeatma
 
 // ── AI COACH ─────────────────────────────────────────
 const COACH_ENDPOINT = SUPABASE_URL + '/functions/v1/sleep-coach';
+const TRANSCRIBE_ENDPOINT = SUPABASE_URL + '/functions/v1/elevenlabs-transcribe';
 let chatHistory = [];
 let briefingGenerated = false;
+
+// ── VOICE NOTE ──────────────────────────────────────
+let voiceRecorder = null;
+let voiceChunks = [];
+
+function setMicState(state) {
+  const btn = document.getElementById('mic-btn');
+  const label = document.getElementById('mic-label');
+  const err = document.getElementById('mic-error');
+  btn.classList.remove('recording', 'transcribing');
+  btn.disabled = false;
+  label.textContent = '';
+  err.classList.remove('visible');
+  err.textContent = '';
+  if (state === 'recording') {
+    btn.classList.add('recording');
+    label.textContent = 'Stop';
+  } else if (state === 'transcribing') {
+    btn.classList.add('transcribing');
+    btn.disabled = true;
+    label.textContent = 'Transcribing\u2026';
+  }
+}
+
+function showMicError(msg) {
+  const err = document.getElementById('mic-error');
+  err.textContent = msg;
+  err.classList.add('visible');
+  setTimeout(() => err.classList.remove('visible'), 4000);
+}
+
+async function toggleVoiceNote() {
+  if (voiceRecorder && voiceRecorder.state === 'recording') {
+    voiceRecorder.stop();
+    return;
+  }
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    showMicError('Mic access denied');
+    return;
+  }
+
+  voiceChunks = [];
+  voiceRecorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : undefined });
+  voiceRecorder.ondataavailable = (e) => { if (e.data.size > 0) voiceChunks.push(e.data); };
+  voiceRecorder.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    if (!voiceChunks.length) { setMicState('idle'); return; }
+    const blob = new Blob(voiceChunks, { type: 'audio/webm' });
+    voiceChunks = [];
+    setMicState('transcribing');
+
+    try {
+      const token = await getAuthToken();
+      const fd = new FormData();
+      fd.append('audio', blob, 'recording.webm');
+      const res = await fetch(TRANSCRIBE_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token },
+        body: fd,
+      });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.error || 'Transcription failed');
+      }
+      const { transcript } = await res.json();
+      if (transcript) {
+        const noteEl = document.getElementById('note');
+        noteEl.value = noteEl.value ? noteEl.value.trimEnd() + ' ' + transcript : transcript;
+      }
+    } catch (e) {
+      showMicError(e.message || 'Transcription error');
+    }
+    setMicState('idle');
+  };
+  voiceRecorder.start();
+  setMicState('recording');
+}
 
 function getBriefingCacheKey() { return todayCacheKey('briefing'); }
 function getRecommendationCacheKey() { return todayCacheKey('recommendation'); }

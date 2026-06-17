@@ -1,2 +1,5 @@
 [functions.oura-oauth-callback]
 verify_jwt = false
+
+[functions.elevenlabs-transcribe]
+verify_jwt = false
