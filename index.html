@@ -2488,6 +2488,9 @@ async function checkOuraOAuthStatus() {
     });
     const data = await r.json().catch(() => ({}));
     ouraOAuthConnected = !!data.connected;
+    if (ouraOAuthConnected) {
+      try { localStorage.removeItem('oura_access_token'); } catch(e) {}
+    }
     ouraStatusChecked = true;
     initOuraView();
     return ouraOAuthConnected;
