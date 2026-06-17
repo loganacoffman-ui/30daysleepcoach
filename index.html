@@ -1978,6 +1978,9 @@ function renderLogOuraAutofill() {
 }
 
 async function hydrateLogFromOura() {
+  if (isAuthenticated && !ouraStatusChecked) {
+    await checkOuraOAuthStatus();
+  }
   renderLogOuraAutofill();
   if (hasOuraConnection() && !ouraSleepData.length && !ouraSleepSessionData.length && !ouraStressData.length) {
     await fetchOuraData();
@@ -2547,6 +2550,7 @@ async function handleOuraOAuthReturn() {
   if (connected) {
     ouraOAuthConnected = true;
     ouraStatusChecked = true;
+    try { localStorage.removeItem('oura_access_token'); } catch(e) {}
     initOuraView();
     if (note) note.textContent = 'Oura connected. Loading your latest recovery data…';
     await fetchOuraData();
@@ -2610,6 +2614,7 @@ async function ouraFetch(endpoint, startDate, endDate) {
   const manualToken = getOuraToken();
   const accessToken = await getSessionAccessToken();
   if (!manualToken && !accessToken) throw new Error('No Oura connection');
+  const useManualToken = !!manualToken && !ouraOAuthConnected;
   const r = await fetch(
     `${SUPABASE_URL}/functions/v1/oura-proxy`,
     {
@@ -2623,7 +2628,7 @@ async function ouraFetch(endpoint, startDate, endDate) {
         endpoint,
         start_date: startDate,
         end_date: endDate,
-        ...(manualToken ? { oura_token: manualToken } : {})
+        ...(useManualToken ? { oura_token: manualToken } : {})
       })
     }
   );
