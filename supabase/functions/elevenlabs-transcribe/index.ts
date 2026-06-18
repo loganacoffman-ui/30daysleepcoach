@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
     }
 
     const elevenLabsForm = new FormData();
-    elevenLabsForm.append('audio', audioFile, audioFile.name || 'recording.webm');
+    elevenLabsForm.append('file', audioFile, audioFile.name || 'recording.webm');
     elevenLabsForm.append('model_id', 'scribe_v1');
 
     const transcribeRes = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {

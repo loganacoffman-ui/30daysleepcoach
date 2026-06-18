@@ -2299,7 +2299,7 @@ async function toggleVoiceNote() {
       fd.append('audio', blob, 'recording.webm');
       const res = await fetch(TRANSCRIBE_ENDPOINT, {
         method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + token },
+        headers: { 'Authorization': 'Bearer ' + token, 'apikey': SUPABASE_PUBLISHABLE_KEY },
         body: fd,
       });
       if (!res.ok) {
@@ -2354,6 +2354,7 @@ async function streamCoachResponse(messages, targetEl, onDone, cacheKey) {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ' + token,
+      'apikey': SUPABASE_PUBLISHABLE_KEY,
     },
     body: JSON.stringify({
       messages,
@@ -2407,6 +2408,7 @@ async function fetchCoachRecommendation() {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ' + token,
+      'apikey': SUPABASE_PUBLISHABLE_KEY,
     },
     body: JSON.stringify({
       mode: 'recommendation',
