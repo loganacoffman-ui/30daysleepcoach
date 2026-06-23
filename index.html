@@ -2027,7 +2027,7 @@ let HeyGenSDK = null;
 async function loadHeyGenSDK() {
   if (HeyGenSDK) return HeyGenSDK;
   try {
-    HeyGenSDK = await import('https://esm.sh/@heygen/streaming-avatar@2');
+    HeyGenSDK = await import('https://esm.sh/@heygen/streaming-avatar@2.0.9');
     avatarSdkLoaded = true;
     return HeyGenSDK;
   } catch (e) {
