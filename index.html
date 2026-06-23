@@ -316,6 +316,29 @@ textarea::placeholder { color: var(--muted2); }
 .skel.l.last { margin-bottom: 0; }
 .coach-action.loading { background: var(--surface2); border-left-color: rgba(0,0,0,0.18); }
 
+/* AVATAR COACH */
+.avatar-section { margin-bottom: 1.5rem; }
+.avatar-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.avatar-video-wrap { position: relative; width: 100%; aspect-ratio: 16/9; background: #0a0a0f; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.avatar-video-wrap video { width: 100%; height: 100%; object-fit: cover; }
+.avatar-video-wrap.idle { background: linear-gradient(135deg, #0f0c29 0%, #1a1145 40%, #24243e 100%); }
+.avatar-idle-content { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.avatar-orb { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); opacity: 0.7; animation: avatarOrbPulse 3s ease-in-out infinite; }
+@keyframes avatarOrbPulse { 0%, 100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.08); opacity: 0.9; } }
+.avatar-idle-text { font-size: 13px; color: rgba(255,255,255,0.5); }
+.avatar-controls { padding: 16px; display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--border); }
+.avatar-start-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: var(--radius-sm); font-family: 'Geist', sans-serif; font-weight: 500; font-size: 0.88rem; padding: 12px 20px; cursor: pointer; transition: opacity 0.2s, transform 0.1s; }
+.avatar-start-btn:hover { opacity: 0.9; }
+.avatar-start-btn:active { transform: scale(0.98); }
+.avatar-start-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.avatar-start-btn.stop { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+.avatar-status { font-size: 12px; color: var(--muted2); display: flex; align-items: center; gap: 6px; }
+.avatar-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted2); }
+.avatar-status-dot.live { background: var(--green); animation: avatarStatusPulse 1.5s ease-in-out infinite; }
+.avatar-status-dot.connecting { background: #f59e0b; animation: avatarStatusPulse 0.8s ease-in-out infinite; }
+@keyframes avatarStatusPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.avatar-error { font-size: 12px; color: var(--red); margin-top: 8px; padding: 0 16px 12px; }
+
 /* CTA FOOTER */
 .cta-section { position: relative; z-index: 1; border-top: 1px solid var(--border); background: var(--surface); }
 .cta-inner { max-width: 820px; margin: 0 auto; padding: 4rem 2rem 3rem; }
@@ -1135,6 +1158,31 @@ textarea::placeholder { color: var(--muted2); }
 <div class="container">
   <div class="section-tag">Coach</div>
   <h1 class="page-heading">Tonight's <em>recommendation.</em></h1>
+
+  <!-- Avatar Coach -->
+  <div class="avatar-section" id="avatar-section">
+    <div class="avatar-card">
+      <div class="avatar-video-wrap idle" id="avatar-video-wrap">
+        <video id="avatar-video" autoplay playsinline style="display:none"></video>
+        <div class="avatar-idle-content" id="avatar-idle-content">
+          <div class="avatar-orb"></div>
+          <div class="avatar-idle-text">AI Avatar Coach</div>
+        </div>
+      </div>
+      <div class="avatar-controls">
+        <button class="avatar-start-btn" id="avatar-start-btn" onclick="toggleAvatarCoach()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+          <span id="avatar-btn-text">Start Avatar Coach</span>
+        </button>
+        <div class="avatar-status" id="avatar-status" style="display:none">
+          <div class="avatar-status-dot" id="avatar-status-dot"></div>
+          <span id="avatar-status-text"></span>
+        </div>
+      </div>
+      <div class="avatar-error" id="avatar-error" style="display:none"></div>
+    </div>
+  </div>
+
   <div id="coach-root"></div>
 </div>
 </div>
@@ -1250,6 +1298,7 @@ const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_1csWLFwsCRBlVAXag1rcHQ_Jpz9t2_l
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { detectSessionInUrl: true, persistSession: true }
 });
+const HEYGEN_TOKEN_ENDPOINT = SUPABASE_URL + '/functions/v1/heygen-token';
 
 // ── TOAST NOTIFICATIONS ──────────────────────────────
 function showToast(message, type = 'info') {
@@ -1967,6 +2016,186 @@ function renderCoachError() {
       </div>
     </div>
   `;
+}
+
+// ── AVATAR COACH (HeyGen Streaming) ──────────────────
+let avatarInstance = null;
+let avatarSessionActive = false;
+let avatarSdkLoaded = false;
+let HeyGenSDK = null;
+
+async function loadHeyGenSDK() {
+  if (HeyGenSDK) return HeyGenSDK;
+  try {
+    HeyGenSDK = await import('https://esm.sh/@heygen/streaming-avatar@2.0.9');
+    avatarSdkLoaded = true;
+    return HeyGenSDK;
+  } catch (e) {
+    console.error('Failed to load HeyGen SDK:', e);
+    throw new Error('Could not load avatar SDK');
+  }
+}
+
+function setAvatarStatus(state, text) {
+  const statusEl = document.getElementById('avatar-status');
+  const dotEl = document.getElementById('avatar-status-dot');
+  const textEl = document.getElementById('avatar-status-text');
+  if (!statusEl) return;
+  statusEl.style.display = state ? 'flex' : 'none';
+  dotEl.className = 'avatar-status-dot' + (state === 'live' ? ' live' : state === 'connecting' ? ' connecting' : '');
+  textEl.textContent = text || '';
+}
+
+function setAvatarError(msg) {
+  const el = document.getElementById('avatar-error');
+  if (!el) return;
+  el.style.display = msg ? 'block' : 'none';
+  el.textContent = msg || '';
+}
+
+function setAvatarButton(mode) {
+  const btn = document.getElementById('avatar-start-btn');
+  const btnText = document.getElementById('avatar-btn-text');
+  const btnIcon = btn.querySelector('svg');
+  if (mode === 'stop') {
+    btn.classList.add('stop');
+    btn.disabled = false;
+    btnText.textContent = 'End Session';
+    btnIcon.innerHTML = '<rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor"/>';
+  } else if (mode === 'loading') {
+    btn.classList.remove('stop');
+    btn.disabled = true;
+    btnText.textContent = 'Connecting\u2026';
+    btnIcon.innerHTML = '<path d="M8 5v14l11-7z" fill="currentColor"/>';
+  } else {
+    btn.classList.remove('stop');
+    btn.disabled = false;
+    btnText.textContent = 'Start Avatar Coach';
+    btnIcon.innerHTML = '<path d="M8 5v14l11-7z" fill="currentColor"/>';
+  }
+}
+
+async function toggleAvatarCoach() {
+  if (avatarSessionActive) {
+    await stopAvatarCoach();
+    return;
+  }
+  await startAvatarCoach();
+}
+
+async function startAvatarCoach() {
+  setAvatarError('');
+  setAvatarButton('loading');
+  setAvatarStatus('connecting', 'Connecting\u2026');
+
+  try {
+    const sdk = await loadHeyGenSDK();
+    const StreamingAvatar = sdk.default;
+    const { AvatarQuality, StreamingEvents, TaskType, TaskMode } = sdk;
+
+    const token = await getAuthToken();
+    const tokenRes = await fetch(HEYGEN_TOKEN_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'apikey': SUPABASE_PUBLISHABLE_KEY },
+    });
+    if (!tokenRes.ok) {
+      const detail = await tokenRes.json().catch(() => ({}));
+      throw new Error(detail.error || 'Failed to get avatar token');
+    }
+    const { token: heygenToken } = await tokenRes.json();
+    if (!heygenToken) throw new Error('Empty token returned');
+
+    avatarInstance = new StreamingAvatar({ token: heygenToken });
+
+    avatarInstance.on(StreamingEvents.STREAM_READY, (event) => {
+      const videoEl = document.getElementById('avatar-video');
+      const wrap = document.getElementById('avatar-video-wrap');
+      const idle = document.getElementById('avatar-idle-content');
+      if (videoEl && event.detail) {
+        videoEl.srcObject = event.detail;
+        videoEl.style.display = 'block';
+        wrap.classList.remove('idle');
+        idle.style.display = 'none';
+        videoEl.play().catch(() => {});
+      }
+      setAvatarStatus('live', 'Live');
+      setAvatarButton('stop');
+      avatarSessionActive = true;
+
+      deliverCoachingToAvatar(sdk);
+    });
+
+    avatarInstance.on(StreamingEvents.STREAM_DISCONNECTED, () => {
+      resetAvatarUI();
+    });
+
+    await avatarInstance.createStartAvatar({
+      quality: AvatarQuality.Low,
+      avatarName: 'Ann_Therapist_public',
+      language: 'en',
+    });
+
+  } catch (e) {
+    console.error('Avatar start failed:', e);
+    setAvatarError(e.message || 'Failed to start avatar');
+    setAvatarButton('idle');
+    setAvatarStatus(null);
+    avatarSessionActive = false;
+  }
+}
+
+async function deliverCoachingToAvatar(sdk) {
+  if (!avatarInstance) return;
+  const { TaskType, TaskMode } = sdk;
+
+  const root = document.getElementById('coach-root');
+  if (!root) return;
+
+  const patternEl = root.querySelector('.coach-sec:nth-child(1) .coach-sec-b');
+  const meaningEl = root.querySelector('.coach-sec:nth-child(2) .coach-sec-b');
+  const actionEl = root.querySelector('.coach-action .coach-sec-b');
+  const whyEl = root.querySelector('.coach-sec:nth-child(4) .coach-sec-b');
+
+  const parts = [];
+  if (patternEl?.textContent) parts.push('Here\'s what I\'m seeing in your sleep data. ' + patternEl.textContent);
+  if (meaningEl?.textContent) parts.push('What this likely means: ' + meaningEl.textContent);
+  if (actionEl?.textContent) parts.push('For tonight, here\'s what I recommend. ' + actionEl.textContent);
+  if (whyEl?.textContent) parts.push('And the reason I\'m suggesting this now: ' + whyEl.textContent);
+
+  const script = parts.length > 0
+    ? parts.join(' ... ')
+    : 'Hi there! I\'m your AI sleep coach. I\'m still analyzing your data — check back once your recommendation is ready and I\'ll walk you through it.';
+
+  try {
+    await avatarInstance.speak({
+      text: script,
+      taskType: TaskType.TALK,
+      taskMode: TaskMode.ASYNC,
+    });
+  } catch (e) {
+    console.error('Avatar speak failed:', e);
+  }
+}
+
+async function stopAvatarCoach() {
+  if (avatarInstance) {
+    try { await avatarInstance.stopAvatar(); } catch (e) { console.warn('Avatar stop error:', e); }
+    avatarInstance = null;
+  }
+  resetAvatarUI();
+}
+
+function resetAvatarUI() {
+  avatarSessionActive = false;
+  const videoEl = document.getElementById('avatar-video');
+  const wrap = document.getElementById('avatar-video-wrap');
+  const idle = document.getElementById('avatar-idle-content');
+  if (videoEl) { videoEl.srcObject = null; videoEl.style.display = 'none'; }
+  if (wrap) wrap.classList.add('idle');
+  if (idle) idle.style.display = 'flex';
+  setAvatarButton('idle');
+  setAvatarStatus(null);
+  setAvatarError('');
 }
 
 // ── GAUGE ─────────────────────────────────────────────

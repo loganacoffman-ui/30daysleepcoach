@@ -3,3 +3,6 @@ verify_jwt = false
 
 [functions.elevenlabs-transcribe]
 verify_jwt = false
+
+[functions.heygen-token]
+verify_jwt = false
