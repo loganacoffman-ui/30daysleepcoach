@@ -1874,10 +1874,10 @@ async function renderCoach() {
   if (!root) return;
 
   const entryCountLast14Days = getEntryCountLast14Days();
-  if (entryCountLast14Days < 7) {
+  if (entryCountLast14Days < 3) {
     root.innerHTML = renderCoachEmpty(entryCountLast14Days);
     const fill = document.getElementById('coach-progress-fill');
-    if (fill) fill.style.width = `${Math.min(100, Math.round((entryCountLast14Days / 7) * 100))}%`;
+    if (fill) fill.style.width = `${Math.min(100, Math.round((entryCountLast14Days / 3) * 100))}%`;
     return;
   }
 
@@ -1891,7 +1891,7 @@ async function renderCoach() {
       const c = Number(data.entry_count) || 0;
       root.innerHTML = renderCoachEmpty(c);
       const fill = document.getElementById('coach-progress-fill');
-      if (fill) fill.style.width = `${Math.min(100, Math.round((c / 7) * 100))}%`;
+      if (fill) fill.style.width = `${Math.min(100, Math.round((c / 3) * 100))}%`;
       return;
     }
 
@@ -1944,15 +1944,15 @@ function renderCoachReady(rec) {
 }
 
 function renderCoachEmpty(entryCount) {
-  const safeCount = Math.max(0, Math.min(7, Number(entryCount) || 0));
+  const safeCount = Math.max(0, Math.min(3, Number(entryCount) || 0));
   return `
     <div class="coach-card" style="padding:32px 24px;text-align:center">
       <div class="coach-empty-title">Still learning your patterns</div>
-      <div class="coach-empty-body">The Coach uses your last 14 days of logs and starts surfacing recommendations after about 7 recent entries.</div>
+      <div class="coach-empty-body">The Coach uses your recent logs to surface recommendations. Add a few more entries to unlock your first coaching insight.</div>
 
       <div class="coach-progress-pill">
         <div class="coach-progress-bar"><div class="coach-progress-fill" id="coach-progress-fill"></div></div>
-        <div class="coach-progress-text">${safeCount} of 7 recent entries</div>
+        <div class="coach-progress-text">${safeCount} of 3 recent entries</div>
       </div>
     </div>
   `;
@@ -2018,20 +2018,20 @@ function renderCoachError() {
   `;
 }
 
-// ── AVATAR COACH (HeyGen Streaming) ──────────────────
-let avatarInstance = null;
+// ── AVATAR COACH (LiveAvatar) ──────────────────
+let avatarSession = null;
 let avatarSessionActive = false;
 let avatarSdkLoaded = false;
-let HeyGenSDK = null;
+let LiveAvatarSDK = null;
 
-async function loadHeyGenSDK() {
-  if (HeyGenSDK) return HeyGenSDK;
+async function loadLiveAvatarSDK() {
+  if (LiveAvatarSDK) return LiveAvatarSDK;
   try {
-    HeyGenSDK = await import('https://esm.sh/@heygen/streaming-avatar@2.0.9');
+    LiveAvatarSDK = await import('https://esm.sh/@heygen/liveavatar-web-sdk@0.0.18');
     avatarSdkLoaded = true;
-    return HeyGenSDK;
+    return LiveAvatarSDK;
   } catch (e) {
-    console.error('Failed to load HeyGen SDK:', e);
+    console.error('Failed to load LiveAvatar SDK:', e);
     throw new Error('Could not load avatar SDK');
   }
 }
@@ -2089,30 +2089,34 @@ async function startAvatarCoach() {
   setAvatarStatus('connecting', 'Connecting\u2026');
 
   try {
-    const sdk = await loadHeyGenSDK();
-    const StreamingAvatar = sdk.default;
-    const { AvatarQuality, StreamingEvents, TaskType, TaskMode } = sdk;
+    const sdk = await loadLiveAvatarSDK();
+    const { LiveAvatarSession, SessionEvent, SessionState } = sdk;
 
     const token = await getAuthToken();
     const tokenRes = await fetch(HEYGEN_TOKEN_ENDPOINT, {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token, 'apikey': SUPABASE_PUBLISHABLE_KEY },
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'apikey': SUPABASE_PUBLISHABLE_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({}),
     });
     if (!tokenRes.ok) {
       const detail = await tokenRes.json().catch(() => ({}));
       throw new Error(detail.error || 'Failed to get avatar token');
     }
-    const { token: heygenToken } = await tokenRes.json();
-    if (!heygenToken) throw new Error('Empty token returned');
+    const { token: sessionToken } = await tokenRes.json();
+    if (!sessionToken) throw new Error('Empty token returned');
 
-    avatarInstance = new StreamingAvatar({ token: heygenToken });
+    avatarSession = new LiveAvatarSession(sessionToken, { voiceChat: false });
 
-    avatarInstance.on(StreamingEvents.STREAM_READY, (event) => {
+    avatarSession.on(SessionEvent.SESSION_STREAM_READY, () => {
       const videoEl = document.getElementById('avatar-video');
       const wrap = document.getElementById('avatar-video-wrap');
       const idle = document.getElementById('avatar-idle-content');
-      if (videoEl && event.detail) {
-        videoEl.srcObject = event.detail;
+      if (videoEl) {
+        avatarSession.attach(videoEl);
         videoEl.style.display = 'block';
         wrap.classList.remove('idle');
         idle.style.display = 'none';
@@ -2122,18 +2126,14 @@ async function startAvatarCoach() {
       setAvatarButton('stop');
       avatarSessionActive = true;
 
-      deliverCoachingToAvatar(sdk);
+      deliverCoachingToAvatar();
     });
 
-    avatarInstance.on(StreamingEvents.STREAM_DISCONNECTED, () => {
+    avatarSession.on(SessionEvent.SESSION_DISCONNECTED, () => {
       resetAvatarUI();
     });
 
-    await avatarInstance.createStartAvatar({
-      quality: AvatarQuality.Low,
-      avatarName: 'Ann_Therapist_public',
-      language: 'en',
-    });
+    await avatarSession.start();
 
   } catch (e) {
     console.error('Avatar start failed:', e);
@@ -2144,9 +2144,8 @@ async function startAvatarCoach() {
   }
 }
 
-async function deliverCoachingToAvatar(sdk) {
-  if (!avatarInstance) return;
-  const { TaskType, TaskMode } = sdk;
+async function deliverCoachingToAvatar() {
+  if (!avatarSession) return;
 
   const root = document.getElementById('coach-root');
   if (!root) return;
@@ -2167,20 +2166,16 @@ async function deliverCoachingToAvatar(sdk) {
     : 'Hi there! I\'m your AI sleep coach. I\'m still analyzing your data — check back once your recommendation is ready and I\'ll walk you through it.';
 
   try {
-    await avatarInstance.speak({
-      text: script,
-      taskType: TaskType.TALK,
-      taskMode: TaskMode.ASYNC,
-    });
+    avatarSession.repeat(script);
   } catch (e) {
     console.error('Avatar speak failed:', e);
   }
 }
 
 async function stopAvatarCoach() {
-  if (avatarInstance) {
-    try { await avatarInstance.stopAvatar(); } catch (e) { console.warn('Avatar stop error:', e); }
-    avatarInstance = null;
+  if (avatarSession) {
+    try { await avatarSession.stop(); } catch (e) { console.warn('Avatar stop error:', e); }
+    avatarSession = null;
   }
   resetAvatarUI();
 }
