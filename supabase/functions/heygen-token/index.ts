@@ -44,18 +44,42 @@ Deno.serve(async (req) => {
     const { data: userData, error: userError } = await supabase.auth.getUser(jwt);
     if (userError || !userData.user) return jsonResponse(req, { error: 'Invalid token' }, 401);
 
-    const tokenRes = await fetch('https://api.heygen.com/v1/streaming.create_token', {
+    // Parse optional avatar_id from request body
+    let reqAvatarId: string | undefined;
+    try {
+      const body = await req.json();
+      reqAvatarId = body?.avatar_id;
+    } catch { /* no body or invalid JSON — use defaults */ }
+
+    const avatarId = reqAvatarId || Deno.env.get('LIVEAVATAR_AVATAR_ID') || '';
+
+    const sessionBody: Record<string, unknown> = {
+      mode: 'FULL',
+      is_sandbox: !avatarId,
+    };
+    if (avatarId) {
+      sessionBody.avatar_id = avatarId;
+      sessionBody.avatar_persona = { language: 'en' };
+    }
+
+    const tokenRes = await fetch('https://api.liveavatar.com/v1/sessions/token', {
       method: 'POST',
-      headers: { 'X-Api-Key': heygenApiKey },
+      headers: {
+        'X-API-KEY': heygenApiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(sessionBody),
     });
 
     if (!tokenRes.ok) {
       const errText = await tokenRes.text().catch(() => '');
-      return jsonResponse(req, { error: 'HeyGen token creation failed: ' + tokenRes.status, detail: errText }, 502);
+      return jsonResponse(req, { error: 'LiveAvatar token creation failed: ' + tokenRes.status, detail: errText }, 502);
     }
 
     const tokenData = await tokenRes.json();
-    return jsonResponse(req, { token: tokenData.data?.token || '' });
+    const sessionToken = tokenData.data?.session_token || '';
+    const sessionId = tokenData.data?.session_id || '';
+    return jsonResponse(req, { token: sessionToken, session_id: sessionId });
   } catch (error) {
     return jsonResponse(req, { error: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
