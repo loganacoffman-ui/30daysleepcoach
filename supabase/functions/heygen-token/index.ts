@@ -56,10 +56,12 @@ Deno.serve(async (req) => {
     const avatarId = reqAvatarId || Deno.env.get('LIVEAVATAR_AVATAR_ID') || SANDBOX_AVATAR_ID;
     const isSandbox = avatarId === SANDBOX_AVATAR_ID;
 
+    // FULL mode required for repeat() (text-to-speech) — LITE only accepts raw PCM audio
     const sessionBody: Record<string, unknown> = {
-      mode: 'LITE',
+      mode: 'FULL',
       avatar_id: avatarId,
       is_sandbox: isSandbox,
+      avatar_persona: { language: 'en' },
     };
 
     const tokenRes = await fetch('https://api.liveavatar.com/v1/sessions/token', {
