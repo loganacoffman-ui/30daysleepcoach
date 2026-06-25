@@ -226,8 +226,8 @@ textarea::placeholder { color: var(--muted2); }
 .nc-row { display: flex; align-items: center; gap: 8px; }
 .nc-date { font-family: 'Geist Mono', monospace; font-size: 0.6rem; color: var(--muted2); min-width: 42px; text-align: right; }
 .nc-bar-wrap { flex: 1; height: 18px; background: var(--surface2); border-radius: 3px; position: relative; overflow: hidden; }
-.nc-sleep-block { position: absolute; top: 0; height: 100%; background: linear-gradient(135deg, #6366f1, #4f46e5); border-radius: 2px; }
-.nc-wake-block { position: absolute; top: 0; height: 100%; background: linear-gradient(135deg, #f97316, #ef4444); border-radius: 2px; opacity: 0.85; }
+.nc-sleep-block { position: absolute; top: 0; height: 100%; background: var(--accent); opacity: 0.7; border-radius: 2px; }
+.nc-wake-block { position: absolute; top: 0; height: 100%; background: var(--red); border-radius: 2px; opacity: 0.8; }
 .nc-wake-label { position: absolute; top: 50%; transform: translateY(-50%); font-family: 'Geist Mono', monospace; font-size: 0.5rem; color: #fff; white-space: nowrap; padding: 0 3px; pointer-events: none; }
 .nc-wake-total { font-family: 'Geist Mono', monospace; font-size: 0.6rem; color: var(--muted); min-width: 36px; text-align: left; }
 .nc-trend-wrap { position: relative; width: 100%; height: 100px; margin-top: 1rem; }
@@ -1077,20 +1077,22 @@ textarea::placeholder { color: var(--muted2); }
   <div class="section-tag">Progress</div>
   <h1 class="page-heading">Your 30-day <em>trend.</em></h1>
 
-  <!-- Night Continuity Chart -->
-  <div class="nc-card" id="nc-card">
-    <div class="nc-title">Night continuity — last 14 nights</div>
-    <div class="nc-summary" id="nc-summary"></div>
-    <div class="nc-timeline" id="nc-timeline"></div>
-    <div class="nc-trend-wrap"><canvas id="nc-trend-chart"></canvas></div>
-  </div>
-
   <div class="stat-row" id="stat-row">
     <div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">avg sleep score</div></div>
     <div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">best</div></div>
     <div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">lowest</div></div>
     <div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">7-day trend</div></div>
   </div>
+
+  <!-- Nighttime Awakenings Chart -->
+  <div class="nc-card" id="nc-card">
+    <div class="nc-title">Nighttime awakenings — last 14 nights</div>
+    <div class="nc-summary" id="nc-summary"></div>
+    <div class="nc-timeline" id="nc-timeline"></div>
+    <div class="nc-trend-wrap"><canvas id="nc-trend-chart"></canvas></div>
+  </div>
+
+
   <div class="chart-card">
     <div class="chart-title">Sleep score — last 30 days</div>
     <div class="chart-wrap"><canvas id="sleep-chart"></canvas></div>
@@ -2537,11 +2539,11 @@ function renderNightContinuity() {
       labels,
       datasets: [{
         data: vals,
-        borderColor: '#f97316',
-        backgroundColor: 'rgba(249,115,22,0.08)',
+        borderColor: '#dc2626',
+        backgroundColor: 'rgba(220,38,38,0.06)',
         borderWidth: 2,
         pointRadius: 3,
-        pointBackgroundColor: vals.map(v => v > 30 ? '#ef4444' : v > 15 ? '#f97316' : '#16a34a'),
+        pointBackgroundColor: vals.map(v => v > 30 ? '#dc2626' : v > 15 ? '#52525b' : '#16a34a'),
         tension: 0.3,
         fill: true
       }]
