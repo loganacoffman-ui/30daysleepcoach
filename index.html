@@ -215,6 +215,24 @@ textarea::placeholder { color: var(--muted2); }
 .save-btn:hover { background: #3d6ae8; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79,124,255,0.2); }
 .save-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
 
+/* NIGHT CONTINUITY */
+.nc-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.nc-title { font-family: 'Geist Mono', monospace; font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted2); margin-bottom: 1rem; }
+.nc-summary { display: flex; gap: 1.5rem; margin-bottom: 1.25rem; }
+.nc-metric { display: flex; flex-direction: column; gap: 2px; }
+.nc-metric-val { font-family: 'Geist', sans-serif; font-size: 1.4rem; font-weight: 600; letter-spacing: -0.02em; }
+.nc-metric-lbl { font-family: 'Geist Mono', monospace; font-size: 0.58rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted2); }
+.nc-timeline { display: flex; flex-direction: column; gap: 6px; }
+.nc-row { display: flex; align-items: center; gap: 8px; }
+.nc-date { font-family: 'Geist Mono', monospace; font-size: 0.6rem; color: var(--muted2); min-width: 42px; text-align: right; }
+.nc-bar-wrap { flex: 1; height: 18px; background: var(--surface2); border-radius: 3px; position: relative; overflow: hidden; }
+.nc-sleep-block { position: absolute; top: 0; height: 100%; background: linear-gradient(135deg, #6366f1, #4f46e5); border-radius: 2px; }
+.nc-wake-block { position: absolute; top: 0; height: 100%; background: linear-gradient(135deg, #f97316, #ef4444); border-radius: 2px; opacity: 0.85; }
+.nc-wake-label { position: absolute; top: 50%; transform: translateY(-50%); font-family: 'Geist Mono', monospace; font-size: 0.5rem; color: #fff; white-space: nowrap; padding: 0 3px; pointer-events: none; }
+.nc-wake-total { font-family: 'Geist Mono', monospace; font-size: 0.6rem; color: var(--muted); min-width: 36px; text-align: left; }
+.nc-trend-wrap { position: relative; width: 100%; height: 100px; margin-top: 1rem; }
+.nc-empty { font-family: 'Geist Mono', monospace; font-size: 0.7rem; color: var(--muted2); text-align: center; padding: 2rem 0; }
+
 /* HISTORY */
 .stat-row { display: grid; grid-template-columns: repeat(4,1fr); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
 .stat-card { background: var(--surface); padding: 1.25rem 1.5rem; border-right: 1px solid var(--border); }
@@ -1058,6 +1076,15 @@ textarea::placeholder { color: var(--muted2); }
 <div class="container">
   <div class="section-tag">Progress</div>
   <h1 class="page-heading">Your 30-day <em>trend.</em></h1>
+
+  <!-- Night Continuity Chart -->
+  <div class="nc-card" id="nc-card">
+    <div class="nc-title">Night continuity — last 14 nights</div>
+    <div class="nc-summary" id="nc-summary"></div>
+    <div class="nc-timeline" id="nc-timeline"></div>
+    <div class="nc-trend-wrap"><canvas id="nc-trend-chart"></canvas></div>
+  </div>
+
   <div class="stat-row" id="stat-row">
     <div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">avg sleep score</div></div>
     <div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">best</div></div>
@@ -2384,8 +2411,154 @@ async function deleteEntry(id, ts) {
 // ── COLOR ─────────────────────────────────────────────
 function hc(v) { return v>=55?'#16a34a':v>=40?'#52525b':'#dc2626'; }
 
+// ── NIGHT CONTINUITY ─────────────────────────────────
+let ncTrendChart = null;
+
+function parseWakePeriodsFromPhases(session) {
+  const phases = session.sleep_phase_5_min;
+  if (!phases || !session.bedtime_start) return [];
+  const startTime = new Date(session.bedtime_start);
+  const wakes = [];
+  let inWake = false, wakeStart = 0;
+  for (let i = 0; i < phases.length; i++) {
+    if (phases[i] === '4') {
+      if (!inWake) { inWake = true; wakeStart = i; }
+    } else {
+      if (inWake) {
+        const durationMin = (i - wakeStart) * 5;
+        if (durationMin >= 5) {
+          const wakeTime = new Date(startTime.getTime() + wakeStart * 5 * 60000);
+          wakes.push({ time: wakeTime, duration_min: durationMin });
+        }
+        inWake = false;
+      }
+    }
+  }
+  if (inWake) {
+    const durationMin = (phases.length - wakeStart) * 5;
+    if (durationMin >= 5) {
+      const wakeTime = new Date(startTime.getTime() + wakeStart * 5 * 60000);
+      wakes.push({ time: wakeTime, duration_min: durationMin });
+    }
+  }
+  return wakes;
+}
+
+function getNightContinuityData() {
+  const sessions = (ouraSleepSessionData || [])
+    .filter(s => s.type === 'long_sleep' && s.sleep_phase_5_min && s.bedtime_start && s.bedtime_end)
+    .sort((a, b) => b.day.localeCompare(a.day))
+    .slice(0, 14)
+    .reverse();
+
+  return sessions.map(session => {
+    const bedStart = new Date(session.bedtime_start);
+    const bedEnd = new Date(session.bedtime_end);
+    const totalMin = (bedEnd - bedStart) / 60000;
+    const wakes = parseWakePeriodsFromPhases(session);
+    const totalWakeMin = wakes.reduce((sum, w) => sum + w.duration_min, 0);
+    return {
+      day: session.day,
+      bedStart, bedEnd, totalMin, wakes, totalWakeMin,
+      phases: session.sleep_phase_5_min
+    };
+  });
+}
+
+function renderNightContinuity() {
+  const card = document.getElementById('nc-card');
+  const timeline = document.getElementById('nc-timeline');
+  const summary = document.getElementById('nc-summary');
+  if (!card || !timeline) return;
+
+  const data = getNightContinuityData();
+  if (!data.length) {
+    timeline.innerHTML = '<div class="nc-empty">Connect Oura to see your night continuity data</div>';
+    summary.innerHTML = '';
+    ncTrendChart = resetChart(ncTrendChart);
+    return;
+  }
+
+  // Summary metrics
+  const avgWake = Math.round(data.reduce((s, d) => s + d.totalWakeMin, 0) / data.length);
+  const avgWakes = (data.reduce((s, d) => s + d.wakes.length, 0) / data.length).toFixed(1);
+  const bestNight = data.reduce((best, d) => d.totalWakeMin < best.totalWakeMin ? d : best, data[0]);
+  const bestDate = new Date(bestNight.day + 'T12:00:00');
+  summary.innerHTML = `
+    <div class="nc-metric"><div class="nc-metric-val" style="color:${avgWake > 30 ? 'var(--red)' : avgWake > 15 ? 'var(--muted)' : 'var(--green)'}">${avgWake}m</div><div class="nc-metric-lbl">avg wake time</div></div>
+    <div class="nc-metric"><div class="nc-metric-val" style="color:var(--muted)">${avgWakes}</div><div class="nc-metric-lbl">avg awakenings</div></div>
+    <div class="nc-metric"><div class="nc-metric-val" style="color:var(--green)">${bestNight.totalWakeMin}m</div><div class="nc-metric-lbl">best night (${bestDate.toLocaleDateString('en-US',{month:'short',day:'numeric'})})</div></div>
+  `;
+
+  // Timeline bars
+  timeline.innerHTML = data.map(night => {
+    const dateLabel = new Date(night.day + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
+    const phases = night.phases;
+    let blocks = '';
+    let segStart = 0;
+    let currentType = phases[0] === '4' ? 'wake' : 'sleep';
+
+    for (let i = 1; i <= phases.length; i++) {
+      const charType = i < phases.length ? (phases[i] === '4' ? 'wake' : 'sleep') : null;
+      if (charType !== currentType || i === phases.length) {
+        const left = (segStart / phases.length * 100).toFixed(2);
+        const width = ((i - segStart) / phases.length * 100).toFixed(2);
+        if (currentType === 'wake') {
+          const durMin = (i - segStart) * 5;
+          const wakeTime = new Date(night.bedStart.getTime() + segStart * 5 * 60000);
+          const timeStr = wakeTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+          const label = durMin >= 10 ? `<span class="nc-wake-label" style="left:2px">${durMin}m</span>` : '';
+          blocks += `<div class="nc-wake-block" style="left:${left}%;width:${width}%" title="${durMin}min @ ${timeStr}">${label}</div>`;
+        } else {
+          blocks += `<div class="nc-sleep-block" style="left:${left}%;width:${width}%"></div>`;
+        }
+        segStart = i;
+        currentType = charType;
+      }
+    }
+
+    const wakeColor = night.totalWakeMin > 30 ? 'var(--red)' : night.totalWakeMin > 15 ? 'var(--muted)' : 'var(--green)';
+    return `<div class="nc-row">
+      <div class="nc-date">${esc(dateLabel)}</div>
+      <div class="nc-bar-wrap">${blocks}</div>
+      <div class="nc-wake-total" style="color:${wakeColor}">${night.totalWakeMin}m</div>
+    </div>`;
+  }).join('');
+
+  // Trend line chart
+  ncTrendChart = resetChart(ncTrendChart);
+  const trendCanvas = document.getElementById('nc-trend-chart');
+  if (!trendCanvas) return;
+  const labels = data.map(d => new Date(d.day + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+  const vals = data.map(d => d.totalWakeMin);
+  ncTrendChart = new Chart(trendCanvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: vals,
+        borderColor: '#f97316',
+        backgroundColor: 'rgba(249,115,22,0.08)',
+        borderWidth: 2,
+        pointRadius: 3,
+        pointBackgroundColor: vals.map(v => v > 30 ? '#ef4444' : v > 15 ? '#f97316' : '#16a34a'),
+        tension: 0.3,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw} min awake` } } },
+      scales: {
+        x: { ticks: { font: { family: "'Geist Mono', monospace", size: 9 }, color: '#71717a', maxRotation: 0, autoSkip: true, maxTicksLimit: 7 }, grid: { display: false } },
+        y: { min: 0, ticks: { font: { family: "'Geist Mono', monospace", size: 9 }, color: '#71717a', callback: v => v + 'm' }, grid: { color: 'rgba(0,0,0,0.04)' } }
+      }
+    }
+  });
+}
+
 // ── HISTORY ──────────────────────────────────────────
-function renderHistory() { renderStats(); renderSleepChart(); renderHRVChart(); renderWeekly(); renderLog(); }
+function renderHistory() { renderNightContinuity(); renderStats(); renderSleepChart(); renderHRVChart(); renderWeekly(); renderLog(); }
 
 function emptyStatRow() {
   return ['avg sleep score','best','lowest','7-day trend'].map(lbl=>`<div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">${lbl}</div></div>`).join('');
@@ -3077,6 +3250,7 @@ async function fetchOuraData() {
     renderOuraHrChart();
     renderOuraDailyLog();
     renderLogOuraAutofill();
+    renderNightContinuity();
   } catch(e) {
     console.error('Oura fetch error:', e);
     const log = document.getElementById('oura-daily-log');
