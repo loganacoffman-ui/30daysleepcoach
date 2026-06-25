@@ -2481,16 +2481,16 @@ function renderSleepChart() {
   const data=[...entries].reverse().slice(-30).filter(e=>e.sleep_score);
   sleepChart=resetChart(sleepChart);
   if (!data.length) return;
-  const labels=data.map(e=>e.date.replace(/,.*/,'')), vals=data.map(e=>e.sleep_score), colors=vals.map(v=>sc(v));
-  sleepChart=new Chart(document.getElementById('sleep-chart'),{type:'bar',data:{labels,datasets:[{data:vals,backgroundColor:colors.map(c=>c+'33'),borderColor:colors,borderWidth:1.5,borderRadius:3,borderSkipped:false},{type:'line',data:Array(vals.length).fill(85),borderColor:'#4f7cff33',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:chartTooltipDefaults(c=>` ${c.raw}`)},scales:{x:chartAxis({ticks:{font:CHART_TICK_FONT,color:CHART_TICK_COLOR,maxRotation:0,autoSkip:true,maxTicksLimit:10},grid:{display:false}}),y:chartAxis({min:40,max:100})}}});
+  const labels=data.map(e=>e.date.replace(/,.*/,'')), vals=data.map(e=>e.sleep_score);
+  sleepChart=new Chart(document.getElementById('sleep-chart'),{type:'line',data:{labels,datasets:[{data:vals,borderColor:'#4f7cff',backgroundColor:'rgba(79,124,255,0.06)',borderWidth:2,pointRadius:3,pointBackgroundColor:vals.map(v=>sc(v)),tension:0.3,fill:true},{data:Array(vals.length).fill(85),borderColor:'#4f7cff33',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:chartTooltipDefaults(c=>` ${c.raw}`)},scales:{x:chartAxis({ticks:{font:CHART_TICK_FONT,color:CHART_TICK_COLOR,maxRotation:0,autoSkip:true,maxTicksLimit:10},grid:{display:false}}),y:chartAxis({min:40,max:100})}}});
 }
 
 function renderHRVChart() {
   const data=[...entries].reverse().slice(-30).filter(e=>e.hrv);
   hrvChart=resetChart(hrvChart);
   if (!data.length) return;
-  const labels=data.map(e=>e.date.replace(/,.*/,'')), vals=data.map(e=>e.hrv), colors=vals.map(v=>hc(v));
-  hrvChart=new Chart(document.getElementById('hrv-chart'),{type:'bar',data:{labels,datasets:[{data:vals,backgroundColor:colors.map(c=>c+'33'),borderColor:colors,borderWidth:1.5,borderRadius:3,borderSkipped:false},{type:'line',data:Array(vals.length).fill(65),borderColor:'#4f7cff33',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:chartTooltipDefaults(c=>` ${c.raw} ms`)},scales:{x:chartAxis({ticks:{font:CHART_TICK_FONT,color:CHART_TICK_COLOR,maxRotation:0,autoSkip:true,maxTicksLimit:10},grid:{display:false}}),y:chartAxis({min:15,max:Math.max(80,Math.max(...vals)+10)})}}});
+  const labels=data.map(e=>e.date.replace(/,.*/,'')), vals=data.map(e=>e.hrv);
+  hrvChart=new Chart(document.getElementById('hrv-chart'),{type:'line',data:{labels,datasets:[{data:vals,borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,0.06)',borderWidth:2,pointRadius:3,pointBackgroundColor:vals.map(v=>hc(v)),tension:0.3,fill:true},{data:Array(vals.length).fill(65),borderColor:'#4f7cff33',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:chartTooltipDefaults(c=>` ${c.raw} ms`)},scales:{x:chartAxis({ticks:{font:CHART_TICK_FONT,color:CHART_TICK_COLOR,maxRotation:0,autoSkip:true,maxTicksLimit:10},grid:{display:false}}),y:chartAxis({min:15,max:Math.max(80,Math.max(...vals)+10)})}}});
 }
 
 function renderWeekly() {
