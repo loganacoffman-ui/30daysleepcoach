@@ -2125,8 +2125,6 @@ async function startAvatarCoach() {
       setAvatarStatus('live', 'Live');
       setAvatarButton('stop');
       avatarSessionActive = true;
-
-      deliverCoachingToAvatar();
     });
 
     avatarSession.on(SessionEvent.SESSION_DISCONNECTED, () => {
@@ -2134,6 +2132,9 @@ async function startAvatarCoach() {
     });
 
     await avatarSession.start();
+
+    // Deliver coaching after start() resolves — session is fully connected (WebSocket ready)
+    deliverCoachingToAvatar();
 
   } catch (e) {
     console.error('Avatar start failed:', e);
