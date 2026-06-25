@@ -1093,6 +1093,9 @@ textarea::placeholder { color: var(--muted2); }
       <thead><tr><th>Date</th><th>HRV</th><th>Sleep</th><th>Night wake</th><th>Factors</th><th>Note</th><th id="del-th"></th></tr></thead>
       <tbody id="log-body"></tbody>
     </table>
+    <div id="log-show-more" style="text-align:center;padding:1rem 0;display:none">
+      <button onclick="showMoreEntries()" style="font-family:'Geist Mono',monospace;font-size:0.7rem;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 20px;cursor:pointer;transition:all .2s" onmouseover="this.style.background='var(--accent-dim)'" onmouseout="this.style.background='none'">Show more</button>
+    </div>
   </div>
 </div>
 </div>
@@ -2498,10 +2501,19 @@ function renderWeekly() {
   document.getElementById('weekly-view').innerHTML=html||emptyState('No data yet');
 }
 
+const LOG_PAGE_SIZE = 10;
+let logVisibleCount = LOG_PAGE_SIZE;
+
+function showMoreEntries() {
+  logVisibleCount += LOG_PAGE_SIZE;
+  renderLog();
+}
+
 function renderLog() {
-  if (!entries.length){document.getElementById('log-body').innerHTML=`<tr><td colspan="7" style="color:var(--muted2);padding:2rem 0;font-size:0.75rem;font-family:'Geist Mono',monospace;text-align:center">No entries yet</td></tr>`;return;}
+  if (!entries.length){document.getElementById('log-body').innerHTML=`<tr><td colspan="7" style="color:var(--muted2);padding:2rem 0;font-size:0.75rem;font-family:'Geist Mono',monospace;text-align:center">No entries yet</td></tr>`;document.getElementById('log-show-more').style.display='none';return;}
   const wl=v=>({none:'Slept through',back_quick:'Brief wake',back_slow:'30min+ awake',couldnt_sleep:'3am — 2hr+'}[v]||'—');
-  document.getElementById('log-body').innerHTML=entries.map(e=>{
+  const visible = entries.slice(0, logVisibleCount);
+  document.getElementById('log-body').innerHTML=visible.map(e=>{
     const col=e.hrv ? hc(e.hrv) : 'var(--muted2)';
     const chips=[...(e.pos||[]).slice(0,3).map(f=>`<span class="factor-chip" style="color:var(--green);border-color:rgba(22,163,74,.2)">${esc(f.replace(/_/g,' '))}</span>`),...(e.neg||[]).slice(0,2).map(f=>`<span class="factor-chip" style="color:var(--red);border-color:rgba(220,38,38,.2)">${esc(f.replace(/_/g,' '))}</span>`)].join('');
     const safeId=esc(String(e.id||'')).replace(/[^a-zA-Z0-9-]/g,'');
@@ -2510,6 +2522,8 @@ function renderLog() {
     const note=isAuthenticated?esc(e.note||''):'';
     return`<tr><td style="color:var(--muted);font-family:'Geist Mono',monospace;font-size:0.7rem;white-space:nowrap">${esc(e.date)}</td><td><span class="hrv-pill" style="background:${col}18;color:${col}">${esc(e.hrv||'—')}</span></td><td style="font-family:'Geist Mono',monospace;font-size:0.75rem;color:var(--muted)">${esc(e.sleep_score||'—')}</td><td style="font-size:0.75rem;color:var(--muted)">${esc(wl(e.night_wake))}</td><td>${chips}</td><td style="font-size:0.75rem;color:var(--muted2);max-width:140px;line-height:1.4">${note}</td>${del}</tr>`;
   }).join('');
+  const moreBtn = document.getElementById('log-show-more');
+  moreBtn.style.display = entries.length > logVisibleCount ? 'block' : 'none';
 }
 
 // ── INSIGHTS ─────────────────────────────────────────
