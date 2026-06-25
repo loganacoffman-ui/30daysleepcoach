@@ -51,16 +51,16 @@ Deno.serve(async (req) => {
       reqAvatarId = body?.avatar_id;
     } catch { /* no body or invalid JSON — use defaults */ }
 
-    const avatarId = reqAvatarId || Deno.env.get('LIVEAVATAR_AVATAR_ID') || '';
+    // Public sandbox avatar from LiveAvatar docs — used when no custom avatar is configured
+    const SANDBOX_AVATAR_ID = '65f9e3c9-d48b-4118-b73a-4ae2e3cbb8f0';
+    const avatarId = reqAvatarId || Deno.env.get('LIVEAVATAR_AVATAR_ID') || SANDBOX_AVATAR_ID;
+    const isSandbox = avatarId === SANDBOX_AVATAR_ID;
 
     const sessionBody: Record<string, unknown> = {
-      mode: 'FULL',
-      is_sandbox: !avatarId,
+      mode: 'LITE',
+      avatar_id: avatarId,
+      is_sandbox: isSandbox,
     };
-    if (avatarId) {
-      sessionBody.avatar_id = avatarId;
-      sessionBody.avatar_persona = { language: 'en' };
-    }
 
     const tokenRes = await fetch('https://api.liveavatar.com/v1/sessions/token', {
       method: 'POST',
