@@ -7,6 +7,10 @@
 <link rel="icon" href="favicon-32x32.png" type="image/png" sizes="32x32">
 <link rel="icon" href="favicon-16x16.png" type="image/png" sizes="16x16">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4f7cff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>30 Day Sleep Coach</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -628,10 +632,21 @@ textarea::placeholder { color: var(--muted2); }
 
 /* RESPONSIVE */
 @media (max-width: 720px) {
+  /* ── Bottom tab bar ── */
   header { padding: 0 1rem; }
-  nav button { padding: 5px 10px; font-size: 0.72rem; }
+  header nav { display: none; }
+  .mobile-tab-bar { display: flex; }
   .day-badge { display: none; }
-  .container { padding: 1.25rem 1rem 3rem; }
+  main { padding-top: 48px; padding-bottom: 64px; }
+  header { height: 48px; }
+  .loading-bar { top: 48px; }
+
+  /* ── Reduce heading vertical space ── */
+  .container { padding: 1rem 1rem 2rem; }
+  .section-tag { margin-bottom: 4px; font-size: 0.6rem; }
+  .page-heading { font-size: 1.25rem; margin-bottom: 1rem; }
+
+  /* ── Grids ── */
   .log-grid { grid-template-columns: 1fr; }
   .field-row { grid-template-columns: 1fr 1fr; }
   .baseline-body { grid-template-columns: 1fr; }
@@ -639,34 +654,89 @@ textarea::placeholder { color: var(--muted2); }
   .baseline-meter { width: 100%; }
   .oura-autofill-grid { grid-template-columns: 1fr 1fr; }
   .checkin-grid { grid-template-columns: 1fr 1fr; }
-  input[type=range].feel-slider::-webkit-slider-thumb { width: 28px; height: 28px; }
-  input[type=range].feel-slider::-moz-range-thumb { width: 28px; height: 28px; }
   .baseline-factor-grid { grid-template-columns: 1fr; }
   .stat-row { grid-template-columns: 1fr 1fr; }
   .stat-card { border-bottom: 1px solid var(--border); }
   .stat-card:nth-child(odd) { border-right: 1px solid var(--border); }
   .stat-card:nth-child(even) { border-right: none; }
   .insight-grid { grid-template-columns: 1fr; }
+
+  /* ── Larger slider thumb ── */
+  input[type=range].feel-slider::-webkit-slider-thumb { width: 32px; height: 32px; }
+  input[type=range].feel-slider::-moz-range-thumb { width: 32px; height: 32px; }
+
+  /* ── Larger tag touch targets ── */
+  .tag { font-size: 0.82rem; padding: 8px 16px; min-height: 40px; display: inline-flex; align-items: center; }
+  .tags { gap: 8px; }
+
+  /* ── Taller charts ── */
+  .chart-wrap { height: 220px; }
+
+  /* ── Sticky save button (only on Log view) ── */
+  #view-log .save-btn { position: fixed; bottom: 72px; left: 1rem; right: 1rem; width: auto; z-index: 90; box-shadow: 0 -2px 12px rgba(0,0,0,0.1); padding: 14px; }
+  #view-log #save-confirm { position: fixed; bottom: 120px; left: 1rem; right: 1rem; z-index: 90; }
+  #view-log .container { padding-bottom: 8rem; }
+
+  /* ── Entry log cards ── */
+  .log-table thead { display: none; }
+  .log-table, .log-table tbody, .log-table tr, .log-table td { display: block; width: 100%; }
+  .log-table tr { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 8px; position: relative; }
+  .log-table td { border-bottom: none; padding: 3px 0; font-size: 0.8rem; }
+  .log-table td:first-child { font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
+  .log-table td:empty { display: none; }
+  .log-table td:last-child { position: absolute; top: 10px; right: 10px; }
+
+  /* ── Chat ── */
   .chat-msg { max-width: 92%; }
   .chat-messages { max-height: 300px; }
-  .chat-hints { gap: 5px; }
-  .chat-hint { font-size: 0.68rem; padding: 4px 8px; }
+  .chat-hints { gap: 6px; }
+  .chat-hint { font-size: 0.72rem; padding: 6px 12px; min-height: 32px; display: inline-flex; align-items: center; }
+
+  /* ── Landing ── */
   .cta-grid { grid-template-columns: 1fr; gap: 2rem; }
   .cta-inner { padding: 2.5rem 1rem 2rem; }
   .landing-nav { padding: 0 1rem; }
   .landing-nav-links a:not(.nav-cta-btn) { display: none; }
-  .landing-banner { font-size: 0.72rem; padding: 9px 16px; top: 60px; left: 0.5rem; right: 0.5rem; }
+  .landing-banner { font-size: 0.72rem; padding: 9px 16px; top: 50px; left: 0.5rem; right: 0.5rem; }
   .landing-desc { margin-left: 0; margin-right: 0; font-size: 0.95rem; }
   .landing-chat-hints { gap: 5px; }
   .landing-chat-hint { font-size: 0.68rem; padding: 4px 10px; }
   .landing-logo { font-size: clamp(1.8rem, 5vw, 2.6rem); white-space: normal; }
   .landing-below div[style*="grid-template-columns:1fr 1fr 1fr"] { grid-template-columns: 1fr !important; }
+
+  /* ── Avatar ── */
+  .avatar-video-wrap { aspect-ratio: 4/3; }
 }
 
-@media (max-width: 420px) {
-  nav button { padding: 5px 8px; }
-  .nav-badge { padding: 2px 5px; }
+/* ── Mobile tab bar (hidden on desktop) ── */
+.mobile-tab-bar {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(250,250,250,0.96); backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border);
+  justify-content: space-around; align-items: center;
+  height: 64px; padding: 0 8px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+.mobile-tab-bar button {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: none; border: none; color: var(--muted2);
+  font-family: 'Geist', sans-serif; font-size: 0.62rem; font-weight: 500;
+  letter-spacing: 0.02em; padding: 6px 12px; cursor: pointer;
+  transition: color 0.15s; -webkit-tap-highlight-color: transparent;
+  min-width: 56px;
+}
+.mobile-tab-bar button.active { color: var(--accent); }
+.mobile-tab-bar button svg { width: 22px; height: 22px; }
+.mobile-tab-bar button.active svg { stroke-width: 2.2; }
+
+/* ── Pull-to-refresh indicator ── */
+.ptr-indicator {
+  text-align: center; padding: 12px 0; font-family: 'Geist Mono', monospace;
+  font-size: 0.7rem; color: var(--muted2); letter-spacing: 0.04em;
+  display: none; transition: opacity 0.3s;
+}
+.ptr-indicator.visible { display: block; }
 </style>
 </head>
 <body>
@@ -901,6 +971,26 @@ textarea::placeholder { color: var(--muted2); }
     <div class="mode-badge public" id="mode-badge" onclick="toggleMode()">● public</div>
   </div>
 </header>
+
+<!-- Mobile bottom tab bar -->
+<div class="mobile-tab-bar" id="mobile-tab-bar">
+  <button onclick="setView('log',this)" data-view="log">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+    Log
+  </button>
+  <button onclick="setView('history',this)" data-view="history">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><polyline points="18 9 12 15 9 12 3 18"/></svg>
+    History
+  </button>
+  <button onclick="setView('insights',this)" data-view="insights">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    Insights
+  </button>
+  <button onclick="setView('data',this)" data-view="data">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    Data
+  </button>
+</div>
 
 <main>
 
@@ -1873,7 +1963,16 @@ function setView(v, btn) {
   document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
+  // Sync mobile tab bar
+  document.querySelectorAll('.mobile-tab-bar button').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === v);
+  });
+  // Sync desktop nav
+  document.querySelectorAll('header nav button').forEach(b => {
+    if (b.textContent.trim().toLowerCase() === v || (v === 'data' && b.textContent.trim() === 'Data')) b.classList.add('active');
+  });
+  window.scrollTo(0, 0);
   if (v==='log') {
     renderBaselineProgress();
     hydrateLogFromOura();
@@ -2375,6 +2474,8 @@ function updateFeelSlider(val) {
   const color = v >= 70 ? 'var(--green)' : v >= 40 ? 'var(--muted)' : 'var(--red)';
   el.textContent = v;
   el.style.color = color;
+  // Haptic feedback at 25/50/75 marks
+  if ((v === 25 || v === 50 || v === 75) && navigator.vibrate) navigator.vibrate(10);
 }
 
 function readScale(id) {
@@ -3606,6 +3707,55 @@ initOuraNewBadge();
 
   resize();
   draw();
+})();
+
+// ── SERVICE WORKER ───────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+// ── PULL-TO-REFRESH ──────────────────────────────────
+(function() {
+  let startY = 0, pulling = false;
+  const threshold = 80;
+
+  document.addEventListener('touchstart', function(e) {
+    if (window.scrollY === 0) {
+      startY = e.touches[0].pageY;
+      pulling = true;
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchmove', function(e) {
+    if (!pulling) return;
+    const diff = e.touches[0].pageY - startY;
+    if (diff > 20) {
+      let indicator = document.getElementById('ptr-indicator');
+      if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'ptr-indicator';
+        indicator.className = 'ptr-indicator';
+        const main = document.querySelector('main');
+        main.insertBefore(indicator, main.firstChild);
+      }
+      indicator.className = 'ptr-indicator visible';
+      indicator.textContent = diff > threshold ? '↓ Release to refresh' : '↓ Pull to refresh';
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', function() {
+    if (!pulling) return;
+    pulling = false;
+    const indicator = document.getElementById('ptr-indicator');
+    if (indicator && indicator.textContent.includes('Release')) {
+      indicator.textContent = 'Refreshing...';
+      refreshCurrentView();
+      if (hasOuraConnection()) fetchOuraData();
+      setTimeout(() => { indicator.className = 'ptr-indicator'; }, 1200);
+    } else if (indicator) {
+      indicator.className = 'ptr-indicator';
+    }
+  }, { passive: true });
 })();
 </script>
 </body>
