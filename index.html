@@ -155,6 +155,14 @@ main { position: relative; z-index: 1; padding-top: 58px; }
 .oura-autofill-value { font-family: 'Geist', sans-serif; font-size: 1.05rem; font-weight: 600; color: var(--text); }
 .oura-autofill-note { font-size: 0.75rem; color: var(--muted2); line-height: 1.5; margin-top: 10px; }
 .checkin-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 1rem; }
+.feel-slider-wrap { display: flex; flex-direction: column; gap: 10px; margin-bottom: 1rem; }
+.feel-slider-header { display: flex; justify-content: space-between; align-items: baseline; }
+.feel-slider-val { font-family: 'Geist Mono', monospace; font-size: 1.2rem; font-weight: 600; letter-spacing: -0.02em; min-width: 48px; text-align: right; }
+.feel-slider-labels { display: flex; justify-content: space-between; }
+.feel-slider-labels span { font-family: 'Geist Mono', monospace; font-size: 0.6rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted2); }
+input[type=range].feel-slider { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px; background: var(--surface2); outline: none; cursor: pointer; }
+input[type=range].feel-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.15); cursor: grab; }
+input[type=range].feel-slider::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.15); cursor: grab; }
 .baseline-factor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
 .scale-field { display: flex; flex-direction: column; gap: 6px; }
 .scale-field input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: 'Geist Mono', monospace; font-size: 1rem; padding: 9px 10px; outline: none; -moz-appearance: textfield; }
@@ -631,6 +639,8 @@ textarea::placeholder { color: var(--muted2); }
   .baseline-meter { width: 100%; }
   .oura-autofill-grid { grid-template-columns: 1fr 1fr; }
   .checkin-grid { grid-template-columns: 1fr 1fr; }
+  input[type=range].feel-slider::-webkit-slider-thumb { width: 28px; height: 28px; }
+  input[type=range].feel-slider::-moz-range-thumb { width: 28px; height: 28px; }
   .baseline-factor-grid { grid-template-columns: 1fr; }
   .stat-row { grid-template-columns: 1fr 1fr; }
   .stat-card { border-bottom: 1px solid var(--border); }
@@ -925,12 +935,8 @@ textarea::placeholder { color: var(--muted2); }
           <div class="baseline-stat-label">HRV</div>
         </div>
         <div class="baseline-stat">
-          <div class="baseline-stat-value" id="baseline-avg-energy">—</div>
-          <div class="baseline-stat-label">energy</div>
-        </div>
-        <div class="baseline-stat">
-          <div class="baseline-stat-value" id="baseline-avg-stress">—</div>
-          <div class="baseline-stat-label">stress/load</div>
+          <div class="baseline-stat-value" id="baseline-avg-feel">—</div>
+          <div class="baseline-stat-label">feeling</div>
         </div>
       </div>
     </div>
@@ -939,27 +945,13 @@ textarea::placeholder { color: var(--muted2); }
   <!-- Subjective check-in -->
   <div class="card" style="margin-bottom:1rem">
     <div class="card-label">30-second check-in</div>
-    <div class="checkin-grid">
-      <label class="scale-field">
-        <span class="field-name">Energy</span>
-        <input type="number" id="energy_level" placeholder="1-10" min="1" max="10">
-      </label>
-      <label class="scale-field">
-        <span class="field-name">Mood</span>
-        <input type="number" id="mood_level" placeholder="1-10" min="1" max="10">
-      </label>
-      <label class="scale-field">
-        <span class="field-name">Stress/load</span>
-        <input type="number" id="stress_level" placeholder="1-10" min="1" max="10">
-      </label>
-      <label class="scale-field">
-        <span class="field-name">Focus</span>
-        <input type="number" id="focus_level" placeholder="1-10" min="1" max="10">
-      </label>
-      <label class="scale-field">
-        <span class="field-name">Soreness</span>
-        <input type="number" id="soreness_level" placeholder="1-10" min="1" max="10">
-      </label>
+    <div class="feel-slider-wrap">
+      <div class="feel-slider-header">
+        <span class="field-name">How do you feel today?</span>
+        <span class="feel-slider-val" id="feel-val" style="color:var(--muted2)">—</span>
+      </div>
+      <input type="range" class="feel-slider" id="feel_level" min="0" max="100" value="50" oninput="updateFeelSlider(this.value)">
+      <div class="feel-slider-labels"><span>Terrible</span><span>Great</span></div>
     </div>
     <label class="field">
       <span class="field-name">Night wake</span>
@@ -1718,7 +1710,12 @@ function avg(values) {
 
 function extractCheckinScore(entry, label) {
   const note = entry?.note || '';
-  const match = note.match(new RegExp(`${label}\\\\s+(\\\\d{1,2})\\\\/10`, 'i'));
+  const match100 = note.match(new RegExp(`${label}[:\\s]+\\s*(\\d{1,3})\\/100`, 'i'));
+  if (match100) {
+    const value = Number(match100[1]);
+    return value >= 0 && value <= 100 ? value : null;
+  }
+  const match = note.match(new RegExp(`${label}\\s+(\\d{1,2})\\/10`, 'i'));
   if (!match) return null;
   const value = Number(match[1]);
   return value >= 1 && value <= 10 ? value : null;
@@ -1817,12 +1814,10 @@ function renderBaselineProgress() {
   if (fill) fill.style.width = `${Math.round((count / 7) * 100)}%`;
   const sleepAvg = avg(recent.map(e => e.sleep_score));
   const hrvAvg = avg(recent.map(e => e.hrv));
-  const energyAvg = avg(recent.map(e => extractCheckinScore(e, 'Energy')));
-  const stressAvg = avg(recent.map(e => extractCheckinScore(e, 'Stress/load')));
+  const feelAvg = avg(recent.map(e => extractCheckinScore(e, 'Feeling')));
   setBaselineValue('baseline-avg-sleep', sleepAvg);
   setBaselineValue('baseline-avg-hrv', hrvAvg, hrvAvg === null ? '' : 'ms');
-  setBaselineValue('baseline-avg-energy', energyAvg, energyAvg === null ? '' : '/10');
-  setBaselineValue('baseline-avg-stress', stressAvg, stressAvg === null ? '' : '/10');
+  setBaselineValue('baseline-avg-feel', feelAvg, feelAvg === null ? '' : '/100');
   renderBaselineTrend(recent);
 }
 
@@ -2322,6 +2317,17 @@ async function hydrateLogFromOura() {
   }
 }
 
+let feelSliderTouched = false;
+
+function updateFeelSlider(val) {
+  feelSliderTouched = true;
+  const el = document.getElementById('feel-val');
+  const v = parseInt(val, 10);
+  const color = v >= 70 ? 'var(--green)' : v >= 40 ? 'var(--muted)' : 'var(--red)';
+  el.textContent = v;
+  el.style.color = color;
+}
+
 function readScale(id) {
   const value = parseInt(document.getElementById(id)?.value, 10);
   return value >= 1 && value <= 10 ? value : null;
@@ -2329,15 +2335,8 @@ function readScale(id) {
 
 function buildCheckinNote() {
   const manualNote = document.getElementById('note').value.trim();
-  const parts = [
-    ['Energy', readScale('energy_level')],
-    ['Mood', readScale('mood_level')],
-    ['Stress/load', readScale('stress_level')],
-    ['Focus', readScale('focus_level')],
-    ['Soreness', readScale('soreness_level')]
-  ].filter(([, value]) => value !== null).map(([label, value]) => `${label} ${value}/10`);
-
-  const checkin = parts.length ? `Check-in: ${parts.join(', ')}.` : '';
+  const feelVal = feelSliderTouched ? parseInt(document.getElementById('feel_level').value, 10) : null;
+  const checkin = feelVal !== null ? `Feeling: ${feelVal}/100.` : '';
   return [checkin, manualNote].filter(Boolean).join('\n\n') || null;
 }
 
@@ -2363,10 +2362,15 @@ async function saveEntry() {
     entries.unshift(saved?.[0] || entry);
     updateDayBadge();
     renderBaselineProgress();
-    ['hrv','sleep_score','bedtime','waketime','night_wake','note','energy_level','mood_level','stress_level','focus_level','soreness_level'].forEach(id => {
+    ['hrv','sleep_score','bedtime','waketime','night_wake','note'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
+    const feelSlider = document.getElementById('feel_level');
+    if (feelSlider) feelSlider.value = 50;
+    const feelVal = document.getElementById('feel-val');
+    if (feelVal) { feelVal.textContent = '\u2014'; feelVal.style.color = 'var(--muted2)'; }
+    feelSliderTouched = false;
     posSelected.clear(); negSelected.clear();
     document.querySelectorAll('.tag').forEach(t=>t.classList.remove('pos-on','neg-on'));
     updateGauge();
