@@ -630,6 +630,36 @@ textarea::placeholder { color: var(--muted2); }
 }
 
 
+/* ── Mobile tab bar (hidden on desktop) ── */
+.mobile-tab-bar {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(250,250,250,0.96); backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border);
+  justify-content: space-around; align-items: center;
+  height: 64px; padding: 0 8px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.mobile-tab-bar button {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: none; border: none; color: var(--muted2);
+  font-family: 'Geist', sans-serif; font-size: 0.62rem; font-weight: 500;
+  letter-spacing: 0.02em; padding: 6px 12px; cursor: pointer;
+  transition: color 0.15s; -webkit-tap-highlight-color: transparent;
+  min-width: 56px;
+}
+.mobile-tab-bar button.active { color: var(--accent); }
+.mobile-tab-bar button svg { width: 22px; height: 22px; }
+.mobile-tab-bar button.active svg { stroke-width: 2.2; }
+
+/* ── Pull-to-refresh indicator ── */
+.ptr-indicator {
+  text-align: center; padding: 12px 0; font-family: 'Geist Mono', monospace;
+  font-size: 0.7rem; color: var(--muted2); letter-spacing: 0.04em;
+  display: none; transition: opacity 0.3s;
+}
+.ptr-indicator.visible { display: block; }
+
 /* RESPONSIVE */
 @media (max-width: 720px) {
   /* ── Bottom tab bar ── */
@@ -708,35 +738,6 @@ textarea::placeholder { color: var(--muted2); }
   .avatar-video-wrap { aspect-ratio: 4/3; }
 }
 
-/* ── Mobile tab bar (hidden on desktop) ── */
-.mobile-tab-bar {
-  display: none;
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
-  background: rgba(250,250,250,0.96); backdrop-filter: blur(16px);
-  border-top: 1px solid var(--border);
-  justify-content: space-around; align-items: center;
-  height: 64px; padding: 0 8px;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-.mobile-tab-bar button {
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
-  background: none; border: none; color: var(--muted2);
-  font-family: 'Geist', sans-serif; font-size: 0.62rem; font-weight: 500;
-  letter-spacing: 0.02em; padding: 6px 12px; cursor: pointer;
-  transition: color 0.15s; -webkit-tap-highlight-color: transparent;
-  min-width: 56px;
-}
-.mobile-tab-bar button.active { color: var(--accent); }
-.mobile-tab-bar button svg { width: 22px; height: 22px; }
-.mobile-tab-bar button.active svg { stroke-width: 2.2; }
-
-/* ── Pull-to-refresh indicator ── */
-.ptr-indicator {
-  text-align: center; padding: 12px 0; font-family: 'Geist Mono', monospace;
-  font-size: 0.7rem; color: var(--muted2); letter-spacing: 0.04em;
-  display: none; transition: opacity 0.3s;
-}
-.ptr-indicator.visible { display: block; }
 </style>
 </head>
 <body>
