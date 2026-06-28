@@ -891,10 +891,10 @@ textarea::placeholder { color: var(--muted2); }
 <header>
   <a class="logo" href="#" onclick="goHome(); return false;"><span>30 Day</span> Sleep Coach</a>
   <nav>
-    <button class="active" onclick="setView('history',this)">History</button>
     <button onclick="setView('log',this)">Log</button>
+    <button class="active" onclick="setView('history',this)">History</button>
     <button onclick="setView('insights',this)">Insights</button>
-    <button onclick="onCoachTabClick(this)"><span class="nav-badge-btn">Coach <span class="nav-badge" id="coach-new-badge">NEW</span></span></button>
+    <button onclick="setView('data',this)">Data</button>
   </nav>
   <div class="header-right">
     <div class="day-badge" id="day-badge">Day 1</div>
@@ -1128,11 +1128,35 @@ textarea::placeholder { color: var(--muted2); }
 </div>
 </div>
 
-<!-- INSIGHTS VIEW -->
+<!-- INSIGHTS VIEW (Coach avatar + Daily briefing + Chat) -->
 <div id="view-insights" class="view">
 <div class="container">
   <div class="section-tag">Your coach</div>
   <h1 class="page-heading">Daily <em>briefing.</em></h1>
+
+  <!-- Avatar Coach -->
+  <div class="avatar-section" id="avatar-section">
+    <div class="avatar-card">
+      <div class="avatar-video-wrap idle" id="avatar-video-wrap">
+        <video id="avatar-video" autoplay playsinline style="display:none"></video>
+        <div class="avatar-idle-content" id="avatar-idle-content">
+          <div class="avatar-orb"></div>
+          <div class="avatar-idle-text">AI Avatar Coach</div>
+        </div>
+      </div>
+      <div class="avatar-controls">
+        <button class="avatar-start-btn" id="avatar-start-btn" onclick="toggleAvatarCoach()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+          <span id="avatar-btn-text">Start Avatar Coach</span>
+        </button>
+        <div class="avatar-status" id="avatar-status" style="display:none">
+          <div class="avatar-status-dot" id="avatar-status-dot"></div>
+          <span id="avatar-status-text"></span>
+        </div>
+      </div>
+      <div class="avatar-error" id="avatar-error" style="display:none"></div>
+    </div>
+  </div>
 
   <!-- AI BRIEFING -->
   <div class="coach-section">
@@ -1171,12 +1195,15 @@ textarea::placeholder { color: var(--muted2); }
       </button>
     </div>
   </div>
+</div>
+</div>
 
-  <!-- DATA CARDS -->
-  <div style="margin-top:2rem">
-    <div class="section-tag">Patterns</div>
-    <h2 class="page-heading" style="font-size:1.3rem;margin-bottom:1rem">What the data <em>shows.</em></h2>
-  </div>
+<!-- DATA VIEW (Patterns, heatmaps, scatter) -->
+<div id="view-data" class="view">
+<div class="container">
+  <div class="section-tag">Patterns</div>
+  <h1 class="page-heading">What the data <em>shows.</em></h1>
+
   <div id="insights-top" class="insight-grid"></div>
   <div class="chart-card">
     <div class="chart-title">Factor correlation — delta vs avg sleep score</div>
@@ -1190,41 +1217,14 @@ textarea::placeholder { color: var(--muted2); }
     <div class="chart-title">HRV vs sleep score</div>
     <div class="chart-wrap" style="height:200px"><canvas id="scatter-chart"></canvas></div>
   </div>
+
+  <div id="coach-root" style="display:none"></div>
 </div>
 </div>
 
-<!-- COACH VIEW -->
+<!-- COACH VIEW (kept for backward compat, hidden from nav) -->
 <div id="view-coach" class="view">
-<div class="container">
-  <div class="section-tag">Coach</div>
-  <h1 class="page-heading">Tonight's <em>recommendation.</em></h1>
-
-  <!-- Avatar Coach -->
-  <div class="avatar-section" id="avatar-section">
-    <div class="avatar-card">
-      <div class="avatar-video-wrap idle" id="avatar-video-wrap">
-        <video id="avatar-video" autoplay playsinline style="display:none"></video>
-        <div class="avatar-idle-content" id="avatar-idle-content">
-          <div class="avatar-orb"></div>
-          <div class="avatar-idle-text">AI Avatar Coach</div>
-        </div>
-      </div>
-      <div class="avatar-controls">
-        <button class="avatar-start-btn" id="avatar-start-btn" onclick="toggleAvatarCoach()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
-          <span id="avatar-btn-text">Start Avatar Coach</span>
-        </button>
-        <div class="avatar-status" id="avatar-status" style="display:none">
-          <div class="avatar-status-dot" id="avatar-status-dot"></div>
-          <span id="avatar-status-text"></span>
-        </div>
-      </div>
-      <div class="avatar-error" id="avatar-error" style="display:none"></div>
-    </div>
-  </div>
-
-  <div id="coach-root"></div>
-</div>
+<div class="container"></div>
 </div>
 
 <div id="view-stress" class="view">
@@ -1573,7 +1573,7 @@ function showNewUserWelcome() {
   if (entries.length > 0) return;
 
   // Set the view to Log tab to guide first action
-  const logBtn = document.querySelectorAll('nav button')[1];
+  const logBtn = document.querySelectorAll('nav button')[0];
   if (logBtn) setView('log', logBtn);
 
   // Insert a welcome banner at the top of the log view
@@ -1686,10 +1686,10 @@ async function initApp() {
   updateDayBadge();
   updateModeUI();
   if (!hasTodayEntry()) {
-    const logBtn = document.querySelectorAll('nav button')[1];
+    const logBtn = document.querySelectorAll('nav button')[0];
     if (logBtn) setView('log', logBtn);
   } else {
-    const histBtn = document.querySelectorAll('nav button')[0];
+    const histBtn = document.querySelectorAll('nav button')[1];
     if (histBtn) setView('history', histBtn);
   }
 }
@@ -1886,7 +1886,7 @@ function setView(v, btn) {
     });
   }
   if (v==='insights') renderInsights();
-  if (v==='coach') renderCoach();
+  if (v==='data') renderDataView();
 }
 
 function refreshCurrentView() {
@@ -1894,7 +1894,7 @@ function refreshCurrentView() {
   if (id==='log') { renderBaselineProgress(); renderLogOuraAutofill(); }
   if (id==='history') renderHistory();
   if (id==='insights') renderInsights();
-  if (id==='coach') renderCoach();
+  if (id==='data') renderDataView();
 }
 
 // ===== Coach Tab =====
@@ -2426,8 +2426,8 @@ async function saveEntry() {
     briefingGenerated = false;
     showToast('Entry saved — loading your coaching recommendation', 'success');
     setTimeout(() => {
-      const coachBtn = document.querySelectorAll('nav button')[3];
-      if (coachBtn) { onCoachTabClick(coachBtn); }
+      const insightsBtn = document.querySelectorAll('nav button')[2];
+      if (insightsBtn) { setView('insights', insightsBtn); }
     }, 800);
     try {
       await sb.from('ai_cache').delete().eq('cache_key', getBriefingCacheKey());
@@ -2582,7 +2582,8 @@ function renderLog() {
 }
 
 // ── INSIGHTS ─────────────────────────────────────────
-function renderInsights(){renderInsightCards();renderHeatmapSleep();renderHeatmapHRV();renderScatter();generateBriefing();}
+function renderInsights(){generateBriefing();renderCoach();}
+function renderDataView(){renderInsightCards();renderHeatmapSleep();renderHeatmapHRV();renderScatter();}
 
 // ── AI COACH ─────────────────────────────────────────
 const COACH_ENDPOINT = SUPABASE_URL + '/functions/v1/sleep-coach';
