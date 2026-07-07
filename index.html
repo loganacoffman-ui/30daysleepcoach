@@ -764,7 +764,7 @@ textarea::placeholder { color: var(--muted2); }
     <div id="landing-welcome">
       <div style="margin-top:1.5rem"></div>
       <div class="landing-chart-wrap">
-        <svg id="trend-svg" viewBox="0 0 400 90" preserveAspectRatio="none" style="width:100%;height:90px;overflow:visible;opacity:0">
+        <svg id="trend-svg" viewBox="0 0 400 90" preserveAspectRatio="none" style="width:100%;height:90px;overflow:visible;opacity:0;transition:opacity 0.3s ease">
           <!-- Target line -->
           <line x1="0" y1="22" x2="400" y2="22" stroke="rgba(79,124,255,0.25)" stroke-width="1" stroke-dasharray="4,4"/>
           <text x="392" y="18" fill="rgba(79,124,255,0.4)" font-size="8" font-family="monospace" text-anchor="end">target</text>
@@ -3598,7 +3598,7 @@ initOuraNewBadge();
 
       if (phase === 'drawing') {
         const p = Math.min(1, elapsed / TREND_DURATION);
-        svgEl.style.opacity = 1;
+        svgEl.style.opacity = '1';
         const { line, fill, dot } = buildSVGPaths(data, p);
         lineEl.setAttribute('d', line);
         fillEl.setAttribute('d', fill);
@@ -3609,7 +3609,7 @@ initOuraNewBadge();
         if (elapsed >= TREND_PAUSE) { phase = 'fading'; phaseStart = ts; }
       } else if (phase === 'fading') {
         const p = Math.min(1, elapsed / TREND_FADE);
-        svgEl.style.opacity = 1 - p;
+        svgEl.style.opacity = String(1 - p);
         if (p >= 1) { data = generateTrendData(); phase = 'drawing'; phaseStart = ts; }
       }
       requestAnimationFrame(animate);
@@ -3622,12 +3622,12 @@ initOuraNewBadge();
     setTimeout(initTrendSVG, 50);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initLandingHero, { once: true });
-  } else {
+  // Single entry point: run after DOM + all resources are ready
+  window.addEventListener('load', initLandingHero, { once: true });
+  // Fallback: if load already fired (e.g. cached page), run immediately
+  if (document.readyState === 'complete') {
     initLandingHero();
   }
-  window.addEventListener('load', initLandingHero, { once: true });
 })();
 
 // ── LANDING CANVAS ANIMATION ─────────────────────────
@@ -3754,3 +3754,4 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
+                                                                                                                                                                 
