@@ -764,7 +764,7 @@ textarea::placeholder { color: var(--muted2); }
     <div id="landing-welcome">
       <div style="margin-top:1.5rem"></div>
       <div class="landing-chart-wrap">
-        <svg id="trend-svg" viewBox="0 0 400 90" preserveAspectRatio="none" style="width:100%;height:90px;overflow:visible;opacity:0;transition:opacity 0.3s ease">
+        <svg id="trend-svg" viewBox="0 0 400 90" preserveAspectRatio="none" style="width:100%;height:90px;overflow:visible">
           <!-- Target line -->
           <line x1="0" y1="22" x2="400" y2="22" stroke="rgba(79,124,255,0.25)" stroke-width="1" stroke-dasharray="4,4"/>
           <text x="392" y="18" fill="rgba(79,124,255,0.4)" font-size="8" font-family="monospace" text-anchor="end">target</text>
@@ -784,7 +784,7 @@ textarea::placeholder { color: var(--muted2); }
           <!-- Main line -->
           <path id="trend-line-path" fill="none" stroke="#4f7cff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#trendGlow)"/>
           <!-- Animated dot at end -->
-          <circle id="trend-dot" r="3.5" fill="#4f7cff" filter="url(#trendGlow)"/>
+          <circle id="trend-dot" r="3.5" fill="#4f7cff" filter="url(#trendGlow)" cx="-10" cy="-10"/>
           <!-- Day labels -->
           <text x="4" y="86" fill="rgba(113,113,122,0.7)" font-size="8" font-family="monospace">Day 1</text>
           <text x="192" y="86" fill="rgba(113,113,122,0.7)" font-size="8" font-family="monospace" text-anchor="middle">Day 15</text>
@@ -3622,12 +3622,16 @@ initOuraNewBadge();
     setTimeout(initTrendSVG, 50);
   }
 
-  // Single entry point: run after DOM + all resources are ready
-  window.addEventListener('load', initLandingHero, { once: true });
-  // Fallback: if load already fired (e.g. cached page), run immediately
-  if (document.readyState === 'complete') {
+  // Start as soon as the DOM is ready; load is the fallback for cached pages
+  function scheduleInit() {
     initLandingHero();
   }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', scheduleInit, { once: true });
+  } else {
+    scheduleInit();
+  }
+  window.addEventListener('load', scheduleInit, { once: true });
 })();
 
 // ── LANDING CANVAS ANIMATION ─────────────────────────
@@ -3754,4 +3758,3 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
-                                                                                                                                                                 
