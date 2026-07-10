@@ -262,6 +262,250 @@ textarea::placeholder { color: var(--muted2); }
 .heatmap-cell { height: 28px; flex: 2; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-family: 'Geist Mono', monospace; font-size: 0.7rem; transition: all .2s; min-width: 52px; }
 .heatmap-cell.no-data { background: var(--surface2); color: var(--muted2); font-size: 0.65rem; }
 
+/* ── CBT-I COACH VIEW ─────────────────────────────── */
+#view-coach { min-height: calc(100vh - 58px); display: flex; flex-direction: column; }
+.coach-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem 6rem;
+  min-height: calc(100vh - 58px);
+  position: relative;
+}
+
+/* Big orb */
+.coach-orb-wrap {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  margin-bottom: 2rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+.coach-orb {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: conic-gradient(from 180deg at 50% 50%, #312e81 0deg, #4f46e5 60deg, #7c3aed 120deg, #a78bfa 180deg, #60a5fa 240deg, #4f7cff 300deg, #312e81 360deg);
+  box-shadow: 0 0 0 0 rgba(99,102,241,0.3), 0 8px 40px rgba(79,124,255,0.25);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+/* Noise texture overlay */
+.coach-orb::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.15'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+/* Gloss highlight */
+.coach-orb::after {
+  content: '';
+  position: absolute;
+  top: 10%;
+  left: 15%;
+  width: 45%;
+  height: 38%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 40% 35%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 70%);
+  pointer-events: none;
+}
+
+/* Idle: slow breathe */
+.coach-orb-wrap.idle .coach-orb {
+  animation: coachOrbIdle 4s ease-in-out infinite;
+}
+@keyframes coachOrbIdle {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99,102,241,0.2), 0 8px 40px rgba(79,124,255,0.2); }
+  50% { transform: scale(1.04); box-shadow: 0 0 0 14px rgba(99,102,241,0), 0 12px 50px rgba(79,124,255,0.3); }
+}
+
+/* Listening: fast ripple, red tint */
+.coach-orb-wrap.listening .coach-orb {
+  background: conic-gradient(from 180deg at 50% 50%, #7f1d1d 0deg, #ef4444 60deg, #dc2626 120deg, #f87171 180deg, #fb923c 240deg, #ef4444 300deg, #7f1d1d 360deg);
+  animation: coachOrbListen 1.4s ease-in-out infinite;
+}
+@keyframes coachOrbListen {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239,68,68,0.4), 0 8px 40px rgba(239,68,68,0.2); }
+  50% { transform: scale(1.07); box-shadow: 0 0 0 18px rgba(239,68,68,0), 0 12px 50px rgba(239,68,68,0.3); }
+}
+
+/* Thinking: shimmer spin */
+.coach-orb-wrap.thinking .coach-orb {
+  animation: coachOrbThink 2.2s linear infinite;
+}
+@keyframes coachOrbThink {
+  0% { filter: brightness(1) hue-rotate(0deg); }
+  50% { filter: brightness(1.15) hue-rotate(40deg); }
+  100% { filter: brightness(1) hue-rotate(0deg); }
+}
+
+/* Speaking: wave pulse */
+.coach-orb-wrap.speaking .coach-orb {
+  animation: coachOrbSpeak 0.9s ease-in-out infinite;
+}
+@keyframes coachOrbSpeak {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99,102,241,0.35), 0 8px 40px rgba(79,124,255,0.25); }
+  30% { transform: scale(1.06); box-shadow: 0 0 0 10px rgba(99,102,241,0.15), 0 12px 50px rgba(79,124,255,0.35); }
+  60% { transform: scale(1.03); box-shadow: 0 0 0 20px rgba(99,102,241,0), 0 10px 44px rgba(79,124,255,0.28); }
+}
+
+/* Mic icon inside orb */
+.coach-orb-icon {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(255,255,255,0.9);
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 1;
+}
+.coach-orb-wrap.listening .coach-orb-icon,
+.coach-orb-wrap.thinking .coach-orb-icon,
+.coach-orb-wrap.speaking .coach-orb-icon { opacity: 0; }
+
+/* Stop square (listening state) */
+.coach-orb-stop {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px; height: 32px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.92);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 1;
+}
+.coach-orb-wrap.listening .coach-orb-stop { opacity: 1; }
+
+/* Spinner (thinking state) */
+.coach-orb-spinner {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px; height: 32px;
+  border: 2.5px solid rgba(255,255,255,0.9);
+  border-top-color: transparent;
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 1;
+}
+.coach-orb-wrap.thinking .coach-orb-spinner { opacity: 1; animation: coachSpin 0.7s linear infinite; }
+@keyframes coachSpin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+/* Status label */
+.coach-status-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted2);
+  margin-bottom: 2rem;
+  min-height: 1.2em;
+  transition: color 0.3s;
+}
+.coach-status-label.listening { color: var(--red); }
+.coach-status-label.thinking  { color: var(--accent); }
+.coach-status-label.speaking  { color: var(--green); }
+
+/* Transcript bubble */
+.coach-transcript {
+  max-width: 520px;
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  display: none;
+}
+.coach-transcript.visible { display: block; }
+
+/* Coach response */
+.coach-response-wrap {
+  max-width: 520px;
+  width: 100%;
+  display: none;
+}
+.coach-response-wrap.visible { display: block; }
+.coach-response-text {
+  font-size: 0.92rem;
+  color: var(--text);
+  line-height: 1.75;
+  margin-bottom: 1.25rem;
+}
+.coach-response-text p { margin-bottom: 0.65rem; }
+.coach-response-text p:last-child { margin-bottom: 0; }
+.coach-tts-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 100px;
+  padding: 8px 18px;
+  font-family: 'Geist', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.coach-tts-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+.coach-tts-btn.playing { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+.coach-tts-btn svg { flex-shrink: 0; }
+
+/* Hint text */
+.coach-hint {
+  font-size: 0.82rem;
+  color: var(--muted2);
+  text-align: center;
+  max-width: 280px;
+  line-height: 1.6;
+}
+
+/* Tonight's plan card */
+.coach-plan-card {
+  max-width: 520px;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+  display: none;
+}
+.coach-plan-card.visible { display: block; }
+.coach-plan-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted2);
+  margin-bottom: 0.75rem;
+}
+.coach-plan-times {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 0.5rem;
+}
+.coach-plan-time-item { display: flex; flex-direction: column; gap: 3px; }
+.coach-plan-time-val { font-family: 'Geist', sans-serif; font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
+.coach-plan-time-lbl { font-family: 'Geist Mono', monospace; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted2); }
+
 /* COACH BRIEFING */
 .coach-section { margin-bottom: 1.5rem; }
 .coach-briefing { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); position: relative; }
@@ -966,6 +1210,7 @@ textarea::placeholder { color: var(--muted2); }
     <button class="active" onclick="setView('history',this)">History</button>
     <button onclick="setView('insights',this)">Insights</button>
     <button onclick="setView('data',this)">Data</button>
+    <button onclick="setView('coach',this)">Coach</button>
   </nav>
   <div class="header-right">
     <div class="day-badge" id="day-badge">Day 1</div>
@@ -990,6 +1235,10 @@ textarea::placeholder { color: var(--muted2); }
   <button onclick="setView('data',this)" data-view="data">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
     Data
+  </button>
+  <button onclick="setView('coach',this)" data-view="coach">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 4-3.5 7-7 9-3.5-2-7-5-7-9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+    Coach
   </button>
 </div>
 
@@ -1315,7 +1564,59 @@ textarea::placeholder { color: var(--muted2); }
 
 <!-- COACH VIEW (kept for backward compat, hidden from nav) -->
 <div id="view-coach" class="view">
-<div class="container"></div>
+  <div class="coach-stage">
+
+    <!-- Tonight's plan (shown after first session) -->
+    <div class="coach-plan-card" id="coach-plan-card">
+      <div class="coach-plan-label">Tonight's plan</div>
+      <div class="coach-plan-times">
+        <div class="coach-plan-time-item">
+          <div class="coach-plan-time-val" id="coach-plan-bed">—</div>
+          <div class="coach-plan-time-lbl">Bedtime</div>
+        </div>
+        <div class="coach-plan-time-item">
+          <div class="coach-plan-time-val" id="coach-plan-wake">—</div>
+          <div class="coach-plan-time-lbl">Wake time</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- The orb -->
+    <div class="coach-orb-wrap idle" id="coach-orb-wrap" onclick="handleCoachOrbClick()">
+      <div class="coach-orb">
+        <!-- Mic icon (idle) -->
+        <svg class="coach-orb-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="2" width="6" height="12" rx="3"/>
+          <path d="M5 10a7 7 0 0 0 14 0"/>
+          <line x1="12" y1="19" x2="12" y2="22"/>
+          <line x1="8" y1="22" x2="16" y2="22"/>
+        </svg>
+        <!-- Stop square (listening) -->
+        <div class="coach-orb-stop"></div>
+        <!-- Spinner (thinking) -->
+        <div class="coach-orb-spinner"></div>
+      </div>
+    </div>
+
+    <!-- Status label -->
+    <div class="coach-status-label" id="coach-status-label">Tap to check in</div>
+
+    <!-- User transcript -->
+    <div class="coach-transcript" id="coach-transcript"></div>
+
+    <!-- Coach response -->
+    <div class="coach-response-wrap" id="coach-response-wrap">
+      <div class="coach-response-text" id="coach-response-text"></div>
+      <button class="coach-tts-btn" id="coach-tts-btn" onclick="toggleCoachTTS()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+        <span id="coach-tts-label">Play</span>
+      </button>
+    </div>
+
+    <!-- Idle hint -->
+    <div class="coach-hint" id="coach-hint">Record a voice note about how you slept. Your coach will respond with what's going on and what to focus on tonight.</div>
+
+  </div>
 </div>
 
 <div id="view-stress" class="view">
@@ -1987,6 +2288,7 @@ function setView(v, btn) {
   }
   if (v==='insights') renderInsights();
   if (v==='data') renderDataView();
+  if (v==='coach' && window.initCoachView) initCoachView();
 }
 
 function refreshCurrentView() {
@@ -3711,6 +4013,343 @@ initOuraNewBadge();
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
+
+// ── CBT-I COACH ──────────────────────────────────────
+(function() {
+
+  // ── State ──
+  let coachState = 'idle'; // idle | listening | thinking | speaking
+  let coachRecorder = null;
+  let coachChunks = [];
+  let coachAudio = null;
+  let coachTTSText = '';
+
+  // Persisted last response so navigating away and back restores it
+  const COACH_STORAGE_KEY = 'coach_last_session';
+
+  // ── CBT-I System Prompt (Gregg Jacobs "Say Goodnight to Insomnia") ──
+  const CBTI_SYSTEM_PROMPT = `You are a sleep coach trained in Cognitive Behavioral Therapy for Insomnia (CBT-I), specifically the structured 6-week protocol from Gregg Jacobs' "Say Goodnight to Insomnia" (Harvard Medical School).
+
+Your role is to deliver a brief, warm, personalized daily coaching session based on the user's voice check-in and their recent sleep log data. You are direct, encouraging, and clinically grounded. You never give vague advice — every response ends with one concrete behavioral directive for tonight.
+
+## The CBT-I Protocol Framework
+
+### Core Principles
+- Sleep is driven by two systems: circadian rhythm (timing) and sleep pressure (adenosine buildup). Most insomnia is perpetuated by behaviors and thoughts that interfere with both.
+- The goal is to strengthen the sleep drive and reduce conditioned arousal around the bed.
+- Progress is measured by sleep efficiency = (time asleep / time in bed) × 100. Target: ≥85%.
+
+### Week-by-Week Protocol
+
+**Week 1-2: Sleep Restriction + Stimulus Control**
+- Calculate the user's average total sleep time (TST) from their logs.
+- Prescribe a sleep window = TST + 30 min buffer (minimum 5.5 hours).
+- Enforce a fixed wake time 7 days/week. This is non-negotiable.
+- Stimulus control rules: bed = sleep only. No lying awake >20 min. If awake, get up and do something quiet until sleepy.
+- Key reframe: short-term sleep deprivation builds sleep pressure, which consolidates sleep long-term.
+
+**Week 3-4: Cognitive Restructuring**
+- Surface and reframe catastrophic thoughts about sleep.
+- Common distortions to address: "I need 8 hours or tomorrow is ruined," "I'll never fall asleep," "I'm broken."
+- Evidence-based reframes: one poor night has minimal functional impact; worrying about sleep is more damaging than the lost sleep itself; the body will catch up.
+- Introduce relaxation: progressive muscle relaxation or diaphragmatic breathing as a pre-sleep routine (not as a sleep aid, but as arousal reduction).
+
+**Week 5-6: Sleep Window Expansion + Maintenance**
+- Expand the sleep window by 15 minutes only when sleep efficiency ≥85% for 5+ consecutive nights.
+- Shrink by 15 minutes if efficiency drops below 80% for 3+ nights.
+- Lock in the behavioral wins. Identify the 2-3 changes that made the biggest difference.
+- Relapse prevention: what to do when a bad stretch happens (return to sleep restriction for 1 week).
+
+### What the Coach Does Each Session
+1. Acknowledge what the user shared — make them feel heard.
+2. Reference their actual data (sleep score, HRV, sleep efficiency if available).
+3. Name the pattern or issue you're seeing this week.
+4. Deliver the CBT-I insight or reframe relevant to where they are in the program.
+5. Give ONE specific directive for tonight (bedtime, behavior, or mindset).
+6. If you can infer bedtime/wake time targets from their data, state them explicitly.
+
+### Tone
+- Warm but direct. Like a knowledgeable friend, not a clinical robot.
+- Short responses: 3-5 sentences max. No bullet lists. No headers. Conversational prose.
+- Do not use the word "insomnia" unless the user uses it first.
+- Never say "I'm just an AI." You are their sleep coach.
+
+### Data you will receive
+- User's voice journal transcript (how they slept, how they feel, what they noticed)
+- Recent sleep log entries: sleep score, HRV, bedtime, wake time, night wakes, lifestyle factors
+- Days since program start (use this to determine which week of the protocol applies)
+- Current sleep efficiency trend if calculable from the data
+
+Always end your response by stating tonight's recommended bedtime and wake time in plain text on the final sentence, formatted as: "Tonight: aim for bed by [TIME] and up by [TIME]."`;
+
+  // ── Helpers ──
+  function setCoachState(state) {
+    coachState = state;
+    const wrap = document.getElementById('coach-orb-wrap');
+    const label = document.getElementById('coach-status-label');
+    const hint = document.getElementById('coach-hint');
+    if (!wrap) return;
+
+    wrap.className = 'coach-orb-wrap ' + state;
+    label.className = 'coach-status-label ' + state;
+
+    const labels = {
+      idle: 'Tap to check in',
+      listening: 'Listening — tap to stop',
+      thinking: 'Thinking…',
+      speaking: 'Speaking'
+    };
+    label.textContent = labels[state] || '';
+    if (hint) hint.style.display = state === 'idle' ? 'block' : 'none';
+  }
+
+  function showTranscript(text) {
+    const el = document.getElementById('coach-transcript');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.add('visible');
+  }
+
+  function showResponse(text) {
+    const wrap = document.getElementById('coach-response-wrap');
+    const textEl = document.getElementById('coach-response-text');
+    if (!wrap || !textEl) return;
+    // Convert newlines to paragraphs
+    textEl.innerHTML = text.split(/\n+/).filter(Boolean).map(p => `<p>${esc(p)}</p>`).join('');
+    wrap.classList.add('visible');
+    coachTTSText = text;
+
+    // Extract tonight's plan if present
+    const match = text.match(/[Tt]onight[:\s–-]+aim for bed by\s+([0-9:apmAPM\s]+)\s+and up by\s+([0-9:apmAPM\s]+)/);
+    if (match) {
+      const bedEl = document.getElementById('coach-plan-bed');
+      const wakeEl = document.getElementById('coach-plan-wake');
+      const card = document.getElementById('coach-plan-card');
+      if (bedEl) bedEl.textContent = match[1].trim();
+      if (wakeEl) wakeEl.textContent = match[2].trim();
+      if (card) card.classList.add('visible');
+    }
+
+    // Persist
+    try {
+      const transcript = document.getElementById('coach-transcript')?.textContent || '';
+      localStorage.setItem(COACH_STORAGE_KEY, JSON.stringify({ text, transcript, ts: Date.now() }));
+    } catch(e) {}
+  }
+
+  function buildSleepContext() {
+    const recent = (entries || []).slice(0, 14);
+    if (!recent.length) return 'No sleep log entries yet.';
+
+    const daysSinceFirst = entries.length > 0
+      ? Math.floor((Date.now() - Math.min(...entries.map(e => e.ts || 0))) / 86400000)
+      : 0;
+
+    const lines = recent.map(e => {
+      const parts = [`Date: ${e.date || '?'}`];
+      if (e.sleep_score) parts.push(`Sleep score: ${e.sleep_score}`);
+      if (e.hrv) parts.push(`HRV: ${e.hrv} ms`);
+      if (e.bedtime) parts.push(`Bed: ${e.bedtime}`);
+      if (e.wake_time) parts.push(`Wake: ${e.wake_time}`);
+      if (e.night_wake) parts.push(`Night wake: ${e.night_wake}`);
+      if (e.mood_score != null) parts.push(`Feeling: ${e.mood_score}/10`);
+      if (e.positive_tags?.length) parts.push(`Helped: ${e.positive_tags.join(', ')}`);
+      if (e.negative_tags?.length) parts.push(`Hurt: ${e.negative_tags.join(', ')}`);
+      if (e.notes) parts.push(`Notes: ${e.notes}`);
+      return parts.join(' | ');
+    });
+
+    return `Days in program: ${daysSinceFirst}\n\nRecent entries (newest first):\n${lines.join('\n')}`;
+  }
+
+  // ── Recording ──
+  async function startListening() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      coachChunks = [];
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : undefined;
+      coachRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      coachRecorder.ondataavailable = e => { if (e.data.size > 0) coachChunks.push(e.data); };
+      coachRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        await handleCoachRecordingDone();
+      };
+      coachRecorder.start();
+      setCoachState('listening');
+    } catch(e) {
+      alert('Microphone access is required for the coach. Please allow microphone access and try again.');
+      setCoachState('idle');
+    }
+  }
+
+  function stopListening() {
+    if (coachRecorder && coachRecorder.state === 'recording') {
+      coachRecorder.stop();
+    }
+  }
+
+  async function handleCoachRecordingDone() {
+    if (!coachChunks.length) { setCoachState('idle'); return; }
+    setCoachState('thinking');
+
+    const blob = new Blob(coachChunks, { type: 'audio/webm' });
+    coachChunks = [];
+
+    // 1. Transcribe with ElevenLabs Scribe
+    let transcript = '';
+    try {
+      const token = await getAuthToken();
+      const form = new FormData();
+      form.append('audio', blob, 'coach_checkin.webm');
+      const res = await fetch(TRANSCRIBE_ENDPOINT, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form
+      });
+      if (!res.ok) throw new Error('Transcription failed');
+      const json = await res.json();
+      transcript = json.transcript || '';
+    } catch(e) {
+      console.error('Transcription error:', e);
+      setCoachState('idle');
+      showToast('Could not transcribe your voice note. Please try again.', 'error');
+      return;
+    }
+
+    if (!transcript.trim()) {
+      setCoachState('idle');
+      showToast('No speech detected. Try again.', 'error');
+      return;
+    }
+
+    showTranscript(transcript);
+
+    // 2. Get coaching response via existing streamCoachResponse
+    // Inject CBT-I system prompt as a system role message followed by the user check-in
+    const messages = [
+      { role: 'system', content: CBTI_SYSTEM_PROMPT },
+      { role: 'user', content: `Voice check-in: "${transcript}"\n\nSleep data:\n${buildSleepContext()}` }
+    ];
+
+    // Create a temporary div to collect streamed text
+    const tempEl = document.createElement('div');
+    let coachText = '';
+    try {
+      await streamCoachResponse(messages, tempEl, (full) => { coachText = full; });
+    } catch(e) {
+      console.error('Coach response error:', e);
+      setCoachState('idle');
+      showToast('Could not get a coaching response. Please try again.', 'error');
+      return;
+    }
+
+    // streamCoachResponse sets coachText via onDone; fallback to innerHTML
+    if (!coachText) coachText = tempEl.textContent || '';
+
+    if (!coachText.trim()) {
+      setCoachState('idle');
+      showToast('Empty response from coach. Please try again.', 'error');
+      return;
+    }
+
+    showResponse(coachText);
+    setCoachState('idle');
+
+    // 3. Auto-play TTS
+    await playCoachTTS(coachText);
+  }
+
+  // ── ElevenLabs TTS ──
+  const EL_TTS_ENDPOINT = 'https://api.elevenlabs.io/v1/text-to-speech/EXAVITQu4vr4xnSDxMaL/stream'; // "Sarah" voice
+  const EL_TTS_VOICE_SETTINGS = { stability: 0.45, similarity_boost: 0.8, style: 0.1 };
+
+  async function playCoachTTS(text) {
+    if (coachAudio) { coachAudio.pause(); coachAudio = null; }
+
+    setCoachState('speaking');
+    const btn = document.getElementById('coach-tts-btn');
+    const lbl = document.getElementById('coach-tts-label');
+    if (btn) btn.classList.add('playing');
+    if (lbl) lbl.textContent = 'Playing…';
+
+    try {
+      const token = await getAuthToken();
+
+      // Route through Supabase edge function to keep API key server-side
+      const res = await fetch(SUPABASE_URL + '/functions/v1/elevenlabs-tts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ text, voice_settings: EL_TTS_VOICE_SETTINGS })
+      });
+
+      if (!res.ok) throw new Error(`TTS error ${res.status}`);
+      const audioBlob = await res.blob();
+      const url = URL.createObjectURL(audioBlob);
+      coachAudio = new Audio(url);
+      coachAudio.onended = () => {
+        setCoachState('idle');
+        if (btn) btn.classList.remove('playing');
+        if (lbl) lbl.textContent = 'Play again';
+        URL.revokeObjectURL(url);
+      };
+      coachAudio.play();
+    } catch(e) {
+      console.error('TTS error:', e);
+      setCoachState('idle');
+      if (btn) btn.classList.remove('playing');
+      if (lbl) lbl.textContent = 'Play';
+      // TTS failure is non-fatal — response text is still shown
+    }
+  }
+
+  // ── Public handlers ──
+  window.handleCoachOrbClick = function() {
+    if (coachState === 'idle') {
+      startListening();
+    } else if (coachState === 'listening') {
+      stopListening();
+    }
+    // thinking/speaking: no-op on orb click
+  };
+
+  window.toggleCoachTTS = function() {
+    if (coachState === 'speaking' && coachAudio) {
+      coachAudio.pause();
+      coachAudio = null;
+      setCoachState('idle');
+      const btn = document.getElementById('coach-tts-btn');
+      const lbl = document.getElementById('coach-tts-label');
+      if (btn) btn.classList.remove('playing');
+      if (lbl) lbl.textContent = 'Play again';
+    } else if (coachTTSText) {
+      playCoachTTS(coachTTSText);
+    }
+  };
+
+  // ── Initialize / restore persisted session ──
+  window.initCoachView = function() {
+    // Stop any playing audio when leaving
+    // Restore last session if within 12 hours
+    try {
+      const saved = JSON.parse(localStorage.getItem(COACH_STORAGE_KEY) || 'null');
+      if (saved && saved.text && (Date.now() - saved.ts < 12 * 3600 * 1000)) {
+        showTranscript(saved.transcript || '');
+        showResponse(saved.text);
+        setCoachState('idle');
+        return;
+      }
+    } catch(e) {}
+    // Fresh state
+    setCoachState('idle');
+    document.getElementById('coach-transcript')?.classList.remove('visible');
+    document.getElementById('coach-response-wrap')?.classList.remove('visible');
+    document.getElementById('coach-plan-card')?.classList.remove('visible');
+  };
+
+})();
 
 // ── PULL-TO-REFRESH ──────────────────────────────────
 (function() {
