@@ -1208,9 +1208,8 @@ textarea::placeholder { color: var(--muted2); }
   <nav>
     <button onclick="setView('log',this)">Log</button>
     <button onclick="setView('coach',this)">Coach</button>
-    <button class="active" onclick="setView('history',this)">History</button>
-    <button onclick="setView('insights',this)">Insights</button>
     <button onclick="setView('data',this)">Data</button>
+    <button class="active" onclick="setView('history',this)">History</button>
   </nav>
   <div class="header-right">
     <div class="day-badge" id="day-badge">Day 1</div>
@@ -1228,17 +1227,13 @@ textarea::placeholder { color: var(--muted2); }
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 4-3.5 7-7 9-3.5-2-7-5-7-9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
     Coach
   </button>
-  <button onclick="setView('history',this)" data-view="history">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><polyline points="18 9 12 15 9 12 3 18"/></svg>
-    History
-  </button>
-  <button onclick="setView('insights',this)" data-view="insights">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-    Insights
-  </button>
   <button onclick="setView('data',this)" data-view="data">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
     Data
+  </button>
+  <button onclick="setView('history',this)" data-view="history">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><polyline points="18 9 12 15 9 12 3 18"/></svg>
+    History
   </button>
 </div>
 
@@ -1468,74 +1463,101 @@ textarea::placeholder { color: var(--muted2); }
 </div>
 </div>
 
-<!-- INSIGHTS VIEW (Coach avatar + Daily briefing + Chat) -->
-<div id="view-insights" class="view">
-<div class="container">
-  <div class="section-tag">Your coach</div>
-  <h1 class="page-heading">Daily <em>briefing.</em></h1>
+<!-- COACH VIEW (orb + CBT-I check-in + daily briefing + chat) -->
+<div id="view-coach" class="view">
 
-  <!-- Avatar Coach -->
-  <div class="avatar-section" id="avatar-section">
-    <div class="avatar-card">
-      <div class="avatar-video-wrap idle" id="avatar-video-wrap">
-        <video id="avatar-video" autoplay playsinline style="display:none"></video>
-        <div class="avatar-idle-content" id="avatar-idle-content">
-          <div class="avatar-orb"></div>
-          <div class="avatar-idle-text">AI Avatar Coach</div>
+  <!-- ── Top: voice orb stage ── -->
+  <div class="coach-stage">
+
+    <!-- Tonight's plan (shown after first session) -->
+    <div class="coach-plan-card" id="coach-plan-card">
+      <div class="coach-plan-label">Tonight's plan</div>
+      <div class="coach-plan-times">
+        <div class="coach-plan-time-item">
+          <div class="coach-plan-time-val" id="coach-plan-bed">—</div>
+          <div class="coach-plan-time-lbl">Bedtime</div>
+        </div>
+        <div class="coach-plan-time-item">
+          <div class="coach-plan-time-val" id="coach-plan-wake">—</div>
+          <div class="coach-plan-time-lbl">Wake time</div>
         </div>
       </div>
-      <div class="avatar-controls">
-        <button class="avatar-start-btn" id="avatar-start-btn" onclick="toggleAvatarCoach()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
-          <span id="avatar-btn-text">Start Avatar Coach</span>
+    </div>
+
+    <!-- The orb -->
+    <div class="coach-orb-wrap idle" id="coach-orb-wrap" onclick="handleCoachOrbClick()">
+      <div class="coach-orb">
+        <svg class="coach-orb-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="2" width="6" height="12" rx="3"/>
+          <path d="M5 10a7 7 0 0 0 14 0"/>
+          <line x1="12" y1="19" x2="12" y2="22"/>
+          <line x1="8" y1="22" x2="16" y2="22"/>
+        </svg>
+        <div class="coach-orb-stop"></div>
+        <div class="coach-orb-spinner"></div>
+      </div>
+    </div>
+
+    <!-- Status label -->
+    <div class="coach-status-label" id="coach-status-label">Tap to check in</div>
+
+    <!-- User transcript -->
+    <div class="coach-transcript" id="coach-transcript"></div>
+
+    <!-- Voice coaching response + TTS -->
+    <div class="coach-response-wrap" id="coach-response-wrap">
+      <div class="coach-response-text" id="coach-response-text"></div>
+      <button class="coach-tts-btn" id="coach-tts-btn" onclick="toggleCoachTTS()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+        <span id="coach-tts-label">Play</span>
+      </button>
+    </div>
+
+    <!-- Idle hint -->
+    <div class="coach-hint" id="coach-hint">Record a voice note about how you slept. Your coach will respond with what's going on and what to focus on tonight.</div>
+
+  </div>
+
+  <!-- ── Bottom: insights ── -->
+  <div class="container" style="padding-top:0">
+
+    <!-- Daily briefing -->
+    <div class="coach-section">
+      <div class="coach-briefing" id="coach-briefing">
+        <button type="button" class="coach-refresh" onclick="refreshBriefing()" title="Refresh briefing">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.65 2.35A7.96 7.96 0 008 0a8 8 0 108 8h-2a6 6 0 11-1.76-4.24L10 6h6V0l-2.35 2.35z" fill="currentColor"/></svg>
         </button>
-        <div class="avatar-status" id="avatar-status" style="display:none">
-          <div class="avatar-status-dot" id="avatar-status-dot"></div>
-          <span id="avatar-status-text"></span>
+        <div class="coach-briefing-header">
+          <div class="coach-avatar">
+            <svg viewBox="0 0 18 18" fill="none"><rect x="3" y="12" width="2.5" height="4" rx="0.8" fill="#fff" opacity="0.4"/><rect x="6.5" y="9.5" width="2.5" height="6.5" rx="0.8" fill="#fff" opacity="0.6"/><rect x="10" y="7" width="2.5" height="9" rx="0.8" fill="#fff" opacity="0.8"/><rect x="13.5" y="4" width="2.5" height="12" rx="0.8" fill="#fff"/></svg>
+          </div>
+          <div><div class="coach-name">Sleep Coach</div></div>
+          <div class="coach-time" id="briefing-time"></div>
+        </div>
+        <div class="coach-body" id="briefing-body">
+          <div class="coach-loading"><div class="coach-dots"><span></span><span></span><span></span></div> Analyzing your sleep data...</div>
         </div>
       </div>
-      <div class="avatar-error" id="avatar-error" style="display:none"></div>
     </div>
-  </div>
 
-  <!-- AI BRIEFING -->
-  <div class="coach-section">
-    <div class="coach-briefing" id="coach-briefing">
-      <button type="button" class="coach-refresh" onclick="refreshBriefing()" title="Refresh briefing">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.65 2.35A7.96 7.96 0 008 0a8 8 0 108 8h-2a6 6 0 11-1.76-4.24L10 6h6V0l-2.35 2.35z" fill="currentColor"/></svg>
-      </button>
-      <div class="coach-briefing-header">
-        <div class="coach-avatar">
-          <svg viewBox="0 0 18 18" fill="none"><rect x="3" y="12" width="2.5" height="4" rx="0.8" fill="#fff" opacity="0.4"/><rect x="6.5" y="9.5" width="2.5" height="6.5" rx="0.8" fill="#fff" opacity="0.6"/><rect x="10" y="7" width="2.5" height="9" rx="0.8" fill="#fff" opacity="0.8"/><rect x="13.5" y="4" width="2.5" height="12" rx="0.8" fill="#fff"/></svg>
-        </div>
-        <div>
-          <div class="coach-name">Sleep Coach</div>
-        </div>
-        <div class="coach-time" id="briefing-time"></div>
+    <!-- Chat -->
+    <div class="coach-chat">
+      <div class="chat-hints" id="chat-hints">
+        <span class="chat-hint" onclick="sendChat('Why do I keep waking up early?')">Why do I wake up early?</span>
+        <span class="chat-hint" onclick="sendChat('Which supplements are helping my sleep score?')">Which supplements help?</span>
+        <span class="chat-hint" onclick="sendChat('What should my bedtime routine be tonight?')">Tonight\'s routine?</span>
+        <span class="chat-hint" onclick="sendChat('How does alcohol affect my sleep?')">Alcohol impact?</span>
       </div>
-      <div class="coach-body" id="briefing-body">
-        <div class="coach-loading"><div class="coach-dots"><span></span><span></span><span></span></div> Analyzing your sleep data...</div>
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-input-row">
+        <input class="chat-input" id="coach-chat-input" type="text" placeholder="Ask your sleep coach..." onkeydown="if(event.key==='Enter'&&!event.shiftKey)sendChat()">
+        <button class="chat-send" id="chat-send-btn" onclick="sendChat()">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 14l12-6L2 2v4.67L10 8 2 9.33V14z" fill="currentColor"/></svg>
+        </button>
       </div>
     </div>
-  </div>
 
-  <!-- CHAT -->
-  <div class="coach-chat">
-    <div class="chat-hints" id="chat-hints">
-      <span class="chat-hint" onclick="sendChat('Why do I keep waking up early?')">Why do I wake up early?</span>
-      <span class="chat-hint" onclick="sendChat('Which supplements are helping my sleep score?')">Which supplements help?</span>
-      <span class="chat-hint" onclick="sendChat('What should my bedtime routine be tonight?')">Tonight\'s routine?</span>
-      <span class="chat-hint" onclick="sendChat('How does alcohol affect my sleep?')">Alcohol impact?</span>
-    </div>
-    <div class="chat-messages" id="chat-messages"></div>
-    <div class="chat-input-row">
-      <input class="chat-input" id="coach-chat-input" type="text" placeholder="Ask your sleep coach..." onkeydown="if(event.key==='Enter'&&!event.shiftKey)sendChat()">
-      <button class="chat-send" id="chat-send-btn" onclick="sendChat()">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 14l12-6L2 2v4.67L10 8 2 9.33V14z" fill="currentColor"/></svg>
-      </button>
-    </div>
   </div>
-</div>
 </div>
 
 <!-- DATA VIEW (Patterns, heatmaps, scatter) -->
@@ -1560,63 +1582,6 @@ textarea::placeholder { color: var(--muted2); }
 
   <div id="coach-root" style="display:none"></div>
 </div>
-</div>
-
-<!-- COACH VIEW (kept for backward compat, hidden from nav) -->
-<div id="view-coach" class="view">
-  <div class="coach-stage">
-
-    <!-- Tonight's plan (shown after first session) -->
-    <div class="coach-plan-card" id="coach-plan-card">
-      <div class="coach-plan-label">Tonight's plan</div>
-      <div class="coach-plan-times">
-        <div class="coach-plan-time-item">
-          <div class="coach-plan-time-val" id="coach-plan-bed">—</div>
-          <div class="coach-plan-time-lbl">Bedtime</div>
-        </div>
-        <div class="coach-plan-time-item">
-          <div class="coach-plan-time-val" id="coach-plan-wake">—</div>
-          <div class="coach-plan-time-lbl">Wake time</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- The orb -->
-    <div class="coach-orb-wrap idle" id="coach-orb-wrap" onclick="handleCoachOrbClick()">
-      <div class="coach-orb">
-        <!-- Mic icon (idle) -->
-        <svg class="coach-orb-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="9" y="2" width="6" height="12" rx="3"/>
-          <path d="M5 10a7 7 0 0 0 14 0"/>
-          <line x1="12" y1="19" x2="12" y2="22"/>
-          <line x1="8" y1="22" x2="16" y2="22"/>
-        </svg>
-        <!-- Stop square (listening) -->
-        <div class="coach-orb-stop"></div>
-        <!-- Spinner (thinking) -->
-        <div class="coach-orb-spinner"></div>
-      </div>
-    </div>
-
-    <!-- Status label -->
-    <div class="coach-status-label" id="coach-status-label">Tap to check in</div>
-
-    <!-- User transcript -->
-    <div class="coach-transcript" id="coach-transcript"></div>
-
-    <!-- Coach response -->
-    <div class="coach-response-wrap" id="coach-response-wrap">
-      <div class="coach-response-text" id="coach-response-text"></div>
-      <button class="coach-tts-btn" id="coach-tts-btn" onclick="toggleCoachTTS()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
-        <span id="coach-tts-label">Play</span>
-      </button>
-    </div>
-
-    <!-- Idle hint -->
-    <div class="coach-hint" id="coach-hint">Record a voice note about how you slept. Your coach will respond with what's going on and what to focus on tonight.</div>
-
-  </div>
 </div>
 
 <div id="view-stress" class="view">
@@ -2286,16 +2251,15 @@ function setView(v, btn) {
       if (hasOuraConnection() && !ouraStressData.length) fetchOuraData();
     });
   }
-  if (v==='insights') renderInsights();
   if (v==='data') renderDataView();
-  if (v==='coach' && window.initCoachView) initCoachView();
+  if (v==='coach') { renderInsights(); if (window.initCoachView) initCoachView(); }
 }
 
 function refreshCurrentView() {
   const id = document.querySelector('.view.active')?.id?.replace('view-','');
   if (id==='log') { renderBaselineProgress(); renderLogOuraAutofill(); }
   if (id==='history') renderHistory();
-  if (id==='insights') renderInsights();
+  if (id==='coach') renderInsights();
   if (id==='data') renderDataView();
 }
 
@@ -2830,8 +2794,8 @@ async function saveEntry() {
     briefingGenerated = false;
     showToast('Entry saved — loading your coaching recommendation', 'success');
     setTimeout(() => {
-      const insightsBtn = document.querySelectorAll('nav button')[2];
-      if (insightsBtn) { setView('insights', insightsBtn); }
+      const coachBtn = document.querySelector('nav button[onclick*="coach"]');
+      if (coachBtn) { setView('coach', coachBtn); }
     }, 800);
     try {
       await sb.from('ai_cache').delete().eq('cache_key', getBriefingCacheKey());
