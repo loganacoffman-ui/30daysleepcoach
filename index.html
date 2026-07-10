@@ -1207,10 +1207,10 @@ textarea::placeholder { color: var(--muted2); }
   <a class="logo" href="#" onclick="goHome(); return false;"><span>30 Day</span> Sleep Coach</a>
   <nav>
     <button onclick="setView('log',this)">Log</button>
+    <button onclick="setView('coach',this)">Coach</button>
     <button class="active" onclick="setView('history',this)">History</button>
     <button onclick="setView('insights',this)">Insights</button>
     <button onclick="setView('data',this)">Data</button>
-    <button onclick="setView('coach',this)">Coach</button>
   </nav>
   <div class="header-right">
     <div class="day-badge" id="day-badge">Day 1</div>
@@ -1224,6 +1224,10 @@ textarea::placeholder { color: var(--muted2); }
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
     Log
   </button>
+  <button onclick="setView('coach',this)" data-view="coach">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 4-3.5 7-7 9-3.5-2-7-5-7-9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+    Coach
+  </button>
   <button onclick="setView('history',this)" data-view="history">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><polyline points="18 9 12 15 9 12 3 18"/></svg>
     History
@@ -1235,10 +1239,6 @@ textarea::placeholder { color: var(--muted2); }
   <button onclick="setView('data',this)" data-view="data">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
     Data
-  </button>
-  <button onclick="setView('coach',this)" data-view="coach">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 4-3.5 7-7 9-3.5-2-7-5-7-9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-    Coach
   </button>
 </div>
 
