@@ -1245,37 +1245,6 @@ textarea::placeholder { color: var(--muted2); }
   <div class="section-tag">7-Day Baseline</div>
   <h1 class="page-heading">Today’s recovery <em>check-in.</em></h1>
 
-  <div class="baseline-progress">
-    <div class="baseline-progress-copy">
-      <div class="baseline-progress-title" id="baseline-progress-title">Building baseline: Day 1 of 7</div>
-      <div class="baseline-progress-body">Oura handles the objective signals. You add the 30-second context layer so the baseline can separate real bottlenecks from noise.</div>
-    </div>
-    <div class="baseline-body">
-      <div class="baseline-trend">
-        <div class="baseline-trend-top">
-          <div class="baseline-trend-label">Last 7 sleep scores</div>
-          <div class="baseline-pill" id="baseline-progress-pill">0 of 7 entries</div>
-        </div>
-        <div id="baseline-trend-wrap" class="baseline-trend-empty">Add entries to build your baseline trend</div>
-        <div class="baseline-meter"><div class="baseline-meter-fill" id="baseline-meter-fill"></div></div>
-      </div>
-      <div class="baseline-stats">
-        <div class="baseline-stat">
-          <div class="baseline-stat-value" id="baseline-avg-sleep">—</div>
-          <div class="baseline-stat-label">sleep score</div>
-        </div>
-        <div class="baseline-stat">
-          <div class="baseline-stat-value" id="baseline-avg-hrv">—</div>
-          <div class="baseline-stat-label">HRV</div>
-        </div>
-        <div class="baseline-stat">
-          <div class="baseline-stat-value" id="baseline-avg-feel">—</div>
-          <div class="baseline-stat-label">feeling</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- Subjective check-in -->
   <div class="card" style="margin-bottom:1rem">
     <div class="card-label">30-second check-in</div>
@@ -1566,7 +1535,39 @@ textarea::placeholder { color: var(--muted2); }
   <div class="section-tag">Patterns</div>
   <h1 class="page-heading">What the data <em>shows.</em></h1>
 
-  <div id="insights-top" class="insight-grid"></div>
+  <!-- 7-day baseline -->
+  <div class="baseline-progress" style="margin-bottom:1.5rem">
+    <div class="baseline-progress-copy">
+      <div class="baseline-progress-title" id="baseline-progress-title">Building baseline: Day 1 of 7</div>
+      <div class="baseline-progress-body">This is your rolling baseline from the latest 7 entries. Each new check-in updates it.</div>
+    </div>
+    <div class="baseline-body">
+      <div class="baseline-trend">
+        <div class="baseline-trend-top">
+          <div class="baseline-trend-label">Last 7 sleep scores</div>
+          <div class="baseline-pill" id="baseline-progress-pill">0 of 7 entries</div>
+        </div>
+        <div id="baseline-trend-wrap" class="baseline-trend-empty">Add entries to build your baseline trend</div>
+        <div class="baseline-meter"><div class="baseline-meter-fill" id="baseline-meter-fill"></div></div>
+      </div>
+      <div class="baseline-stats">
+        <div class="baseline-stat">
+          <div class="baseline-stat-value" id="baseline-avg-sleep">—</div>
+          <div class="baseline-stat-label">sleep score</div>
+        </div>
+        <div class="baseline-stat">
+          <div class="baseline-stat-value" id="baseline-avg-hrv">—</div>
+          <div class="baseline-stat-label">HRV</div>
+        </div>
+        <div class="baseline-stat">
+          <div class="baseline-stat-value" id="baseline-avg-feel">—</div>
+          <div class="baseline-stat-label">feeling</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Factor correlations -->
   <div class="chart-card">
     <div class="chart-title">Factor correlation — delta vs avg sleep score</div>
     <div id="heatmap-sleep"><div class="empty-state">Log at least 3 days to build the heatmap</div></div>
@@ -1574,10 +1575,6 @@ textarea::placeholder { color: var(--muted2); }
   <div class="chart-card" style="margin-top:1rem">
     <div class="chart-title">Factor correlation — delta vs avg HRV</div>
     <div id="heatmap-hrv"><div class="empty-state">Log at least 3 days to build the heatmap</div></div>
-  </div>
-  <div class="chart-card" style="margin-top:1rem">
-    <div class="chart-title">HRV vs sleep score</div>
-    <div class="chart-wrap" style="height:200px"><canvas id="scatter-chart"></canvas></div>
   </div>
 
   <div id="coach-root" style="display:none"></div>
@@ -2241,7 +2238,6 @@ function setView(v, btn) {
   });
   window.scrollTo(0, 0);
   if (v==='log') {
-    renderBaselineProgress();
     hydrateLogFromOura();
   }
   if (v==='history') {
@@ -2251,13 +2247,13 @@ function setView(v, btn) {
       if (hasOuraConnection() && !ouraStressData.length) fetchOuraData();
     });
   }
-  if (v==='data') renderDataView();
+  if (v==='data') { renderBaselineProgress(); renderDataView(); }
   if (v==='coach') { renderInsights(); if (window.initCoachView) initCoachView(); }
 }
 
 function refreshCurrentView() {
   const id = document.querySelector('.view.active')?.id?.replace('view-','');
-  if (id==='log') { renderBaselineProgress(); renderLogOuraAutofill(); }
+  if (id==='log') { renderLogOuraAutofill(); }
   if (id==='history') renderHistory();
   if (id==='coach') renderInsights();
   if (id==='data') renderDataView();
@@ -2951,7 +2947,7 @@ function renderLog() {
 
 // ── INSIGHTS ─────────────────────────────────────────
 function renderInsights(){generateBriefing();renderCoach();}
-function renderDataView(){renderInsightCards();renderHeatmapSleep();renderHeatmapHRV();renderScatter();}
+function renderDataView(){renderHeatmapSleep();renderHeatmapHRV();}
 
 // ── AI COACH ─────────────────────────────────────────
 const COACH_ENDPOINT = SUPABASE_URL + '/functions/v1/sleep-coach';
