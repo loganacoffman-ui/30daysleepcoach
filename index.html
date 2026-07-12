@@ -2820,11 +2820,12 @@ function renderWeekly() {
   document.getElementById('weekly-view').innerHTML=html||emptyState('No data yet');
 }
 
-const LOG_PAGE_SIZE = 10;
-let logVisibleCount = LOG_PAGE_SIZE;
+const LOG_INITIAL_COUNT = 1;
+const LOG_EXPANDED_COUNT = 10;
+let logVisibleCount = LOG_INITIAL_COUNT;
 
 function showMoreEntries() {
-  logVisibleCount += LOG_PAGE_SIZE;
+  logVisibleCount = LOG_EXPANDED_COUNT;
   renderLog();
 }
 
@@ -2842,7 +2843,7 @@ function renderLog() {
     return`<tr><td style="color:var(--muted);font-family:'Geist Mono',monospace;font-size:0.7rem;white-space:nowrap">${esc(e.date)}</td><td><span class="hrv-pill" style="background:${col}18;color:${col}">${esc(e.hrv||'—')}</span></td><td style="font-family:'Geist Mono',monospace;font-size:0.75rem;color:var(--muted)">${esc(e.sleep_score||'—')}</td><td style="font-size:0.75rem;color:var(--muted)">${esc(wl(e.night_wake))}</td><td>${chips}</td><td style="font-size:0.75rem;color:var(--muted2);max-width:140px;line-height:1.4">${note}</td>${del}</tr>`;
   }).join('');
   const moreBtn = document.getElementById('log-show-more');
-  moreBtn.style.display = entries.length > logVisibleCount ? 'block' : 'none';
+  moreBtn.style.display = (logVisibleCount < LOG_EXPANDED_COUNT && entries.length > logVisibleCount) ? 'block' : 'none';
 }
 
 // ── INSIGHTS ─────────────────────────────────────────
