@@ -263,31 +263,29 @@ textarea::placeholder { color: var(--muted2); }
 .heatmap-cell.no-data { background: var(--surface2); color: var(--muted2); font-size: 0.65rem; }
 
 /* ── CBT-I COACH VIEW ─────────────────────────────── */
-#view-coach.active { min-height: calc(100vh - 58px); display: flex; flex-direction: column; }
+#view-coach.active { display: flex; flex-direction: column; }
 .coach-stage {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 2rem 1.5rem 6rem;
-  min-height: calc(100vh - 58px);
+  justify-content: flex-start;
+  padding: 2rem 1.5rem 1.5rem;
   position: relative;
 }
 
 /* Big orb */
 .coach-orb-wrap {
   position: relative;
-  width: 160px;
-  height: 160px;
-  margin-bottom: 2rem;
+  width: 140px;
+  height: 140px;
+  margin-bottom: 1.5rem;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   flex-shrink: 0;
 }
 .coach-orb {
-  width: 160px;
-  height: 160px;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   background: conic-gradient(from 180deg at 50% 50%, #312e81 0deg, #4f46e5 60deg, #7c3aed 120deg, #a78bfa 180deg, #60a5fa 240deg, #4f7cff 300deg, #312e81 360deg);
   box-shadow: 0 0 0 0 rgba(99,102,241,0.3), 0 8px 40px rgba(79,124,255,0.25);
@@ -410,7 +408,7 @@ textarea::placeholder { color: var(--muted2); }
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted2);
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   min-height: 1.2em;
   transition: color 0.3s;
 }
@@ -429,7 +427,7 @@ textarea::placeholder { color: var(--muted2); }
   font-size: 0.88rem;
   color: var(--muted);
   line-height: 1.6;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   display: none;
 }
 .coach-transcript.visible { display: block; }
@@ -439,6 +437,7 @@ textarea::placeholder { color: var(--muted2); }
   max-width: 520px;
   width: 100%;
   display: none;
+  margin-bottom: 1rem;
 }
 .coach-response-wrap.visible { display: block; }
 .coach-response-text {
@@ -475,6 +474,13 @@ textarea::placeholder { color: var(--muted2); }
   text-align: center;
   max-width: 280px;
   line-height: 1.6;
+  margin-bottom: 0;
+}
+
+/* Dynamic area below orb */
+.coach-dynamic-area {
+  padding-top: 0;
+  padding-bottom: 3rem;
 }
 
 /* Tonight's plan card */
@@ -947,9 +953,8 @@ textarea::placeholder { color: var(--muted2); }
   .chart-wrap { height: 220px; }
 
   /* ── Sticky save button (only on Log view) ── */
-  #view-log .save-btn { position: fixed; bottom: 72px; left: 1rem; right: 1rem; width: auto; z-index: 90; box-shadow: 0 -2px 12px rgba(0,0,0,0.1); padding: 14px; }
-  #view-log #save-confirm { position: fixed; bottom: 120px; left: 1rem; right: 1rem; z-index: 90; }
-  #view-log .container { padding-bottom: 8rem; }
+  #view-coach .save-btn { position: static; margin-top: 1rem; }
+  #view-coach .container { padding-bottom: 2rem; }
 
   /* ── Entry log cards ── */
   .log-table thead { display: none; }
@@ -1206,7 +1211,6 @@ textarea::placeholder { color: var(--muted2); }
 <header>
   <a class="logo" href="#" onclick="goHome(); return false;"><span>30 Day</span> Sleep Coach</a>
   <nav>
-    <button onclick="setView('log',this)">Log</button>
     <button onclick="setView('coach',this)">Coach</button>
     <button onclick="setView('data',this)">Data</button>
     <button class="active" onclick="setView('history',this)">History</button>
@@ -1219,10 +1223,6 @@ textarea::placeholder { color: var(--muted2); }
 
 <!-- Mobile bottom tab bar -->
 <div class="mobile-tab-bar" id="mobile-tab-bar">
-  <button onclick="setView('log',this)" data-view="log">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-    Log
-  </button>
   <button onclick="setView('coach',this)" data-view="coach">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 4-3.5 7-7 9-3.5-2-7-5-7-9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
     Coach
@@ -1239,119 +1239,9 @@ textarea::placeholder { color: var(--muted2); }
 
 <main>
 
-<!-- LOG VIEW -->
-<div id="view-log" class="view">
-<div class="container">
-  <div class="section-tag">7-Day Baseline</div>
-  <h1 class="page-heading">Today’s recovery <em>check-in.</em></h1>
-
-  <!-- Subjective check-in -->
-  <div class="card" style="margin-bottom:1rem">
-    <div class="card-label">30-second check-in</div>
-    <div class="feel-slider-wrap">
-      <div class="feel-slider-header">
-        <span class="field-name">How do you feel today?</span>
-        <span class="feel-slider-val" id="feel-val" style="color:var(--muted2)">—</span>
-      </div>
-      <input type="range" class="feel-slider" id="feel_level" min="0" max="100" value="50" oninput="updateFeelSlider(this.value)">
-      <div class="feel-slider-labels"><span>Terrible</span><span>Great</span></div>
-    </div>
-    <details class="more-details">
-      <summary style="font-family:'Geist Mono',monospace;font-size:0.68rem;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted2);cursor:pointer;padding:4px 0;">More details</summary>
-      <div style="margin-top:10px">
-        <label class="field">
-          <span class="field-name">Night wake</span>
-          <select id="night_wake">
-            <option value="">— select —</option>
-            <option value="none">None — slept through</option>
-            <option value="back_quick">Brief wake, fell back fast</option>
-            <option value="back_slow">Woke, took 30+ min to sleep</option>
-            <option value="couldnt_sleep">Woke at 3am, 2+ hrs awake</option>
-          </select>
-        </label>
-      </div>
-    </details>
-  </div>
-
-  <div class="card" style="margin-bottom:1rem">
-    <div class="card-label">Auto-filled from Oura</div>
-    <div class="oura-autofill-grid">
-      <div class="oura-autofill-item">
-        <div class="oura-autofill-label">Sleep score</div>
-        <div class="oura-autofill-value" id="oura-fill-sleep">—</div>
-      </div>
-      <div class="oura-autofill-item">
-        <div class="oura-autofill-label">HRV</div>
-        <div class="oura-autofill-value" id="oura-fill-hrv">—</div>
-      </div>
-      <div class="oura-autofill-item">
-        <div class="oura-autofill-label">Bedtime</div>
-        <div class="oura-autofill-value" id="oura-fill-bedtime">—</div>
-      </div>
-      <div class="oura-autofill-item">
-        <div class="oura-autofill-label">Wake time</div>
-        <div class="oura-autofill-value" id="oura-fill-waketime">—</div>
-      </div>
-      <div class="oura-autofill-item">
-        <div class="oura-autofill-label">Stress / recovery</div>
-        <div class="oura-autofill-value" id="oura-fill-stress-recovery">—</div>
-      </div>
-    </div>
-    <div class="oura-autofill-note" id="oura-fill-note">Connect your Oura ring to auto-fill this section.</div>
-    <button id="oura-connect-log-btn" onclick="startOuraOAuth()" style="display:none;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:'Geist',sans-serif;font-weight:500;font-size:0.82rem;padding:9px 16px;cursor:pointer;margin-top:8px;width:100%;">Connect with Oura →</button>
-  </div>
-
-  <div style="display:none">
-    <input type="number" id="sleep_score" min="0" max="100">
-    <input type="number" id="hrv" min="10" max="120">
-    <input type="time" id="bedtime">
-    <input type="time" id="waketime">
-  </div>
-
-  <div class="baseline-factor-grid">
-    <div class="card">
-      <div class="card-label">What likely helped?</div>
-      <div class="tags" id="pos-tags">
-        <span class="tag" data-val="morning_light">Morning light</span>
-        <span class="tag" data-val="no_alcohol">No alcohol</span>
-        <span class="tag" data-val="early_meal">Last meal &lt;7pm</span>
-        <span class="tag" data-val="exercise">Exercise</span>
-        <span class="tag" data-val="breathwork">Breathwork</span>
-        <span class="tag" data-val="cool_room">Cool room</span>
-        <span class="tag" data-val="no_screens">No screens 1hr</span>
-        <span class="tag" data-val="low_stress">Low stress</span>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-label">What may have constrained recovery?</div>
-      <div class="tags" id="neg-tags">
-        <span class="tag" data-val="alcohol">Alcohol</span>
-        <span class="tag" data-val="late_meal">Late meal 8pm+</span>
-        <span class="tag" data-val="high_stress">High stress</span>
-        <span class="tag" data-val="intense_exercise">Intense workout</span>
-        <span class="tag" data-val="late_screens">Late screens</span>
-        <span class="tag" data-val="late_caffeine">Caffeine after 2pm</span>
-        <span class="tag" data-val="travel">Travel</span>
-        <span class="tag" data-val="illness">Illness</span>
-        <span class="tag" data-val="emotional_stress">Emotional stress</span>
-      </div>
-    </div>
-  </div>
-  <div class="note-wrap">
-    <div class="voice-note-row" style="margin-bottom:8px">
-      <button type="button" class="mic-btn" id="mic-btn" onclick="toggleVoiceNote()" title="Record voice note" style="width:100%;justify-content:center;padding:12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);">
-        <div class="mic-orb" id="mic-orb">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="1" width="6" height="11" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-        </div>
-        <span class="mic-label" id="mic-label">Tap to record voice note</span>
-      </button>
-      <div class="mic-error" id="mic-error"></div>
-    </div>
-    <textarea id="note" rows="2" placeholder="Or type: anything unusual about last night?"></textarea>
-  </div>
-  <button class="save-btn" id="save-btn" onclick="saveEntry()">Save baseline check-in →</button>
-  <div id="save-confirm" style="text-align:center;margin-top:.75rem;font-size:0.75rem;font-family:'Geist Mono',monospace;color:var(--green);letter-spacing:.04em;opacity:0;transition:opacity .3s"></div>
-</div>
+<!-- LOG VIEW (kept for reference; rendered as the Coach form) -->
+<div id="view-log" class="view" style="display:none !important">
+  <!-- Form elements now live inside the Coach view; this view is no longer shown. -->
 </div>
 
 <!-- HISTORY VIEW -->
@@ -1432,7 +1322,7 @@ textarea::placeholder { color: var(--muted2); }
 </div>
 </div>
 
-<!-- COACH VIEW (orb + CBT-I check-in + daily briefing + chat) -->
+<!-- COACH VIEW (combined voice check-in + log + coaching response) -->
 <div id="view-coach" class="view">
 
   <!-- ── Top: voice orb stage ── -->
@@ -1487,43 +1377,107 @@ textarea::placeholder { color: var(--muted2); }
 
   </div>
 
-  <!-- ── Bottom: insights ── -->
-  <div class="container" style="padding-top:0">
+  <!-- ── Bottom: dynamic area (log form ↔ coaching response) ── -->
+  <div class="container coach-dynamic-area" id="coach-dynamic-area">
 
-    <!-- Daily briefing -->
-    <div class="coach-section">
-      <div class="coach-briefing" id="coach-briefing">
-        <button type="button" class="coach-refresh" onclick="refreshBriefing()" title="Refresh briefing">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.65 2.35A7.96 7.96 0 008 0a8 8 0 108 8h-2a6 6 0 11-1.76-4.24L10 6h6V0l-2.35 2.35z" fill="currentColor"/></svg>
-        </button>
-        <div class="coach-briefing-header">
-          <div class="coach-avatar">
-            <svg viewBox="0 0 18 18" fill="none"><rect x="3" y="12" width="2.5" height="4" rx="0.8" fill="#fff" opacity="0.4"/><rect x="6.5" y="9.5" width="2.5" height="6.5" rx="0.8" fill="#fff" opacity="0.6"/><rect x="10" y="7" width="2.5" height="9" rx="0.8" fill="#fff" opacity="0.8"/><rect x="13.5" y="4" width="2.5" height="12" rx="0.8" fill="#fff"/></svg>
+    <!-- Log form panel -->
+    <div id="coach-log-form" class="coach-form-panel" style="display:none">
+      <div class="card" style="margin-bottom:1rem">
+        <div class="card-label">30-second check-in</div>
+        <div class="feel-slider-wrap">
+          <div class="feel-slider-header">
+            <span class="field-name">How do you feel today?</span>
+            <span class="feel-slider-val" id="feel-val" style="color:var(--muted2)">—</span>
           </div>
-          <div><div class="coach-name">Sleep Coach</div></div>
-          <div class="coach-time" id="briefing-time"></div>
+          <input type="range" class="feel-slider" id="feel_level" min="0" max="100" value="50" oninput="updateFeelSlider(this.value)">
+          <div class="feel-slider-labels"><span>Terrible</span><span>Great</span></div>
         </div>
-        <div class="coach-body" id="briefing-body">
-          <div class="coach-loading"><div class="coach-dots"><span></span><span></span><span></span></div> Analyzing your sleep data...</div>
-        </div>
+        <details class="more-details">
+          <summary style="font-family:'Geist Mono',monospace;font-size:0.68rem;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted2);cursor:pointer;padding:4px 0;">More details</summary>
+          <div style="margin-top:10px">
+            <label class="field">
+              <span class="field-name">Night wake</span>
+              <select id="night_wake">
+                <option value="">— select —</option>
+                <option value="none">None — slept through</option>
+                <option value="back_quick">Brief wake, fell back fast</option>
+                <option value="back_slow">Woke, took 30+ min to sleep</option>
+                <option value="couldnt_sleep">Woke at 3am, 2+ hrs awake</option>
+              </select>
+            </label>
+          </div>
+        </details>
       </div>
-    </div>
 
-    <!-- Chat -->
-    <div class="coach-chat">
-      <div class="chat-hints" id="chat-hints">
-        <span class="chat-hint" onclick="sendChat('Why do I keep waking up early?')">Why do I wake up early?</span>
-        <span class="chat-hint" onclick="sendChat('Which supplements are helping my sleep score?')">Which supplements help?</span>
-        <span class="chat-hint" onclick="sendChat('What should my bedtime routine be tonight?')">Tonight\'s routine?</span>
-        <span class="chat-hint" onclick="sendChat('How does alcohol affect my sleep?')">Alcohol impact?</span>
+      <div class="card" style="margin-bottom:1rem">
+        <div class="card-label">Auto-filled from Oura</div>
+        <div class="oura-autofill-grid">
+          <div class="oura-autofill-item">
+            <div class="oura-autofill-label">Sleep score</div>
+            <div class="oura-autofill-value" id="oura-fill-sleep">—</div>
+          </div>
+          <div class="oura-autofill-item">
+            <div class="oura-autofill-label">HRV</div>
+            <div class="oura-autofill-value" id="oura-fill-hrv">—</div>
+          </div>
+          <div class="oura-autofill-item">
+            <div class="oura-autofill-label">Bedtime</div>
+            <div class="oura-autofill-value" id="oura-fill-bedtime">—</div>
+          </div>
+          <div class="oura-autofill-item">
+            <div class="oura-autofill-label">Wake time</div>
+            <div class="oura-autofill-value" id="oura-fill-waketime">—</div>
+          </div>
+          <div class="oura-autofill-item">
+            <div class="oura-autofill-label">Stress / recovery</div>
+            <div class="oura-autofill-value" id="oura-fill-stress-recovery">—</div>
+          </div>
+        </div>
+        <div class="oura-autofill-note" id="oura-fill-note">Connect your Oura ring to auto-fill this section.</div>
+        <button id="oura-connect-log-btn" onclick="startOuraOAuth()" style="display:none;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:'Geist',sans-serif;font-weight:500;font-size:0.82rem;padding:9px 16px;cursor:pointer;margin-top:8px;width:100%;">Connect with Oura →</button>
       </div>
-      <div class="chat-messages" id="chat-messages"></div>
-      <div class="chat-input-row">
-        <input class="chat-input" id="coach-chat-input" type="text" placeholder="Ask your sleep coach..." onkeydown="if(event.key==='Enter'&&!event.shiftKey)sendChat()">
-        <button class="chat-send" id="chat-send-btn" onclick="sendChat()">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 14l12-6L2 2v4.67L10 8 2 9.33V14z" fill="currentColor"/></svg>
-        </button>
+
+      <div style="display:none">
+        <input type="number" id="sleep_score" min="0" max="100">
+        <input type="number" id="hrv" min="10" max="120">
+        <input type="time" id="bedtime">
+        <input type="time" id="waketime">
       </div>
+
+      <div class="baseline-factor-grid">
+        <div class="card">
+          <div class="card-label">What likely helped?</div>
+          <div class="tags" id="pos-tags">
+            <span class="tag" data-val="morning_light">Morning light</span>
+            <span class="tag" data-val="no_alcohol">No alcohol</span>
+            <span class="tag" data-val="early_meal">Last meal &lt;7pm</span>
+            <span class="tag" data-val="exercise">Exercise</span>
+            <span class="tag" data-val="breathwork">Breathwork</span>
+            <span class="tag" data-val="cool_room">Cool room</span>
+            <span class="tag" data-val="no_screens">No screens 1hr</span>
+            <span class="tag" data-val="low_stress">Low stress</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-label">What may have constrained recovery?</div>
+          <div class="tags" id="neg-tags">
+            <span class="tag" data-val="alcohol">Alcohol</span>
+            <span class="tag" data-val="late_meal">Late meal 8pm+</span>
+            <span class="tag" data-val="high_stress">High stress</span>
+            <span class="tag" data-val="intense_exercise">Intense workout</span>
+            <span class="tag" data-val="late_screens">Late screens</span>
+            <span class="tag" data-val="late_caffeine">Caffeine after 2pm</span>
+            <span class="tag" data-val="travel">Travel</span>
+            <span class="tag" data-val="illness">Illness</span>
+            <span class="tag" data-val="emotional_stress">Emotional stress</span>
+          </div>
+        </div>
+      </div>
+      <div class="note-wrap">
+        <textarea id="note" rows="2" placeholder="Add anything else about last night..."></textarea>
+      </div>
+      <button class="save-btn" id="save-btn" onclick="saveEntry()">Save check-in →</button>
+      <div id="save-confirm" style="text-align:center;margin-top:.75rem;font-size:0.75rem;font-family:'Geist Mono',monospace;color:var(--green);letter-spacing:.04em;opacity:0;transition:opacity .3s"></div>
     </div>
 
   </div>
@@ -1926,12 +1880,12 @@ function showNewUserWelcome() {
   // Only show if this is their first time (no entries)
   if (entries.length > 0) return;
 
-  // Set the view to Log tab to guide first action
-  const logBtn = document.querySelectorAll('nav button')[0];
-  if (logBtn) setView('log', logBtn);
+  // Set the view to Coach tab to guide first action
+  const coachBtn = document.querySelector('nav button[onclick*="coach"]');
+  if (coachBtn) setView('coach', coachBtn);
 
-  // Insert a welcome banner at the top of the log view
-  const container = document.querySelector('#view-log .container');
+  // Insert a welcome banner at the top of the Coach dynamic area
+  const container = document.getElementById('coach-dynamic-area');
   if (!container) return;
   const existing = document.getElementById('welcome-banner');
   if (existing) return;
@@ -1942,7 +1896,7 @@ function showNewUserWelcome() {
   banner.innerHTML = `
     <button onclick="this.parentElement.remove()" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted2);cursor:pointer;font-size:1rem;padding:4px;">×</button>
     <div style="font-size:0.95rem;font-weight:500;color:var(--text);margin-bottom:6px;">Welcome to 30 Day Sleep Coach</div>
-    <div style="font-size:0.82rem;color:var(--muted);line-height:1.65;">Start by logging last night's sleep below — your sleep score and HRV from your wearable, plus any habits that might have helped or hurt. After a few days, patterns will start to emerge.</div>
+    <div style="font-size:0.82rem;color:var(--muted);line-height:1.65;">Tap the orb above to record a quick voice note about how you slept. Then fill in the details below — your wearable data and any habits that helped or hurt. Your coach will respond with what to focus on tonight.</div>
   `;
   container.insertBefore(banner, container.firstChild);
 }
@@ -2040,10 +1994,10 @@ async function initApp() {
   updateDayBadge();
   updateModeUI();
   if (!hasTodayEntry()) {
-    const logBtn = document.querySelectorAll('nav button')[0];
-    if (logBtn) setView('log', logBtn);
+    const coachBtn = document.querySelector('nav button[onclick*="coach"]');
+    if (coachBtn) setView('coach', coachBtn);
   } else {
-    const histBtn = document.querySelectorAll('nav button')[1];
+    const histBtn = document.querySelector('nav button[onclick*="history"]');
     if (histBtn) setView('history', histBtn);
   }
 }
@@ -2237,9 +2191,6 @@ function setView(v, btn) {
     if (b.textContent.trim().toLowerCase() === v || (v === 'data' && b.textContent.trim() === 'Data')) b.classList.add('active');
   });
   window.scrollTo(0, 0);
-  if (v==='log') {
-    hydrateLogFromOura();
-  }
   if (v==='history') {
     renderHistory();
     initOuraView();
@@ -2248,14 +2199,13 @@ function setView(v, btn) {
     });
   }
   if (v==='data') { renderBaselineProgress(); renderDataView(); }
-  if (v==='coach') { renderInsights(); if (window.initCoachView) initCoachView(); }
+  if (v==='coach') { if (window.initCoachView) initCoachView(); }
 }
 
 function refreshCurrentView() {
   const id = document.querySelector('.view.active')?.id?.replace('view-','');
-  if (id==='log') { renderLogOuraAutofill(); }
   if (id==='history') renderHistory();
-  if (id==='coach') renderInsights();
+  if (id==='coach') { if (window.initCoachView) initCoachView(); }
   if (id==='data') renderDataView();
 }
 
@@ -2749,8 +2699,11 @@ function readScale(id) {
 function buildCheckinNote() {
   const manualNote = document.getElementById('note').value.trim();
   const feelVal = feelSliderTouched ? parseInt(document.getElementById('feel_level').value, 10) : null;
-  const checkin = feelVal !== null ? `Feeling: ${feelVal}/100.` : '';
-  return [checkin, manualNote].filter(Boolean).join('\n\n') || null;
+  const parts = [];
+  if (window.coachVoiceTranscript) parts.push(`Voice note: ${window.coachVoiceTranscript}`);
+  if (feelVal !== null) parts.push(`Feeling: ${feelVal}/100.`);
+  if (manualNote && manualNote !== coachVoiceTranscript) parts.push(manualNote);
+  return parts.length ? parts.join('\n\n') : null;
 }
 
 // ── SAVE ─────────────────────────────────────────────
@@ -2789,10 +2742,7 @@ async function saveEntry() {
     updateGauge();
     briefingGenerated = false;
     showToast('Entry saved — loading your coaching recommendation', 'success');
-    setTimeout(() => {
-      const coachBtn = document.querySelector('nav button[onclick*="coach"]');
-      if (coachBtn) { setView('coach', coachBtn); }
-    }, 800);
+    if (window.finishCoachCheckin) window.finishCoachCheckin();
     try {
       await sb.from('ai_cache').delete().eq('cache_key', getBriefingCacheKey());
     } catch (err) {
@@ -3144,6 +3094,7 @@ async function generateBriefing(force) {
   const scored = entries.filter(e => e.sleep_score);
   const briefingBody = document.getElementById('briefing-body');
   const briefingTime = document.getElementById('briefing-time');
+  if (!briefingBody) return;
 
   if (scored.length < 3) {
     briefingBody.innerHTML = '<p style="color:var(--muted)">Log at least 3 days of data to unlock your daily briefing.</p>';
@@ -3157,7 +3108,7 @@ async function generateBriefing(force) {
   briefingBody.innerHTML = '<div class="coach-loading"><div class="coach-dots"><span></span><span></span><span></span></div> Analyzing your sleep data...</div>';
 
   const now = new Date();
-  briefingTime.textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (briefingTime) briefingTime.textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
   try {
     await streamCoachResponse(
@@ -3983,6 +3934,7 @@ if ('serviceWorker' in navigator) {
   let coachChunks = [];
   let coachAudio = null;
   let coachTTSText = '';
+  window.coachVoiceTranscript = window.coachVoiceTranscript || '';
 
   // Persisted last response so navigating away and back restores it
   const COACH_STORAGE_KEY = 'coach_last_session';
@@ -4097,6 +4049,28 @@ Always end your response by stating tonight's recommended bedtime and wake time 
     } catch(e) {}
   }
 
+  function showCoachForm() {
+    const form = document.getElementById('coach-log-form');
+    if (form) form.style.display = 'block';
+    const response = document.getElementById('coach-response-wrap');
+    if (response) response.classList.remove('visible');
+    const plan = document.getElementById('coach-plan-card');
+    if (plan) plan.classList.remove('visible');
+    // Hydrate Oura fields so the user sees auto-filled values while logging
+    if (window.hydrateLogFromOura) hydrateLogFromOura();
+  }
+
+  function hideCoachForm() {
+    const form = document.getElementById('coach-log-form');
+    if (form) form.style.display = 'none';
+  }
+
+  function populateNoteFromVoice(transcript) {
+    window.coachVoiceTranscript = transcript;
+    const noteEl = document.getElementById('note');
+    if (noteEl && !noteEl.value.trim()) noteEl.value = transcript;
+  }
+
   function buildSleepContext() {
     const recent = (entries || []).slice(0, 14);
     if (!recent.length) return 'No sleep log entries yet.';
@@ -4113,8 +4087,8 @@ Always end your response by stating tonight's recommended bedtime and wake time 
       if (e.wake_time) parts.push(`Wake: ${e.wake_time}`);
       if (e.night_wake) parts.push(`Night wake: ${e.night_wake}`);
       if (e.mood_score != null) parts.push(`Feeling: ${e.mood_score}/10`);
-      if (e.positive_tags?.length) parts.push(`Helped: ${e.positive_tags.join(', ')}`);
-      if (e.negative_tags?.length) parts.push(`Hurt: ${e.negative_tags.join(', ')}`);
+      if (e.pos?.length) parts.push(`Helped: ${e.pos.join(', ')}`);
+      if (e.neg?.length) parts.push(`Hurt: ${e.neg.join(', ')}`);
       if (e.notes) parts.push(`Notes: ${e.notes}`);
       return parts.join(' | ');
     });
@@ -4183,15 +4157,23 @@ Always end your response by stating tonight's recommended bedtime and wake time 
     }
 
     showTranscript(transcript);
+    populateNoteFromVoice(transcript);
+    showCoachForm();
+    setCoachState('idle');
+    // User now fills out the log form below and taps Save, which triggers the coach response.
+  }
 
-    // 2. Get coaching response via existing streamCoachResponse
-    // Inject CBT-I system prompt as a system role message followed by the user check-in
+  // Generate and display the CBT-I coaching response after the check-in is saved
+  async function generateCoachResponse() {
+    if (!coachVoiceTranscript && !document.getElementById('coach-transcript')?.textContent) return;
+    setCoachState('thinking');
+
+    const transcript = window.coachVoiceTranscript || document.getElementById('coach-transcript')?.textContent || '';
     const messages = [
       { role: 'system', content: CBTI_SYSTEM_PROMPT },
       { role: 'user', content: `Voice check-in: "${transcript}"\n\nSleep data:\n${buildSleepContext()}` }
     ];
 
-    // Create a temporary div to collect streamed text
     const tempEl = document.createElement('div');
     let coachText = '';
     try {
@@ -4203,7 +4185,6 @@ Always end your response by stating tonight's recommended bedtime and wake time 
       return;
     }
 
-    // streamCoachResponse sets coachText via onDone; fallback to innerHTML
     if (!coachText) coachText = tempEl.textContent || '';
 
     if (!coachText.trim()) {
@@ -4212,10 +4193,9 @@ Always end your response by stating tonight's recommended bedtime and wake time 
       return;
     }
 
+    hideCoachForm();
     showResponse(coachText);
     setCoachState('idle');
-
-    // 3. Auto-play TTS
     await playCoachTTS(coachText);
   }
 
@@ -4268,11 +4248,37 @@ Always end your response by stating tonight's recommended bedtime and wake time 
   // ── Public handlers ──
   window.handleCoachOrbClick = function() {
     if (coachState === 'idle') {
+      // Reset any previous response and start a fresh check-in
+      resetCoachSession();
       startListening();
     } else if (coachState === 'listening') {
       stopListening();
     }
     // thinking/speaking: no-op on orb click
+  };
+
+  window.finishCoachCheckin = function() {
+    hideCoachForm();
+    const banner = document.getElementById('welcome-banner');
+    if (banner) banner.remove();
+    generateCoachResponse();
+  };
+
+  window.resetCoachSession = function() {
+    window.coachVoiceTranscript = '';
+    coachTTSText = '';
+    if (coachAudio) { coachAudio.pause(); coachAudio = null; }
+    const ttsBtn = document.getElementById('coach-tts-btn');
+    const ttsLbl = document.getElementById('coach-tts-label');
+    if (ttsBtn) ttsBtn.classList.remove('playing');
+    if (ttsLbl) ttsLbl.textContent = 'Play';
+    document.getElementById('coach-transcript')?.classList.remove('visible');
+    document.getElementById('coach-response-wrap')?.classList.remove('visible');
+    document.getElementById('coach-plan-card')?.classList.remove('visible');
+    const note = document.getElementById('note');
+    if (note) note.value = '';
+    hideCoachForm();
+    setCoachState('idle');
   };
 
   window.toggleCoachTTS = function() {
@@ -4291,22 +4297,19 @@ Always end your response by stating tonight's recommended bedtime and wake time 
 
   // ── Initialize / restore persisted session ──
   window.initCoachView = function() {
-    // Stop any playing audio when leaving
     // Restore last session if within 12 hours
     try {
       const saved = JSON.parse(localStorage.getItem(COACH_STORAGE_KEY) || 'null');
       if (saved && saved.text && (Date.now() - saved.ts < 12 * 3600 * 1000)) {
+        hideCoachForm();
         showTranscript(saved.transcript || '');
         showResponse(saved.text);
         setCoachState('idle');
         return;
       }
     } catch(e) {}
-    // Fresh state
-    setCoachState('idle');
-    document.getElementById('coach-transcript')?.classList.remove('visible');
-    document.getElementById('coach-response-wrap')?.classList.remove('visible');
-    document.getElementById('coach-plan-card')?.classList.remove('visible');
+    // Fresh state: orb + hint only, no form yet
+    resetCoachSession();
   };
 
 })();
