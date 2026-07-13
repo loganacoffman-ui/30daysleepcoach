@@ -1350,6 +1350,7 @@ textarea::placeholder { color: var(--muted2); }
     <div id="coach-retry" style="display:none;margin-top:16px;text-align:center;max-width:420px;">
       <div style="font-size:0.9rem;color:var(--muted);line-height:1.6;margin-bottom:14px;">Your check-in was saved, but your coaching didn't finish generating.</div>
       <button onclick="retryCoachResponse()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:'Geist',sans-serif;font-weight:500;font-size:0.9rem;padding:11px 22px;cursor:pointer;">Get your coaching →</button>
+      <div id="coach-retry-detail" style="font-family:'Geist Mono',monospace;font-size:0.68rem;color:var(--muted2);margin-top:12px;word-break:break-word;"></div>
     </div>
 
     <!-- Idle hint -->
@@ -4031,9 +4032,11 @@ Always end your response by stating tonight's recommended bedtime and wake time 
     } catch(e) {}
   }
 
-  function showCoachRetry() {
+  function showCoachRetry(detail) {
     const retry = document.getElementById('coach-retry');
     if (retry) retry.style.display = 'block';
+    const detailEl = document.getElementById('coach-retry-detail');
+    if (detailEl) detailEl.textContent = detail ? `Details: ${detail}` : '';
     document.getElementById('coach-response-wrap')?.classList.remove('visible');
   }
 
@@ -4197,7 +4200,7 @@ Always end your response by stating tonight's recommended bedtime and wake time 
       setCoachState('idle');
       hideCoachForm();
       if (transcript) showTranscript(transcript);
-      showCoachRetry();
+      showCoachRetry(e && e.message ? e.message : String(e));
       showToast('Could not load your coaching. Tap "Get your coaching" to retry.', 'error');
     }
   }
@@ -4307,13 +4310,14 @@ Always end your response by stating tonight's recommended bedtime and wake time 
 
   // ── Initialize / restore persisted session ──
   window.initCoachView = function() {
+    let carryTranscript = '';
     try {
       const saved = JSON.parse(localStorage.getItem(COACH_STORAGE_KEY) || 'null');
       const today = coachTodayKey();
       const fromToday = saved && (saved.day === today || (Date.now() - saved.ts < 12 * 3600 * 1000));
 
-      // 1. Today's coaching already generated → restore it.
-      if (fromToday && saved.status !== 'pending' && saved.text) {
+      // 1. Today's coaching already generated → restore it instantly.
+      if (fromToday && saved.status === 'complete' && saved.text) {
         resetCoachSession();
         hideCoachForm();
         showTranscript(saved.transcript || '');
@@ -4322,27 +4326,21 @@ Always end your response by stating tonight's recommended bedtime and wake time 
         return;
       }
 
-      // 2. A check-in was logged but coaching never completed → offer a retry.
-      if (fromToday && saved.status === 'pending') {
-        resetCoachSession();
-        window.coachVoiceTranscript = saved.transcript || '';
-        hideCoachForm();
-        showTranscript(saved.transcript || '');
-        showCoachRetry();
-        setCoachState('idle');
-        return;
-      }
+      // Carry over any transcript from an interrupted voice check-in so a
+      // regeneration uses it instead of falling back to data-only.
+      if (fromToday && saved.transcript) carryTranscript = saved.transcript;
     } catch(e) {}
 
-    // 3. No session yet, but the user has logged today → generate today's
-    // coaching insight from their data (no voice note required).
+    // 2. Logged today but no completed coaching yet (incl. a stale pending
+    // marker) → (re)generate now. Only falls back to the retry button if the
+    // attempt actually fails, so it self-heals instead of getting stuck.
     if (hasLoggedToday()) {
       resetCoachSession();
-      generateCoachResponse({ autoplay: false });
+      generateCoachResponse({ autoplay: false, transcript: carryTranscript });
       return;
     }
 
-    // 4. Nothing logged today → orb + hint, prompting a fresh check-in.
+    // 3. Nothing logged today → orb + hint, prompting a fresh check-in.
     resetCoachSession();
   };
 
