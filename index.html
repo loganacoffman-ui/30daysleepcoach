@@ -1346,6 +1346,12 @@ textarea::placeholder { color: var(--muted2); }
       </button>
     </div>
 
+    <!-- Retry state: check-in saved but coaching didn't finish -->
+    <div id="coach-retry" style="display:none;margin-top:16px;text-align:center;max-width:420px;">
+      <div style="font-size:0.9rem;color:var(--muted);line-height:1.6;margin-bottom:14px;">Your check-in was saved, but your coaching didn't finish generating.</div>
+      <button onclick="retryCoachResponse()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:'Geist',sans-serif;font-weight:500;font-size:0.9rem;padding:11px 22px;cursor:pointer;">Get your coaching →</button>
+    </div>
+
     <!-- Idle hint -->
     <div class="coach-hint" id="coach-hint">Record a voice note about how you slept. Your coach will respond with what's going on and what to focus on tonight.</div>
 
@@ -4001,8 +4007,27 @@ Always end your response by stating tonight's recommended bedtime and wake time 
     // Persist
     try {
       const transcript = document.getElementById('coach-transcript')?.textContent || '';
-      localStorage.setItem(COACH_STORAGE_KEY, JSON.stringify({ text, transcript, ts: Date.now() }));
+      localStorage.setItem(COACH_STORAGE_KEY, JSON.stringify({ status: 'complete', text, transcript, ts: Date.now() }));
     } catch(e) {}
+  }
+
+  // Persist a "check-in logged but coaching not yet completed" marker so a
+  // failed/interrupted generation can be recovered when the user returns.
+  function persistPendingCheckin(transcript) {
+    try {
+      localStorage.setItem(COACH_STORAGE_KEY, JSON.stringify({ status: 'pending', transcript: transcript || '', ts: Date.now() }));
+    } catch(e) {}
+  }
+
+  function showCoachRetry() {
+    const retry = document.getElementById('coach-retry');
+    if (retry) retry.style.display = 'block';
+    document.getElementById('coach-response-wrap')?.classList.remove('visible');
+  }
+
+  function hideCoachRetry() {
+    const retry = document.getElementById('coach-retry');
+    if (retry) retry.style.display = 'none';
   }
 
   function showCoachForm() {
@@ -4121,38 +4146,41 @@ Always end your response by stating tonight's recommended bedtime and wake time 
 
   // Generate and display the CBT-I coaching response after the check-in is saved
   async function generateCoachResponse() {
-    if (!coachVoiceTranscript && !document.getElementById('coach-transcript')?.textContent) return;
+    const transcript = window.coachVoiceTranscript || document.getElementById('coach-transcript')?.textContent || '';
+    if (!transcript) return;
+
+    // Record the check-in immediately so it survives a failed/interrupted
+    // generation — we can recover it on the next visit to the Coach tab.
+    persistPendingCheckin(transcript);
+    hideCoachRetry();
     setCoachState('thinking');
 
-    const transcript = window.coachVoiceTranscript || document.getElementById('coach-transcript')?.textContent || '';
-    const messages = [
-      { role: 'system', content: CBTI_SYSTEM_PROMPT },
-      { role: 'user', content: `Voice check-in: "${transcript}"\n\nSleep data:\n${buildSleepContext()}` }
-    ];
-
-    const tempEl = document.createElement('div');
-    let coachText = '';
     try {
+      const messages = [
+        { role: 'system', content: CBTI_SYSTEM_PROMPT },
+        { role: 'user', content: `Voice check-in: "${transcript}"\n\nSleep data:\n${buildSleepContext()}` }
+      ];
+
+      const tempEl = document.createElement('div');
+      let coachText = '';
       await streamCoachResponse(messages, tempEl, (full) => { coachText = full; });
+      if (!coachText) coachText = tempEl.textContent || '';
+
+      if (!coachText.trim()) throw new Error('Empty response from coach');
+
+      hideCoachForm();
+      showResponse(coachText);
+      setCoachState('idle');
+      await playCoachTTS(coachText);
     } catch(e) {
       console.error('Coach response error:', e);
+      // Keep the pending check-in marker and surface a recoverable retry state.
       setCoachState('idle');
-      showToast('Could not get a coaching response. Please try again.', 'error');
-      return;
+      hideCoachForm();
+      showTranscript(transcript);
+      showCoachRetry();
+      showToast('Could not get a coaching response. Tap "Get your coaching" to retry.', 'error');
     }
-
-    if (!coachText) coachText = tempEl.textContent || '';
-
-    if (!coachText.trim()) {
-      setCoachState('idle');
-      showToast('Empty response from coach. Please try again.', 'error');
-      return;
-    }
-
-    hideCoachForm();
-    showResponse(coachText);
-    setCoachState('idle');
-    await playCoachTTS(coachText);
   }
 
   // ── ElevenLabs TTS ──
@@ -4220,6 +4248,12 @@ Always end your response by stating tonight's recommended bedtime and wake time 
     generateCoachResponse();
   };
 
+  // Re-run generation for a check-in that was saved but never got coaching.
+  window.retryCoachResponse = function() {
+    hideCoachRetry();
+    generateCoachResponse();
+  };
+
   window.resetCoachSession = function() {
     window.coachVoiceTranscript = '';
     coachTTSText = '';
@@ -4231,6 +4265,7 @@ Always end your response by stating tonight's recommended bedtime and wake time 
     document.getElementById('coach-transcript')?.classList.remove('visible');
     document.getElementById('coach-response-wrap')?.classList.remove('visible');
     document.getElementById('coach-plan-card')?.classList.remove('visible');
+    hideCoachRetry();
     const note = document.getElementById('note');
     if (note) note.value = '';
     hideCoachForm();
@@ -4253,13 +4288,27 @@ Always end your response by stating tonight's recommended bedtime and wake time 
 
   // ── Initialize / restore persisted session ──
   window.initCoachView = function() {
-    // Restore last session if within 12 hours
     try {
       const saved = JSON.parse(localStorage.getItem(COACH_STORAGE_KEY) || 'null');
-      if (saved && saved.text && (Date.now() - saved.ts < 12 * 3600 * 1000)) {
+      const fresh = saved && (Date.now() - saved.ts < 12 * 3600 * 1000);
+
+      // 1. Completed coaching within the last 12h → restore it.
+      if (fresh && saved.status !== 'pending' && saved.text) {
+        resetCoachSession();
         hideCoachForm();
         showTranscript(saved.transcript || '');
         showResponse(saved.text);
+        setCoachState('idle');
+        return;
+      }
+
+      // 2. A check-in was logged but coaching never completed → offer a retry.
+      if (fresh && saved.status === 'pending') {
+        resetCoachSession();
+        window.coachVoiceTranscript = saved.transcript || '';
+        hideCoachForm();
+        showTranscript(saved.transcript || '');
+        showCoachRetry();
         setCoachState('idle');
         return;
       }
