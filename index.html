@@ -2973,6 +2973,12 @@ function parseMarkdown(text) {
 async function streamCoachResponse(messages, targetEl, onDone, cacheKey) {
   const token = await getAuthToken();
 
+  // Anthropic requires the system prompt as a top-level `system` field, not a
+  // `system` role inside `messages` (which returns a 400). Hoist it out.
+  const allMsgs = messages || [];
+  const system = allMsgs.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
+  const chatMsgs = allMsgs.filter(m => m.role !== 'system');
+
   const res = await fetch(COACH_ENDPOINT, {
     method: 'POST',
     headers: {
@@ -2981,7 +2987,8 @@ async function streamCoachResponse(messages, targetEl, onDone, cacheKey) {
       'apikey': SUPABASE_PUBLISHABLE_KEY,
     },
     body: JSON.stringify({
-      messages,
+      messages: chatMsgs,
+      ...(system ? { system } : {}),
       sleepData: getSleepDataForCoach(),
       ...(cacheKey ? { cacheKey } : {})
     })
