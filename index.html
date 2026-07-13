@@ -456,6 +456,7 @@ textarea::placeholder { color: var(--muted2); }
   border: 1px solid var(--border2);
   border-radius: 100px;
   padding: 8px 18px;
+  margin-bottom: 1rem;
   font-family: 'Geist', sans-serif;
   font-size: 0.8rem;
   font-weight: 500;
@@ -1339,11 +1340,11 @@ textarea::placeholder { color: var(--muted2); }
 
     <!-- Voice coaching response + TTS -->
     <div class="coach-response-wrap" id="coach-response-wrap">
-      <div class="coach-response-text" id="coach-response-text"></div>
       <button class="coach-tts-btn" id="coach-tts-btn" onclick="toggleCoachTTS()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
         <span id="coach-tts-label">Play</span>
       </button>
+      <div class="coach-response-text" id="coach-response-text"></div>
     </div>
 
     <!-- Retry state: check-in saved but coaching didn't finish -->
@@ -4233,28 +4234,43 @@ Always end your response by stating tonight's recommended bedtime and wake time 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'apikey': SUPABASE_PUBLISHABLE_KEY,
           ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
         body: JSON.stringify({ text, voice_settings: EL_TTS_VOICE_SETTINGS })
       });
 
-      if (!res.ok) throw new Error(`TTS error ${res.status}`);
+      if (!res.ok) {
+        let detail = '';
+        try { detail = (await res.json())?.error || ''; } catch(_) {}
+        throw new Error(`TTS ${res.status}${detail ? ': ' + detail : ''}`);
+      }
       const audioBlob = await res.blob();
+      if (!audioBlob || audioBlob.size === 0) throw new Error('Empty audio from TTS');
+
       const url = URL.createObjectURL(audioBlob);
       coachAudio = new Audio(url);
-      coachAudio.onended = () => {
+      const cleanup = (endLabel) => {
         setCoachState('idle');
         if (btn) btn.classList.remove('playing');
-        if (lbl) lbl.textContent = 'Play again';
+        if (lbl) lbl.textContent = endLabel;
         URL.revokeObjectURL(url);
       };
-      coachAudio.play();
+      coachAudio.onended = () => cleanup('Play again');
+      coachAudio.onerror = () => {
+        console.error('Audio playback error', coachAudio?.error);
+        cleanup('Play');
+        showToast('Could not play the audio.', 'error');
+      };
+      // Await play() so a blocked/failed start is caught rather than silently
+      // leaving the button stuck.
+      await coachAudio.play();
     } catch(e) {
       console.error('TTS error:', e);
       setCoachState('idle');
       if (btn) btn.classList.remove('playing');
       if (lbl) lbl.textContent = 'Play';
-      // TTS failure is non-fatal — response text is still shown
+      showToast(e && e.message ? e.message : 'Could not play the audio.', 'error');
     }
   }
 
