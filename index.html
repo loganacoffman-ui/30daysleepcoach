@@ -3901,6 +3901,18 @@ if ('serviceWorker' in navigator) {
   // Persisted last response so navigating away and back restores it
   const COACH_STORAGE_KEY = 'coach_last_session';
 
+  // Local calendar day (YYYY-MM-DD) used to scope today's coaching session.
+  function coachTodayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  // Has the user logged a check-in entry for today?
+  function hasLoggedToday() {
+    const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return (entries || []).some(e => e.date === today);
+  }
+
   // ── CBT-I System Prompt (Gregg Jacobs "Say Goodnight to Insomnia") ──
   const CBTI_SYSTEM_PROMPT = `You are a sleep coach trained in Cognitive Behavioral Therapy for Insomnia (CBT-I), specifically the structured 6-week protocol from Gregg Jacobs' "Say Goodnight to Insomnia" (Harvard Medical School).
 
@@ -4007,7 +4019,7 @@ Always end your response by stating tonight's recommended bedtime and wake time 
     // Persist
     try {
       const transcript = document.getElementById('coach-transcript')?.textContent || '';
-      localStorage.setItem(COACH_STORAGE_KEY, JSON.stringify({ status: 'complete', text, transcript, ts: Date.now() }));
+      localStorage.setItem(COACH_STORAGE_KEY, JSON.stringify({ status: 'complete', text, transcript, ts: Date.now(), day: coachTodayKey() }));
     } catch(e) {}
   }
 
@@ -4015,7 +4027,7 @@ Always end your response by stating tonight's recommended bedtime and wake time 
   // failed/interrupted generation can be recovered when the user returns.
   function persistPendingCheckin(transcript) {
     try {
-      localStorage.setItem(COACH_STORAGE_KEY, JSON.stringify({ status: 'pending', transcript: transcript || '', ts: Date.now() }));
+      localStorage.setItem(COACH_STORAGE_KEY, JSON.stringify({ status: 'pending', transcript: transcript || '', ts: Date.now(), day: coachTodayKey() }));
     } catch(e) {}
   }
 
@@ -4144,26 +4156,33 @@ Always end your response by stating tonight's recommended bedtime and wake time 
     // User now fills out the log form below and taps Save, which triggers the coach response.
   }
 
-  // Generate and display the CBT-I coaching response after the check-in is saved
-  async function generateCoachResponse() {
-    const transcript = window.coachVoiceTranscript || document.getElementById('coach-transcript')?.textContent || '';
-    if (!transcript) return;
+  // Generate and display the CBT-I coaching response for today's check-in.
+  // Works with a voice transcript OR from logged sleep data alone, and only
+  // auto-plays TTS when the user actively finished a voice check-in.
+  async function generateCoachResponse(opts = {}) {
+    const transcript = opts.transcript || window.coachVoiceTranscript || document.getElementById('coach-transcript')?.textContent || '';
+    // Need either something the user said, or a logged entry to coach on.
+    if (!transcript && !hasLoggedToday()) return;
 
     // Record the check-in immediately so it survives a failed/interrupted
     // generation — we can recover it on the next visit to the Coach tab.
     persistPendingCheckin(transcript);
     hideCoachRetry();
+    if (transcript) showTranscript(transcript);
     setCoachState('thinking');
 
     try {
+      const userContent = transcript
+        ? `Voice check-in: "${transcript}"\n\nSleep data:\n${buildSleepContext()}`
+        : `The user logged today's sleep check-in without a voice note. Based on their recent sleep data, deliver today's coaching session.\n\nSleep data:\n${buildSleepContext()}`;
       const messages = [
         { role: 'system', content: CBTI_SYSTEM_PROMPT },
-        { role: 'user', content: `Voice check-in: "${transcript}"\n\nSleep data:\n${buildSleepContext()}` }
+        { role: 'user', content: userContent }
       ];
 
       const tempEl = document.createElement('div');
       let coachText = '';
-      await streamCoachResponse(messages, tempEl, (full) => { coachText = full; });
+      await streamCoachResponse(messages, tempEl, (full) => { coachText = full; }, coachTodayKey());
       if (!coachText) coachText = tempEl.textContent || '';
 
       if (!coachText.trim()) throw new Error('Empty response from coach');
@@ -4171,15 +4190,15 @@ Always end your response by stating tonight's recommended bedtime and wake time 
       hideCoachForm();
       showResponse(coachText);
       setCoachState('idle');
-      await playCoachTTS(coachText);
+      if (opts.autoplay !== false) await playCoachTTS(coachText);
     } catch(e) {
       console.error('Coach response error:', e);
       // Keep the pending check-in marker and surface a recoverable retry state.
       setCoachState('idle');
       hideCoachForm();
-      showTranscript(transcript);
+      if (transcript) showTranscript(transcript);
       showCoachRetry();
-      showToast('Could not get a coaching response. Tap "Get your coaching" to retry.', 'error');
+      showToast('Could not load your coaching. Tap "Get your coaching" to retry.', 'error');
     }
   }
 
@@ -4290,10 +4309,11 @@ Always end your response by stating tonight's recommended bedtime and wake time 
   window.initCoachView = function() {
     try {
       const saved = JSON.parse(localStorage.getItem(COACH_STORAGE_KEY) || 'null');
-      const fresh = saved && (Date.now() - saved.ts < 12 * 3600 * 1000);
+      const today = coachTodayKey();
+      const fromToday = saved && (saved.day === today || (Date.now() - saved.ts < 12 * 3600 * 1000));
 
-      // 1. Completed coaching within the last 12h → restore it.
-      if (fresh && saved.status !== 'pending' && saved.text) {
+      // 1. Today's coaching already generated → restore it.
+      if (fromToday && saved.status !== 'pending' && saved.text) {
         resetCoachSession();
         hideCoachForm();
         showTranscript(saved.transcript || '');
@@ -4303,7 +4323,7 @@ Always end your response by stating tonight's recommended bedtime and wake time 
       }
 
       // 2. A check-in was logged but coaching never completed → offer a retry.
-      if (fresh && saved.status === 'pending') {
+      if (fromToday && saved.status === 'pending') {
         resetCoachSession();
         window.coachVoiceTranscript = saved.transcript || '';
         hideCoachForm();
@@ -4313,7 +4333,16 @@ Always end your response by stating tonight's recommended bedtime and wake time 
         return;
       }
     } catch(e) {}
-    // Fresh state: orb + hint only, no form yet
+
+    // 3. No session yet, but the user has logged today → generate today's
+    // coaching insight from their data (no voice note required).
+    if (hasLoggedToday()) {
+      resetCoachSession();
+      generateCoachResponse({ autoplay: false });
+      return;
+    }
+
+    // 4. Nothing logged today → orb + hint, prompting a fresh check-in.
     resetCoachSession();
   };
 
