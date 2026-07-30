@@ -504,14 +504,37 @@ textarea::placeholder { color: var(--muted2); }
   color: var(--muted2);
   margin-bottom: 0.75rem;
 }
+.coach-plan-action {
+  font-family: 'Geist', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin-bottom: 0.65rem;
+}
+.coach-plan-copy {
+  font-size: 0.86rem;
+  line-height: 1.65;
+  color: var(--muted);
+  margin-bottom: 0.65rem;
+}
 .coach-plan-times {
   display: flex;
   gap: 2rem;
-  margin-bottom: 0.5rem;
+  margin-top: 1rem;
+  margin-bottom: 0.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
 }
 .coach-plan-time-item { display: flex; flex-direction: column; gap: 3px; }
 .coach-plan-time-val { font-family: 'Geist', sans-serif; font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
 .coach-plan-time-lbl { font-family: 'Geist Mono', monospace; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted2); }
+
+.protocol-intro { margin-bottom: 1rem; }
+.protocol-intro p { font-size: 0.9rem; color: var(--muted); line-height: 1.7; }
+.protocol-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+.protocol-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
 
 /* COACH BRIEFING */
 .coach-section { margin-bottom: 1.5rem; }
@@ -936,6 +959,8 @@ textarea::placeholder { color: var(--muted2); }
   .oura-autofill-grid { grid-template-columns: 1fr 1fr; }
   .checkin-grid { grid-template-columns: 1fr 1fr; }
   .baseline-factor-grid { grid-template-columns: 1fr; }
+  .protocol-grid { grid-template-columns: 1fr; }
+  .coach-plan-times { gap: 1rem; }
   .stat-row { grid-template-columns: 1fr 1fr; }
   .stat-card { border-bottom: 1px solid var(--border); }
   .stat-card:nth-child(odd) { border-right: 1px solid var(--border); }
@@ -1196,9 +1221,9 @@ textarea::placeholder { color: var(--muted2); }
 <header>
   <a class="logo" href="#" onclick="goHome(); return false;"><span>30 Day</span> Sleep Coach</a>
   <nav>
-    <button onclick="setView('coach',this)">Coach</button>
-    <button onclick="setView('data',this)">Data</button>
-    <button class="active" onclick="setView('history',this)">History</button>
+    <button data-view="coach" onclick="setView('coach',this)">Tonight</button>
+    <button data-view="history" onclick="setView('history',this)">Progress</button>
+    <button data-view="data" onclick="setView('data',this)">Coach</button>
   </nav>
   <div class="header-right">
     <div class="day-badge" id="day-badge">Day 1</div>
@@ -1210,15 +1235,15 @@ textarea::placeholder { color: var(--muted2); }
 <div class="mobile-tab-bar" id="mobile-tab-bar">
   <button onclick="setView('coach',this)" data-view="coach">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 4-3.5 7-7 9-3.5-2-7-5-7-9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-    Coach
-  </button>
-  <button onclick="setView('data',this)" data-view="data">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-    Data
+    Tonight
   </button>
   <button onclick="setView('history',this)" data-view="history">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><polyline points="18 9 12 15 9 12 3 18"/></svg>
-    History
+    Progress
+  </button>
+  <button onclick="setView('data',this)" data-view="data">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+    Coach
   </button>
 </div>
 
@@ -1233,7 +1258,39 @@ textarea::placeholder { color: var(--muted2); }
 <div id="view-history" class="view active">
 <div class="container">
   <div class="section-tag">Progress</div>
-  <h1 class="page-heading">Your 30-day <em>trend.</em></h1>
+  <h1 class="page-heading">Your protocol <em>progress.</em></h1>
+
+  <!-- 7-day baseline -->
+  <div class="baseline-progress" style="margin-bottom:1.5rem">
+    <div class="baseline-progress-copy">
+      <div class="baseline-progress-title" id="baseline-progress-title">Building baseline: Day 1 of 7</div>
+      <div class="baseline-progress-body">This is your rolling baseline from the latest 7 entries. Each new check-in updates it.</div>
+    </div>
+    <div class="baseline-body">
+      <div class="baseline-trend">
+        <div class="baseline-trend-top">
+          <div class="baseline-trend-label">Last 7 sleep scores</div>
+          <div class="baseline-pill" id="baseline-progress-pill">0 of 7 entries</div>
+        </div>
+        <div id="baseline-trend-wrap" class="baseline-trend-empty">Add entries to build your baseline trend</div>
+        <div class="baseline-meter"><div class="baseline-meter-fill" id="baseline-meter-fill"></div></div>
+      </div>
+      <div class="baseline-stats">
+        <div class="baseline-stat">
+          <div class="baseline-stat-value" id="baseline-avg-sleep">—</div>
+          <div class="baseline-stat-label">sleep score</div>
+        </div>
+        <div class="baseline-stat">
+          <div class="baseline-stat-value" id="baseline-avg-hrv">—</div>
+          <div class="baseline-stat-label">HRV</div>
+        </div>
+        <div class="baseline-stat">
+          <div class="baseline-stat-value" id="baseline-avg-feel">—</div>
+          <div class="baseline-stat-label">feeling</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div class="stat-row" id="stat-row">
     <div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">avg sleep score</div></div>
@@ -1242,29 +1299,29 @@ textarea::placeholder { color: var(--muted2); }
     <div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">7-day trend</div></div>
   </div>
 
-  <div class="chart-card">
+  <div class="chart-card" style="display:none">
     <div class="chart-title">Time awake — last 10 nights</div>
     <div class="chart-wrap"><canvas id="nc-chart"></canvas></div>
     <div class="target-note">from Oura sleep phases · goal: minimize</div>
   </div>
 
 
-  <div class="chart-card">
+  <div class="chart-card" style="display:none">
     <div class="chart-title">Sleep score — last 30 days</div>
     <div class="chart-wrap"><canvas id="sleep-chart"></canvas></div>
     <div class="target-note">from Oura ring · target: 85+</div>
   </div>
-  <div class="chart-card">
+  <div class="chart-card" style="display:none">
     <div class="chart-title">HRV — last 30 days</div>
     <div class="chart-wrap"><canvas id="hrv-chart"></canvas></div>
     <div class="target-note">target range: mid-60s ms</div>
   </div>
-  <div class="chart-card">
+  <div class="chart-card" style="display:none">
     <div class="chart-title">Weekly averages</div>
     <div id="weekly-view"><div class="empty-state">No entries yet</div></div>
   </div>
   <!-- Oura Integration (merged from Stress tab) -->
-  <div id="oura-section-history">
+  <div id="oura-section-history" style="display:none">
     <div id="oura-setup-history" class="card" style="margin-bottom:1rem">
       <div class="card-label">Connect Oura Ring</div>
       <p style="font-size:0.85rem;color:var(--muted);line-height:1.7;margin-bottom:1rem;">Connect your Oura account to auto-fill sleep scores, HRV, and stress data.</p>
@@ -1285,7 +1342,7 @@ textarea::placeholder { color: var(--muted2); }
   </div>
 
   <div class="card">
-    <div class="card-label">Entry log</div>
+    <div class="card-label">Recent check-ins</div>
     <table class="log-table">
       <thead><tr><th>Date</th><th>HRV</th><th>Sleep</th><th>Night wake</th><th>Factors</th><th>Note</th><th id="del-th"></th></tr></thead>
       <tbody id="log-body"></tbody>
@@ -1304,8 +1361,11 @@ textarea::placeholder { color: var(--muted2); }
   <div class="coach-stage">
 
     <!-- Tonight's plan (shown after first session) -->
-    <div class="coach-plan-card" id="coach-plan-card">
-      <div class="coach-plan-label">Tonight's plan</div>
+    <div class="coach-plan-card visible" id="coach-plan-card">
+      <div class="coach-plan-label">Tonight's sleep plan</div>
+      <div class="coach-plan-action" id="coach-plan-action">Start with your 30-second check-in.</div>
+      <div class="coach-plan-copy" id="coach-plan-why">Your coach will turn today’s check-in and recent sleep data into one behavior to practice tonight.</div>
+      <div class="coach-plan-copy" id="coach-plan-how">Keep it simple: say how last night went, save the check-in, then commit to the next tiny behavior.</div>
       <div class="coach-plan-times">
         <div class="coach-plan-time-item">
           <div class="coach-plan-time-val" id="coach-plan-bed">—</div>
@@ -1468,52 +1528,26 @@ textarea::placeholder { color: var(--muted2); }
 <!-- DATA VIEW (Patterns, heatmaps, scatter) -->
 <div id="view-data" class="view">
 <div class="container">
-  <div class="section-tag">Patterns</div>
-  <h1 class="page-heading">What the data <em>shows.</em></h1>
+  <div class="section-tag">Coach</div>
+  <h1 class="page-heading">One clear move <em>for tonight.</em></h1>
 
-  <!-- 7-day baseline -->
-  <div class="baseline-progress" style="margin-bottom:1.5rem">
-    <div class="baseline-progress-copy">
-      <div class="baseline-progress-title" id="baseline-progress-title">Building baseline: Day 1 of 7</div>
-      <div class="baseline-progress-body">This is your rolling baseline from the latest 7 entries. Each new check-in updates it.</div>
+  <div class="protocol-intro card">
+    <div class="card-label">Guided protocol</div>
+    <p>The coach turns your recent check-ins into one CBT-I inspired behavior to practice tonight. The goal is not more analysis. It is less guessing, less sleep effort, and one concrete next step.</p>
+  </div>
+
+  <div id="coach-root"></div>
+
+  <div class="protocol-grid">
+    <div class="protocol-card">
+      <div class="coach-sec-h">What the app is training</div>
+      <div class="coach-sec-b">Consistent wake time, lower sleep effort, cleaner bed/sleep association, and calmer responses to rough nights.</div>
     </div>
-    <div class="baseline-body">
-      <div class="baseline-trend">
-        <div class="baseline-trend-top">
-          <div class="baseline-trend-label">Last 7 sleep scores</div>
-          <div class="baseline-pill" id="baseline-progress-pill">0 of 7 entries</div>
-        </div>
-        <div id="baseline-trend-wrap" class="baseline-trend-empty">Add entries to build your baseline trend</div>
-        <div class="baseline-meter"><div class="baseline-meter-fill" id="baseline-meter-fill"></div></div>
-      </div>
-      <div class="baseline-stats">
-        <div class="baseline-stat">
-          <div class="baseline-stat-value" id="baseline-avg-sleep">—</div>
-          <div class="baseline-stat-label">sleep score</div>
-        </div>
-        <div class="baseline-stat">
-          <div class="baseline-stat-value" id="baseline-avg-hrv">—</div>
-          <div class="baseline-stat-label">HRV</div>
-        </div>
-        <div class="baseline-stat">
-          <div class="baseline-stat-value" id="baseline-avg-feel">—</div>
-          <div class="baseline-stat-label">feeling</div>
-        </div>
-      </div>
+    <div class="protocol-card">
+      <div class="coach-sec-h">What stays in the background</div>
+      <div class="coach-sec-b">Oura data, HRV, sleep score, and stress signals support the recommendation, but they do not need to become homework.</div>
     </div>
   </div>
-
-  <!-- Factor correlations -->
-  <div class="chart-card">
-    <div class="chart-title">Factor correlation — delta vs avg sleep score</div>
-    <div id="heatmap-sleep"><div class="empty-state">Log at least 3 days to build the heatmap</div></div>
-  </div>
-  <div class="chart-card" style="margin-top:1rem">
-    <div class="chart-title">Factor correlation — delta vs avg HRV</div>
-    <div id="heatmap-hrv"><div class="empty-state">Log at least 3 days to build the heatmap</div></div>
-  </div>
-
-  <div id="coach-root" style="display:none"></div>
 </div>
 </div>
 
@@ -1951,13 +1985,8 @@ async function initApp() {
   await loadEntries();
   updateDayBadge();
   updateModeUI();
-  if (!hasTodayEntry()) {
-    const coachBtn = document.querySelector('nav button[onclick*="coach"]');
-    if (coachBtn) setView('coach', coachBtn);
-  } else {
-    const histBtn = document.querySelector('nav button[onclick*="history"]');
-    if (histBtn) setView('history', histBtn);
-  }
+  const tonightBtn = document.querySelector('nav button[data-view="coach"]');
+  if (tonightBtn) setView('coach', tonightBtn);
 }
 
 async function enterApp({ showWelcome = false } = {}) {
@@ -2146,23 +2175,24 @@ function setView(v, btn) {
   });
   // Sync desktop nav
   document.querySelectorAll('header nav button').forEach(b => {
-    if (b.textContent.trim().toLowerCase() === v || (v === 'data' && b.textContent.trim() === 'Data')) b.classList.add('active');
+    b.classList.toggle('active', b.dataset.view === v);
   });
   window.scrollTo(0, 0);
   if (v==='history') {
+    renderBaselineProgress();
     renderHistory();
     initOuraView();
     checkOuraOAuthStatus().then(() => {
       if (hasOuraConnection() && !ouraStressData.length) fetchOuraData();
     });
   }
-  if (v==='data') { renderBaselineProgress(); renderDataView(); }
+  if (v==='data') { renderDataView(); }
   if (v==='coach') { if (window.initCoachView) initCoachView(); }
 }
 
 function refreshCurrentView() {
   const id = document.querySelector('.view.active')?.id?.replace('view-','');
-  if (id==='history') renderHistory();
+  if (id==='history') { renderBaselineProgress(); renderHistory(); }
   if (id==='coach') { if (window.initCoachView) initCoachView(); }
   if (id==='data') renderDataView();
 }
@@ -2598,7 +2628,7 @@ function renderLogOuraAutofill() {
     setText('oura-fill-bedtime', '—');
     setText('oura-fill-waketime', '—');
     setText('oura-fill-stress-recovery', '—');
-    note.textContent = 'Looking for recent Oura data. If this stays blank, refresh from the History tab.';
+    note.textContent = 'Looking for recent Oura data. If this stays blank, refresh from the Progress tab.';
     return;
   }
 
@@ -2856,7 +2886,7 @@ function renderLog() {
 
 // ── INSIGHTS ─────────────────────────────────────────
 function renderInsights(){generateBriefing();renderCoach();}
-function renderDataView(){renderHeatmapSleep();renderHeatmapHRV();}
+function renderDataView(){renderCoach();}
 
 // ── AI COACH ─────────────────────────────────────────
 const COACH_ENDPOINT = SUPABASE_URL + '/functions/v1/sleep-coach';
@@ -4016,13 +4046,19 @@ Always end your response by stating tonight's recommended bedtime and wake time 
 
     // Extract tonight's plan if present
     const match = text.match(/[Tt]onight[:\s–-]+aim for bed by\s+([0-9:apmAPM\s]+)\s+and up by\s+([0-9:apmAPM\s]+)/);
+    const card = document.getElementById('coach-plan-card');
+    const actionEl = document.getElementById('coach-plan-action');
+    const whyEl = document.getElementById('coach-plan-why');
+    const howEl = document.getElementById('coach-plan-how');
+    if (card) card.classList.add('visible');
+    if (actionEl) actionEl.textContent = 'Practice tonight’s recommended behavior.';
+    if (whyEl) whyEl.textContent = 'The goal is to train sleep confidence and consistency one night at a time, not to optimize every metric.';
+    if (howEl) howEl.textContent = 'Read the coaching response below, then follow the final bedtime/wake-time target as your commitment for tonight.';
     if (match) {
       const bedEl = document.getElementById('coach-plan-bed');
       const wakeEl = document.getElementById('coach-plan-wake');
-      const card = document.getElementById('coach-plan-card');
       if (bedEl) bedEl.textContent = match[1].trim();
       if (wakeEl) wakeEl.textContent = match[2].trim();
-      if (card) card.classList.add('visible');
     }
 
     // Persist
@@ -4058,8 +4094,6 @@ Always end your response by stating tonight's recommended bedtime and wake time 
     if (form) form.style.display = 'block';
     const response = document.getElementById('coach-response-wrap');
     if (response) response.classList.remove('visible');
-    const plan = document.getElementById('coach-plan-card');
-    if (plan) plan.classList.remove('visible');
     // Hydrate Oura fields so the user sees auto-filled values while logging
     if (window.hydrateLogFromOura) hydrateLogFromOura();
   }
@@ -4308,7 +4342,17 @@ Always end your response by stating tonight's recommended bedtime and wake time 
     if (ttsLbl) ttsLbl.textContent = 'Play';
     document.getElementById('coach-transcript')?.classList.remove('visible');
     document.getElementById('coach-response-wrap')?.classList.remove('visible');
-    document.getElementById('coach-plan-card')?.classList.remove('visible');
+    document.getElementById('coach-plan-card')?.classList.add('visible');
+    const actionEl = document.getElementById('coach-plan-action');
+    const whyEl = document.getElementById('coach-plan-why');
+    const howEl = document.getElementById('coach-plan-how');
+    const bedEl = document.getElementById('coach-plan-bed');
+    const wakeEl = document.getElementById('coach-plan-wake');
+    if (actionEl) actionEl.textContent = 'Start with your 30-second check-in.';
+    if (whyEl) whyEl.textContent = 'Your coach will turn today’s check-in and recent sleep data into one behavior to practice tonight.';
+    if (howEl) howEl.textContent = 'Keep it simple: say how last night went, save the check-in, then commit to the next tiny behavior.';
+    if (bedEl) bedEl.textContent = '—';
+    if (wakeEl) wakeEl.textContent = '—';
     hideCoachRetry();
     const note = document.getElementById('note');
     if (note) note.value = '';

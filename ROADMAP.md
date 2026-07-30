@@ -4,13 +4,15 @@ Living operating doc for the product and engineering priorities. Check this at t
 
 ## Strategic Shift
 
-30 Day Sleep Coach is evolving from an AI-assisted sleep journal into a premium, voice-powered Recovery Audit for high performers.
+30 Day Sleep Coach is evolving from an AI-assisted sleep journal and Oura-data wrapper into a guided behavior-change protocol inspired by CBT-I.
 
 The product should help ambitious, health-conscious users answer:
 
 > What is actually hurting my sleep, energy, and recovery, what should I test next, and what can I stop worrying about?
 
-The category is not just sleep coaching. The category is recovery intelligence.
+The category is not just sleep tracking. The category is sleep behavior change.
+
+The app should win on guidance, adherence, and elegant daily UX, not on being another biometric dashboard.
 
 ## Core Principle
 
@@ -18,17 +20,21 @@ Optimize briefly. Live normally.
 
 The product should reduce cognitive load, not create a permanent quantified-self chore. The experience should feel like:
 
-> Send us your data. Tell us what is going on. We will identify what matters, ignore what does not, and give you a simple recovery playbook.
+> Tell us how last night went. We will identify the one behavior that matters tonight and help you practice it long enough for your sleep to change.
+
+The central daily promise:
+
+> Tonight, do the one sleep behavior that matters most.
 
 ## Positioning
 
 ### Current
 
-30 Day Sleep Coach: AI-powered sleep journaling and behavior-change coaching.
+30 Day Sleep Coach: AI-powered sleep journaling with Oura context and coaching.
 
 ### Target
 
-The 30-Day Recovery Audit: a concierge diagnostic for high performers who feel tired, stressed, sleep-fragmented, or under-recovered despite using wearables, supplements, and wellness tools.
+30 Day Sleep Coach: a bite-sized, CBT-I-inspired coaching protocol for people who want better sleep without reading a book, interpreting dashboards, or working with a sleep specialist.
 
 ### Possible Taglines
 
@@ -36,6 +42,9 @@ The 30-Day Recovery Audit: a concierge diagnostic for high performers who feel t
 - Stop guessing. Find your recovery bottleneck.
 - A done-for-you recovery diagnostic for high performers.
 - Health optimization without turning your life into homework.
+- One sleep behavior for tonight.
+- Better sleep, one night at a time.
+- A calm nightly protocol for better sleep.
 
 ## Target Customer
 
@@ -359,22 +368,22 @@ Software should not become:
 
 ## Immediate Next Steps
 
-1. Reframe the landing page around the Recovery Audit, not sleep journaling. Done in first pass; keep refining after beta feedback.
-2. Redesign the Daily Log into a 7-day Recovery Baseline workflow.
-3. Auto-populate the Daily Log from Oura wherever possible so users do not manually enter wearable metrics.
-4. Add a 30-second qualitative check-in for energy, mood, stress/load, focus, soreness/training load, and unusual factors.
-5. Make voice input the intended direction, but start with tap inputs plus optional free-text/voice-note field if needed.
-6. Create the 7-day baseline report state and lock/unlock logic.
-7. Create the Recovery Baseline Report template.
-8. Run the full process on Logan.
-9. Package Logan's output into a case study.
-10. Recruit 5 beta users.
-11. Charge $299-$499.
-12. Use beta feedback to decide whether this becomes a premium service, productized service, AI software product, content/lead-gen funnel, or not worth pursuing.
+1. Reframe the logged-in app around Tonight / Progress / Coach instead of dashboard tabs.
+2. Make Tonight the primary daily ritual: check in, receive one behavior, commit to tonight.
+3. Move Oura data into the background as auto-fill and context, not the hero surface.
+4. De-emphasize Oura stress dashboards, complex factor correlations, line charts, and weekly averages.
+5. Redesign the Daily Log into a 30-second check-in that feeds the coaching protocol.
+6. Create a "Tonight's Sleep Plan" state with one behavior, why it matters, how to do it, and bedtime/wake-time targets.
+7. Create Progress as a simple protocol progress view: rolling 7-day baseline plus recent check-ins.
+8. Create Coach as the explanation/recommendation layer, not a generic data-analysis tab.
+9. Keep voice input central, but preserve tap/text fallback so the daily ritual stays reliable.
+10. Add a repeatable smoke test for Tonight, Progress, Coach, Oura auto-fill, save, and mobile.
+11. Run the full process on Logan.
+12. Recruit 5 beta users once the daily loop feels calm and reliable.
 
 ## Current App Work
 
-The existing app remains useful as a prototype and infrastructure layer, but it should serve the Recovery Audit instead of becoming a generic tracking dashboard.
+The existing app remains useful as a prototype and infrastructure layer, but it should serve the guided sleep-behavior protocol instead of becoming a generic tracking dashboard.
 
 ### Auth / Onboarding
 
@@ -382,7 +391,7 @@ The existing app remains useful as a prototype and infrastructure layer, but it 
 - Supabase Auth signup returns `200` with `confirmation_sent_at`.
 - Google OAuth provider is enabled and starts the OAuth flow.
 - Existing account signup UX still needs cleanup.
-- Apple OAuth is lower priority than Recovery Audit validation.
+- Apple OAuth is lower priority than validating the guided sleep-behavior loop.
 
 ### Existing Tracking App
 
@@ -393,6 +402,8 @@ The existing app remains useful as a prototype and infrastructure layer, but it 
 - Oura Stress tab UI exists.
 - Oura data can be fetched, but it is not yet auto-populating the Daily Log baseline workflow.
 - Coach empty state now clarifies that it uses 7 recent entries from the last 14 days.
+- First design pass moved the product hierarchy toward Tonight / Progress / Coach.
+- Oura stress dashboards and complex factor-analysis surfaces should stay de-emphasized until the behavior-change loop is proven.
 
 ### Engineering Priorities
 
@@ -412,7 +423,7 @@ The existing app remains useful as a prototype and infrastructure layer, but it 
 
 ## Notes And Principles
 
-- Defensible moat: behavioral and longitudinal recovery intelligence, not biometric tracking alone.
-- MVP discipline: validate the concierge diagnostic manually before building complex automation.
-- Current top-level order: Recovery Audit positioning, 7-day Recovery Baseline workflow, Oura auto-population, voice/tap daily check-in, baseline report, Logan case study, beta users, then software automation.
+- Defensible moat: behavior change, adherence, and longitudinal sleep guidance, not biometric tracking alone.
+- MVP discipline: validate the nightly protocol manually before building complex automation.
+- Current top-level order: Tonight / Progress / Coach, 30-second check-in, one-behavior sleep plan, Oura-in-the-background context, mobile polish, smoke tests, beta users, then software automation.
 - Preserve the core principle: minimal input, maximum clarity.
