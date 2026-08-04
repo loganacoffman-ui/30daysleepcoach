@@ -2232,6 +2232,11 @@ async function renderCoach() {
 
     if (data?.status === 'insufficient_data') {
       const c = Number(data.entry_count) || 0;
+      if (latestEntryCount >= 3) {
+        const fallbackRec = await fetchLatestEntriesCoachRecommendation();
+        root.innerHTML = renderCoachReady(fallbackRec);
+        return;
+      }
       root.innerHTML = renderCoachEmpty(c);
       const fill = document.getElementById('coach-progress-fill');
       if (fill) fill.style.width = `${Math.min(100, Math.round((c / 3) * 100))}%`;
@@ -3077,6 +3082,34 @@ async function fetchCoachRecommendation() {
   }
 
   return await res.json();
+}
+
+async function fetchLatestEntriesCoachRecommendation() {
+  const tempEl = document.createElement('div');
+  let fullText = '';
+  const messages = [
+    {
+      role: 'system',
+      content: `You are a concise CBT-I inspired sleep coach. Use the user's latest 3 sleep logs to generate one practical behavior for tonight. Return JSON only with these string fields: pattern, meaning, action, why. Do not include markdown or commentary outside the JSON.`
+    },
+    {
+      role: 'user',
+      content: `Latest sleep logs:\n${JSON.stringify(getSleepDataForCoach(), null, 2)}`
+    }
+  ];
+
+  await streamCoachResponse(messages, tempEl, (text) => { fullText = text; }, todayCacheKey('coach_latest3_card'));
+  const jsonText = (fullText || tempEl.textContent || '').trim();
+  const match = jsonText.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('Coach fallback returned non-JSON');
+  const rec = JSON.parse(match[0]);
+  return {
+    pattern: rec.pattern || '',
+    meaning: rec.meaning || '',
+    action: rec.action || '',
+    why: rec.why || '',
+    generated_at: new Date().toISOString()
+  };
 }
 
 async function generateBriefing(force) {
