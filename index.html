@@ -1538,16 +1538,6 @@ textarea::placeholder { color: var(--muted2); }
 
   <div id="coach-root"></div>
 
-  <div class="protocol-grid">
-    <div class="protocol-card">
-      <div class="coach-sec-h">What the app is training</div>
-      <div class="coach-sec-b">Consistent wake time, lower sleep effort, cleaner bed/sleep association, and calmer responses to rough nights.</div>
-    </div>
-    <div class="protocol-card">
-      <div class="coach-sec-h">What stays in the background</div>
-      <div class="coach-sec-b">Oura data, HRV, sleep score, and stress signals support the recommendation, but they do not need to become homework.</div>
-    </div>
-  </div>
 </div>
 </div>
 
@@ -2215,20 +2205,22 @@ function initNewBadge(badgeId, storageKey) {
 
 function initCoachNewBadge() { initNewBadge('coach-new-badge', 'coach_tab_seen'); }
 
-function getEntryCountLast14Days(userId) {
-  const cutoff = Date.now() - 14 * 86400000;
-  return entries.filter(e => (e.ts || 0) >= cutoff).length;
+function getLatestEntries(limit = 3) {
+  return [...entries]
+    .filter(e => e && e.ts)
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, limit);
 }
 
 async function renderCoach() {
   const root = document.getElementById('coach-root');
   if (!root) return;
 
-  const entryCountLast14Days = getEntryCountLast14Days();
-  if (entryCountLast14Days < 3) {
-    root.innerHTML = renderCoachEmpty(entryCountLast14Days);
+  const latestEntryCount = getLatestEntries(3).length;
+  if (latestEntryCount < 3) {
+    root.innerHTML = renderCoachEmpty(latestEntryCount);
     const fill = document.getElementById('coach-progress-fill');
-    if (fill) fill.style.width = `${Math.min(100, Math.round((entryCountLast14Days / 3) * 100))}%`;
+    if (fill) fill.style.width = `${Math.min(100, Math.round((latestEntryCount / 3) * 100))}%`;
     return;
   }
 
@@ -2299,11 +2291,11 @@ function renderCoachEmpty(entryCount) {
   return `
     <div class="coach-card" style="padding:32px 24px;text-align:center">
       <div class="coach-empty-title">Still learning your patterns</div>
-      <div class="coach-empty-body">The Coach uses your recent logs to surface recommendations. Add a few more entries to unlock your first coaching insight.</div>
+      <div class="coach-empty-body">The Coach uses your latest logs to surface recommendations. Add a few more entries to unlock your first coaching insight.</div>
 
       <div class="coach-progress-pill">
         <div class="coach-progress-bar"><div class="coach-progress-fill" id="coach-progress-fill"></div></div>
-        <div class="coach-progress-text">${safeCount} of 3 recent entries</div>
+        <div class="coach-progress-text">${safeCount} of 3 latest entries</div>
       </div>
     </div>
   `;
@@ -2976,11 +2968,12 @@ async function toggleVoiceNote() {
 }
 
 function getBriefingCacheKey() { return todayCacheKey('briefing'); }
-function getRecommendationCacheKey() { return todayCacheKey('recommendation'); }
+function getRecommendationCacheKey() { return todayCacheKey('recommendation_latest3'); }
 
 function getSleepDataForCoach() {
-  // Send last 14 days of data to the coach
-  return entries.slice(0, 14).map(e => ({
+  // Send the latest 3 entries so the coach can generate guidance even when
+  // the user has not logged within a strict calendar window.
+  return getLatestEntries(3).map(e => ({
     date: e.date,
     sleep_score: e.sleep_score,
     hrv: e.hrv,
