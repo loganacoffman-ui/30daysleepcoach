@@ -2251,6 +2251,10 @@ async function renderCoach() {
     root.innerHTML = renderCoachError();
   } catch (err) {
     console.error('Coach recommendation failed:', err);
+    if (latestEntryCount >= 3) {
+      root.innerHTML = renderCoachReady(buildLocalLatestEntriesRecommendation());
+      return;
+    }
     root.innerHTML = renderCoachError();
   }
 }
@@ -3085,6 +3089,7 @@ async function fetchCoachRecommendation() {
 }
 
 async function fetchLatestEntriesCoachRecommendation() {
+  try {
   const tempEl = document.createElement('div');
   let fullText = '';
   const messages = [
@@ -3108,6 +3113,36 @@ async function fetchLatestEntriesCoachRecommendation() {
     meaning: rec.meaning || '',
     action: rec.action || '',
     why: rec.why || '',
+    generated_at: new Date().toISOString()
+  };
+  } catch (err) {
+    console.warn('Using local latest-entry coach fallback:', err);
+    return buildLocalLatestEntriesRecommendation();
+  }
+}
+
+function buildLocalLatestEntriesRecommendation() {
+  const latest = getLatestEntries(3);
+  const sleepScores = latest.map(e => Number(e.sleep_score)).filter(Number.isFinite);
+  const hrvScores = latest.map(e => Number(e.hrv)).filter(Number.isFinite);
+  const avgSleep = avg(sleepScores);
+  const avgHrv = avg(hrvScores);
+  const latestWake = latest[0]?.waketime || 'your usual wake time';
+  const wakePattern = latest.filter(e => /early|wake|woke|awake/i.test(e.note || '')).length;
+  const negativeTags = latest.flatMap(e => Array.isArray(e.neg) ? e.neg : []);
+  const commonConstraint = negativeTags[0] || (wakePattern ? 'wake-ups' : 'sleep effort');
+
+  return {
+    pattern: avgSleep
+      ? `Across your latest 3 logs, your sleep score is averaging ${avgSleep}${avgHrv ? ` with HRV around ${avgHrv}ms` : ''}.`
+      : 'Across your latest 3 logs, the useful signal is your recurring check-in pattern rather than a single perfect metric.',
+    meaning: wakePattern
+      ? 'The pattern points to sleep continuity and early-wake confidence as the thing to train next.'
+      : 'The next win is consistency: give your body a predictable sleep window instead of adding more variables to optimize.',
+    action: `Tonight, keep the experiment simple: protect a fixed wake time of ${latestWake}, avoid checking sleep data after bed, and get out of bed briefly if you are awake for more than about 20 minutes.`,
+    why: commonConstraint
+      ? `This targets ${commonConstraint} by reducing sleep effort and strengthening the bed-sleep association, which is the behavior-change layer the app is now trying to build.`
+      : `This reduces sleep effort and strengthens the bed-sleep association, which is the behavior-change layer the app is now trying to build.`,
     generated_at: new Date().toISOString()
   };
 }
