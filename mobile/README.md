@@ -72,6 +72,19 @@ The app is connected to the `qfnouotdhfltgvjhfbld` Supabase project and supports
 - Google sign-in
 - Persistent sessions and sign-out
 
+The Supabase URL and public key can be overridden with Expo environment variables:
+
+```bash
+cp .env.example .env
+```
+
+```text
+EXPO_PUBLIC_SUPABASE_URL=...
+EXPO_PUBLIC_SUPABASE_ANON_KEY=...
+```
+
+If either variable is missing, `supabase.ts` uses the configured project URL or public key as a static fallback.
+
 Email/password authentication works after enabling the Email provider under **Authentication → Providers** in Supabase.
 
 Google sign-in also needs this one-time dashboard setup:
@@ -97,4 +110,4 @@ pnpm exec expo run:ios
 pnpm exec expo run:android
 ```
 
-The Supabase key in `supabase.ts` is the project's public client key. Never place a service-role or secret key in the mobile app.
+The fallback key is the project's public client key. Expo embeds all `EXPO_PUBLIC_` values in the app, so never use a service-role or secret key.
