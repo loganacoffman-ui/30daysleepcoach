@@ -25,6 +25,7 @@ Everything is in a single file: `index.html` (~1,737 lines) containing all HTML,
 - `TRANSCRIBE_ENDPOINT` — Supabase Edge Function for voice-to-text via ElevenLabs Scribe
 
 **Edge Function Secrets:**
+- `ANTHROPIC_API_KEY` — required by the `sleep-coach` function to generate briefings, recommendations, and coaching responses.
 - `ELEVENLABS_API_KEY` — required by the `elevenlabs-transcribe` and `elevenlabs-tts` functions. Set via `supabase secrets set ELEVENLABS_API_KEY=...`
 - `SUPABASE_SERVICE_ROLE_KEY` — auto-injected by Supabase when edge functions are deployed; used by `elevenlabs-transcribe`, `elevenlabs-tts`, `oura-proxy`, and `sleep-coach` to validate the caller and access the database.
 
