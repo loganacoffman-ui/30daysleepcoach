@@ -153,6 +153,17 @@ main { position: relative; z-index: 1; padding-top: 58px; }
 .baseline-trend-label { font-family: 'Geist Mono', monospace; font-size: 0.6rem; color: var(--muted2); letter-spacing: 0.08em; text-transform: uppercase; }
 .baseline-trend-svg { width: 100%; height: 150px; overflow: visible; }
 .baseline-trend-empty { display: flex; align-items: center; justify-content: center; min-height: 150px; color: var(--muted2); font-family: 'Geist Mono', monospace; font-size: 0.65rem; text-align: center; line-height: 1.5; border: 1px dashed var(--border2); border-radius: var(--radius-sm); background: var(--surface2); }
+.adherence-card { margin-bottom: 1.5rem; }
+.adherence-grid { display:grid; grid-template-columns:minmax(0,1fr) 150px; gap:18px; align-items:center; }
+.adherence-behavior { font-size:0.92rem; font-weight:600; line-height:1.5; color:var(--text); }
+.adherence-copy { margin-top:6px; font-size:0.78rem; line-height:1.5; color:var(--muted); }
+.adherence-score { text-align:center; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px; }
+.adherence-score-value { font-size:1.45rem; font-weight:600; color:var(--accent); }
+.commitment-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+.commitment-btn { border:1px solid var(--border2); background:#fff; color:var(--text); border-radius:var(--radius-sm); padding:9px 14px; font:500 0.78rem 'Geist',sans-serif; cursor:pointer; }
+.commitment-btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+.commitment-btn:disabled { opacity:.55; cursor:default; }
+.commitment-status { margin-top:10px; font-size:0.76rem; color:var(--muted); line-height:1.45; }
 .oura-autofill-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 1rem; }
 .oura-autofill-item { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; }
 .oura-autofill-label { font-family: 'Geist Mono', monospace; font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted2); margin-bottom: 6px; }
@@ -936,6 +947,7 @@ textarea::placeholder { color: var(--muted2); }
   .oura-autofill-grid { grid-template-columns: 1fr 1fr; }
   .checkin-grid { grid-template-columns: 1fr 1fr; }
   .baseline-factor-grid { grid-template-columns: 1fr; }
+  .adherence-grid { grid-template-columns:1fr; }
   .protocol-grid { grid-template-columns: 1fr; }
   .coach-plan-times { gap: 1rem; }
   .stat-row { grid-template-columns: 1fr 1fr; }
@@ -1267,6 +1279,20 @@ textarea::placeholder { color: var(--muted2); }
     </div>
   </div>
 
+  <div class="card adherence-card">
+    <div class="card-label">Your current experiment</div>
+    <div class="adherence-grid">
+      <div>
+        <div class="adherence-behavior" id="progress-active-behavior">Commit to one behavior from tonight’s coaching.</div>
+        <div class="adherence-copy" id="progress-adherence-copy">Adherence appears here after you commit and check in.</div>
+      </div>
+      <div class="adherence-score">
+        <div class="adherence-score-value" id="progress-adherence-score">—</div>
+        <div class="baseline-stat-label">last 7 experiments</div>
+      </div>
+    </div>
+  </div>
+
   <div class="chart-card">
     <div class="chart-title">Time awake — last 10 nights</div>
     <div class="chart-wrap" id="nc-chart-wrap" style="display:none"><canvas id="nc-chart"></canvas></div>
@@ -1351,6 +1377,10 @@ textarea::placeholder { color: var(--muted2); }
           <div class="coach-plan-time-lbl">Wake time</div>
         </div>
       </div>
+      <div class="commitment-actions">
+        <button class="commitment-btn primary" id="commit-behavior-btn" onclick="commitCurrentBehavior()">Commit for tonight</button>
+      </div>
+      <div class="commitment-status" id="commitment-status"></div>
     </div>
 
     <!-- The orb -->
@@ -1399,6 +1429,17 @@ textarea::placeholder { color: var(--muted2); }
 
     <!-- Log form panel -->
     <div id="coach-log-form" class="coach-form-panel" style="display:none">
+      <div class="card" id="adherence-checkin-card" style="display:none;margin-bottom:1rem">
+        <div class="card-label">Last experiment</div>
+        <div class="adherence-behavior" id="adherence-checkin-behavior"></div>
+        <div class="adherence-copy">Did you practice it? Honest data is useful data—partial and skipped nights still count as check-ins.</div>
+        <div class="commitment-actions">
+          <button type="button" class="commitment-btn" onclick="recordBehaviorOutcome('completed')">Yes</button>
+          <button type="button" class="commitment-btn" onclick="recordBehaviorOutcome('partial')">Partly</button>
+          <button type="button" class="commitment-btn" onclick="recordBehaviorOutcome('skipped')">Not tonight</button>
+        </div>
+        <div class="commitment-status" id="adherence-checkin-status"></div>
+      </div>
       <div class="card" style="margin-bottom:1rem">
         <div class="card-label">30-second check-in</div>
         <div class="feel-slider-wrap">
@@ -1620,6 +1661,8 @@ function showToast(message, type = 'info') {
 
 // ── STATE ────────────────────────────────────────────
 let entries = [];
+let behaviorCommitments = [];
+let currentRecommendedBehavior = '';
 let hrvChart = null, scatterChart = null, sleepChart = null;
 let isAuthenticated = false, tagsInitialized = false, appEntering = false;
 let ouraOAuthConnected = false, ouraStatusChecked = false;
@@ -1688,6 +1731,93 @@ async function loadEntries() {
     showToast('Could not load your entries — check your connection and refresh.', 'error');
   }
   setLoading(false);
+}
+
+function localISODate(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+async function loadBehaviorCommitments() {
+  try {
+    const { data, error } = await sb.from('behavior_commitments').select('*').order('behavior_date', { ascending: false }).limit(60);
+    if (error) throw error;
+    behaviorCommitments = data || [];
+  } catch (error) {
+    console.warn('Behavior commitments unavailable:', error);
+    behaviorCommitments = [];
+  }
+  renderAdherenceProgress();
+  renderAdherenceCheckin();
+  syncCommitmentButton();
+}
+
+function pendingBehaviorCommitment() {
+  return behaviorCommitments.find(item => item.status === 'committed' && item.behavior_date < localISODate());
+}
+
+function latestBehaviorCommitment() { return behaviorCommitments[0] || null; }
+
+function syncCommitmentButton() {
+  const btn = document.getElementById('commit-behavior-btn');
+  const status = document.getElementById('commitment-status');
+  const today = behaviorCommitments.find(item => item.behavior_date === localISODate());
+  if (btn) {
+    btn.disabled = !currentRecommendedBehavior || Boolean(today);
+    btn.textContent = today ? 'Committed for tonight ✓' : 'Commit for tonight';
+  }
+  if (status) status.textContent = today ? `Saved: ${today.behavior}` : currentRecommendedBehavior ? 'Save this behavior so tomorrow’s check-in can track it.' : '';
+}
+
+window.commitCurrentBehavior = async function() {
+  if (!currentRecommendedBehavior) return showToast('Generate tonight’s coaching first.', 'info');
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return;
+  const row = { user_id: user.id, behavior_date: localISODate(), behavior: currentRecommendedBehavior, status: 'committed', updated_at: new Date().toISOString() };
+  const { data, error } = await sb.from('behavior_commitments').upsert(row, { onConflict: 'user_id,behavior_date' }).select().single();
+  if (error) return showToast('Could not save tonight’s commitment.', 'error');
+  behaviorCommitments = [data, ...behaviorCommitments.filter(item => item.id !== data.id && item.behavior_date !== data.behavior_date)];
+  syncCommitmentButton();
+  renderAdherenceProgress();
+  showToast('Tonight’s behavior is committed.', 'success');
+};
+
+window.recordBehaviorOutcome = async function(status) {
+  const pending = pendingBehaviorCommitment();
+  if (!pending) return;
+  const { data, error } = await sb.from('behavior_commitments').update({ status, updated_at: new Date().toISOString() }).eq('id', pending.id).select().single();
+  if (error) return showToast('Could not save adherence.', 'error');
+  behaviorCommitments = behaviorCommitments.map(item => item.id === data.id ? data : item);
+  renderAdherenceCheckin();
+  renderAdherenceProgress();
+  showToast('Experiment outcome saved.', 'success');
+};
+
+function renderAdherenceCheckin() {
+  const card = document.getElementById('adherence-checkin-card');
+  const behavior = document.getElementById('adherence-checkin-behavior');
+  const pending = pendingBehaviorCommitment();
+  if (!card) return;
+  card.style.display = pending ? 'block' : 'none';
+  if (behavior && pending) behavior.textContent = pending.behavior;
+}
+
+function renderAdherenceProgress() {
+  const behaviorEl = document.getElementById('progress-active-behavior');
+  const scoreEl = document.getElementById('progress-adherence-score');
+  const copyEl = document.getElementById('progress-adherence-copy');
+  if (!behaviorEl || !scoreEl || !copyEl) return;
+  const latest = latestBehaviorCommitment();
+  behaviorEl.textContent = latest?.behavior || 'Commit to one behavior from tonight’s coaching.';
+  const resolved = behaviorCommitments.filter(item => item.status !== 'committed').slice(0, 7);
+  if (!resolved.length) {
+    scoreEl.textContent = '—';
+    copyEl.textContent = latest ? 'Your first adherence check will appear after your next check-in.' : 'Adherence appears here after you commit and check in.';
+    return;
+  }
+  const completed = resolved.filter(item => item.status === 'completed').length;
+  const partial = resolved.filter(item => item.status === 'partial').length;
+  scoreEl.textContent = `${completed}/${resolved.length}`;
+  copyEl.textContent = `${completed} practiced, ${partial} partial, ${resolved.length - completed - partial} skipped. Look for consistency, not perfection.`;
 }
 
 // ── AUTH ─────────────────────────────────────────────
@@ -1946,6 +2076,7 @@ function hasTodayEntry() {
 async function initApp() {
   setupTags();
   await loadEntries();
+  await loadBehaviorCommitments();
   updateDayBadge();
   updateModeUI();
   const tonightBtn = document.querySelector('nav button[data-view="coach"]');
@@ -2143,6 +2274,7 @@ function setView(v, btn) {
   window.scrollTo(0, 0);
   if (v==='history') {
     renderBaselineProgress();
+    renderAdherenceProgress();
     renderHistory();
     initOuraView();
     checkOuraOAuthStatus().then(() => {
@@ -2155,7 +2287,7 @@ function setView(v, btn) {
 
 function refreshCurrentView() {
   const id = document.querySelector('.view.active')?.id?.replace('view-','');
-  if (id==='history') { renderBaselineProgress(); renderHistory(); }
+  if (id==='history') { renderBaselineProgress(); renderAdherenceProgress(); renderHistory(); }
   if (id==='coach') { if (window.initCoachView) initCoachView(); }
   if (id==='data') renderDataView();
 }
@@ -2208,6 +2340,7 @@ async function renderCoach() {
       if (latestEntryCount >= 3) {
         const fallbackRec = await fetchLatestEntriesCoachRecommendation();
         root.innerHTML = renderCoachReady(fallbackRec);
+        setCurrentRecommendedBehavior(fallbackRec?.action);
         return;
       }
       root.innerHTML = renderCoachEmpty(c);
@@ -2218,6 +2351,7 @@ async function renderCoach() {
 
     if (data?.status === 'ok' && data?.recommendation) {
       root.innerHTML = renderCoachReady(data.recommendation);
+      setCurrentRecommendedBehavior(data.recommendation?.action);
       return;
     }
 
@@ -2225,11 +2359,22 @@ async function renderCoach() {
   } catch (err) {
     console.error('Coach recommendation failed:', err);
     if (latestEntryCount >= 3) {
-      root.innerHTML = renderCoachReady(buildLocalLatestEntriesRecommendation());
+      const fallbackRec = buildLocalLatestEntriesRecommendation();
+      root.innerHTML = renderCoachReady(fallbackRec);
+      setCurrentRecommendedBehavior(fallbackRec?.action);
       return;
     }
     root.innerHTML = renderCoachError();
   }
+}
+
+function setCurrentRecommendedBehavior(behavior) {
+  currentRecommendedBehavior = String(behavior || '').trim();
+  if (currentRecommendedBehavior) {
+    const actionEl = document.getElementById('coach-plan-action');
+    if (actionEl) actionEl.textContent = currentRecommendedBehavior;
+  }
+  syncCommitmentButton();
 }
 
 function renderCoachReady(rec) {
@@ -2797,7 +2942,8 @@ function getSleepDataForCoach() {
     night_wake: e.night_wake,
     pos: e.pos,
     neg: e.neg,
-    note: e.note
+    note: e.note,
+    adherence: behaviorCommitments.find(item => item.behavior_date === localISODate(new Date(e.ts)))?.status || null
   }));
 }
 
@@ -3918,7 +4064,13 @@ Always end your response by stating tonight's recommended bedtime and wake time 
     const whyEl = document.getElementById('coach-plan-why');
     const howEl = document.getElementById('coach-plan-how');
     if (card) card.classList.add('visible');
-    if (actionEl) actionEl.textContent = 'Practice tonight’s recommended behavior.';
+    const paragraphs = text.split(/\n+/).map(part => part.replace(/^\*+|\*+$/g, '').trim()).filter(Boolean);
+    const explicitAction = paragraphs.find(part => /tonight['’]s action|your action tonight/i.test(part));
+    const recommendedBehavior = (explicitAction || paragraphs[paragraphs.length - 1] || 'Practice tonight’s recommended behavior.')
+      .replace(/^(tonight['’]s action|your action tonight)\s*[:–—-]?\s*/i, '')
+      .trim();
+    setCurrentRecommendedBehavior(recommendedBehavior);
+    if (actionEl) actionEl.textContent = recommendedBehavior;
     if (whyEl) whyEl.textContent = 'The goal is to train sleep confidence and consistency one night at a time, not to optimize every metric.';
     if (howEl) howEl.textContent = 'Read the coaching response below, then follow the final bedtime/wake-time target as your commitment for tonight.';
     if (match) {
@@ -3963,6 +4115,7 @@ Always end your response by stating tonight's recommended bedtime and wake time 
     if (response) response.classList.remove('visible');
     // Hydrate Oura fields so the user sees auto-filled values while logging
     if (window.hydrateLogFromOura) hydrateLogFromOura();
+    renderAdherenceCheckin();
   }
 
   function hideCoachForm() {
@@ -3998,7 +4151,8 @@ Always end your response by stating tonight's recommended bedtime and wake time 
       return parts.join(' | ');
     });
 
-    return `Days in program: ${daysSinceFirst}\n\nRecent entries (newest first):\n${lines.join('\n')}`;
+    const adherence = behaviorCommitments.slice(0, 14).map(item => `${item.behavior_date}: ${item.status} — ${item.behavior}`).join('\n');
+    return `Days in program: ${daysSinceFirst}\n\nRecent entries (newest first):\n${lines.join('\n')}\n\nRecent behavior experiments:\n${adherence || 'No commitments recorded yet.'}`;
   }
 
   // ── Recording ──
@@ -4216,6 +4370,8 @@ Always end your response by stating tonight's recommended bedtime and wake time 
     const bedEl = document.getElementById('coach-plan-bed');
     const wakeEl = document.getElementById('coach-plan-wake');
     if (actionEl) actionEl.textContent = 'Start with your 30-second check-in.';
+    currentRecommendedBehavior = '';
+    syncCommitmentButton();
     if (whyEl) whyEl.textContent = 'Your coach will turn today’s check-in and recent sleep data into one behavior to practice tonight.';
     if (howEl) howEl.textContent = 'Keep it simple: say how last night went, save the check-in, then commit to the next tiny behavior.';
     if (bedEl) bedEl.textContent = '—';
