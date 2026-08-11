@@ -1267,19 +1267,19 @@ textarea::placeholder { color: var(--muted2); }
     </div>
   </div>
 
+  <div class="chart-card">
+    <div class="chart-title">Time awake — last 10 nights</div>
+    <div class="chart-wrap" id="nc-chart-wrap" style="display:none"><canvas id="nc-chart"></canvas></div>
+    <div class="empty-state" id="nc-chart-empty">Connect Oura and refresh your data to see nighttime awake minutes.</div>
+    <div class="target-note">from Oura sleep phases · lower and steadier is generally better</div>
+  </div>
+
   <div class="stat-row" id="stat-row">
     <div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">avg sleep score</div></div>
     <div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">best</div></div>
     <div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">lowest</div></div>
     <div class="stat-card"><div class="stat-val" style="color:var(--muted2)">—</div><div class="stat-lbl">7-day trend</div></div>
   </div>
-
-  <div class="chart-card" style="display:none">
-    <div class="chart-title">Time awake — last 10 nights</div>
-    <div class="chart-wrap"><canvas id="nc-chart"></canvas></div>
-    <div class="target-note">from Oura sleep phases · goal: minimize</div>
-  </div>
-
 
   <div class="chart-card" style="display:none">
     <div class="chart-title">Sleep score — last 30 days</div>
@@ -2558,7 +2558,12 @@ let ncChart = null;
 function renderNightContinuity() {
   ncChart = resetChart(ncChart);
   const canvas = document.getElementById('nc-chart');
+  const wrap = document.getElementById('nc-chart-wrap');
+  const empty = document.getElementById('nc-chart-empty');
   if (!canvas) return;
+
+  if (wrap) wrap.style.display = 'none';
+  if (empty) empty.style.display = 'block';
 
   const sessions = (ouraSleepSessionData || [])
     .filter(s => s.type === 'long_sleep' && s.sleep_phase_5_min)
@@ -2567,6 +2572,9 @@ function renderNightContinuity() {
     .reverse();
 
   if (!sessions.length) return;
+
+  if (wrap) wrap.style.display = 'block';
+  if (empty) empty.style.display = 'none';
 
   const labels = sessions.map(s => new Date(s.day + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
   const vals = sessions.map(s => {
