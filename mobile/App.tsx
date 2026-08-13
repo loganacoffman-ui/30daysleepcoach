@@ -217,7 +217,11 @@ function AppContent() {
   if (session && !onboardingComplete) {
     return (
       <>
-        <Onboarding onComplete={handleOnboardingComplete} session={session} />
+        <Onboarding
+          key={session.user.id}
+          onComplete={handleOnboardingComplete}
+          session={session}
+        />
         <StatusBar style="light" />
       </>
     );

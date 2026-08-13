@@ -60,3 +60,95 @@ create trigger set_sleep_profiles_updated_at
 before update on public.sleep_profiles
 for each row
 execute function public.set_sleep_profiles_updated_at();
+
+create function public.complete_sleep_onboarding(
+  p_user_id uuid,
+  p_primary_concern text,
+  p_typical_bedtime time without time zone,
+  p_typical_wake_time time without time zone,
+  p_intake_answers jsonb,
+  p_intake_version integer,
+  p_behavior_date date,
+  p_behavior text
+)
+returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  if p_user_id is null or p_user_id <> auth.uid() then
+    raise exception 'Cannot complete onboarding for another user'
+      using errcode = '42501';
+  end if;
+
+  insert into public.behavior_commitments (
+    user_id,
+    behavior_date,
+    behavior,
+    status,
+    updated_at
+  )
+  values (
+    p_user_id,
+    p_behavior_date,
+    p_behavior,
+    'committed',
+    now()
+  )
+  on conflict (user_id, behavior_date)
+  do update set
+    behavior = excluded.behavior,
+    status = 'committed',
+    updated_at = now();
+
+  insert into public.sleep_profiles (
+    user_id,
+    primary_concern,
+    typical_bedtime,
+    typical_wake_time,
+    intake_answers,
+    intake_version,
+    onboarding_completed_at
+  )
+  values (
+    p_user_id,
+    p_primary_concern,
+    p_typical_bedtime,
+    p_typical_wake_time,
+    p_intake_answers,
+    p_intake_version,
+    now()
+  )
+  on conflict (user_id)
+  do update set
+    primary_concern = excluded.primary_concern,
+    typical_bedtime = excluded.typical_bedtime,
+    typical_wake_time = excluded.typical_wake_time,
+    intake_answers = excluded.intake_answers,
+    intake_version = excluded.intake_version,
+    onboarding_completed_at = excluded.onboarding_completed_at;
+end;
+$$;
+
+revoke all on function public.complete_sleep_onboarding(
+  uuid,
+  text,
+  time without time zone,
+  time without time zone,
+  jsonb,
+  integer,
+  date,
+  text
+) from public, anon;
+
+grant execute on function public.complete_sleep_onboarding(
+  uuid,
+  text,
+  time without time zone,
+  time without time zone,
+  jsonb,
+  integer,
+  date,
+  text
+) to authenticated;

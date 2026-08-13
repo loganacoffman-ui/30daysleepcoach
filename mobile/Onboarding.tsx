@@ -390,8 +390,7 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
 
   const persistAnswers = async (
     nextAnswers: IntakeAnswers,
-    currentStep: Step | 'complete',
-    completed = false,
+    currentStep: Step,
   ) => {
     const intakeAnswers: IntakeAnswers = {
       ...nextAnswers,
@@ -410,7 +409,6 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
         : null,
       intake_answers: intakeAnswers,
       intake_version: INTAKE_VERSION,
-      ...(completed ? { onboarding_completed_at: new Date().toISOString() } : {}),
     };
 
     const { error } = await supabase
@@ -519,6 +517,26 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
     setTrackWidth(event.nativeEvent.layout.width);
   };
 
+  const adjustBedtime = (direction: -1 | 1) => {
+    setBedValue(
+      clamp(
+        bedMinutesRef.current + direction * SNAP_MINUTES,
+        0,
+        wakeMinutesRef.current - MINIMUM_SLEEP_WINDOW_MINUTES,
+      ),
+    );
+  };
+
+  const adjustWakeTime = (direction: -1 | 1) => {
+    setWakeValue(
+      clamp(
+        wakeMinutesRef.current + direction * SNAP_MINUTES,
+        bedMinutesRef.current + MINIMUM_SLEEP_WINDOW_MINUTES,
+        TIMELINE_DURATION_MINUTES,
+      ),
+    );
+  };
+
   const continueFromWindow = () => {
     const typicalBedtime = minutesToClock(TIMELINE_START_MINUTES + bedMinutes);
     const typicalWakeTime = minutesToClock(TIMELINE_START_MINUTES + wakeMinutes);
@@ -548,6 +566,7 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
     const firstExperiment = getFirstExperiment(answers);
     const completedAnswers: IntakeAnswers = {
       ...answers,
+      current_step: 'complete',
       reminder_time: reminderTime,
       first_experiment: firstExperiment,
     };
@@ -555,27 +574,26 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
     setSaving(true);
     setErrorMessage('');
     try {
-      const { error: commitmentError } = await supabase
-        .from('behavior_commitments')
-        .upsert(
-          {
-            user_id: session.user.id,
-            behavior_date: localISODate(),
-            behavior: firstExperiment,
-            status: 'committed',
-            updated_at: new Date().toISOString(),
-          },
-          {
-            ignoreDuplicates: true,
-            onConflict: 'user_id,behavior_date',
-          },
-        );
+      const { error } = await supabase.rpc('complete_sleep_onboarding', {
+        p_behavior: firstExperiment,
+        p_behavior_date: localISODate(),
+        p_intake_answers: completedAnswers,
+        p_intake_version: INTAKE_VERSION,
+        p_primary_concern: completedAnswers.primary_concern ?? null,
+        p_typical_bedtime: completedAnswers.typical_bedtime
+          ? `${completedAnswers.typical_bedtime}:00`
+          : null,
+        p_typical_wake_time: completedAnswers.typical_wake_time
+          ? `${completedAnswers.typical_wake_time}:00`
+          : null,
+        p_user_id: session.user.id,
+      });
 
-      if (commitmentError) {
-        throw commitmentError;
+      if (error) {
+        throw error;
       }
 
-      await persistAnswers(completedAnswers, 'complete', true);
+      setAnswers(completedAnswers);
       onComplete();
     } catch (error) {
       setErrorMessage(
@@ -727,16 +745,40 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
                   ]}
                 />
                 <View
+                  accessibilityActions={[
+                    { label: 'Move bedtime 15 minutes later', name: 'increment' },
+                    { label: 'Move bedtime 15 minutes earlier', name: 'decrement' },
+                  ]}
                   accessibilityLabel={`In bed by ${formatClock(bedClock)}`}
                   accessibilityRole="adjustable"
+                  accessibilityValue={{ text: formatClock(bedClock) }}
+                  onAccessibilityAction={(event) => {
+                    if (event.nativeEvent.actionName === 'increment') {
+                      adjustBedtime(1);
+                    } else if (event.nativeEvent.actionName === 'decrement') {
+                      adjustBedtime(-1);
+                    }
+                  }}
                   style={[styles.sliderHandle, { left: bedPosition - 22 }]}
                   {...bedPanResponder.panHandlers}
                 >
                   <View style={styles.sliderHandleInner} />
                 </View>
                 <View
+                  accessibilityActions={[
+                    { label: 'Move wake time 15 minutes later', name: 'increment' },
+                    { label: 'Move wake time 15 minutes earlier', name: 'decrement' },
+                  ]}
                   accessibilityLabel={`Up by ${formatClock(wakeClock)}`}
                   accessibilityRole="adjustable"
+                  accessibilityValue={{ text: formatClock(wakeClock) }}
+                  onAccessibilityAction={(event) => {
+                    if (event.nativeEvent.actionName === 'increment') {
+                      adjustWakeTime(1);
+                    } else if (event.nativeEvent.actionName === 'decrement') {
+                      adjustWakeTime(-1);
+                    }
+                  }}
                   style={[styles.sliderHandle, { left: wakePosition - 22 }]}
                   {...wakePanResponder.panHandlers}
                 >
