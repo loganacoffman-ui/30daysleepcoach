@@ -7,6 +7,6 @@ import TodayScreen from './today/TodayScreen';
 // It also ensures that whether you load the app in Expo Go or in a native build,
 // the environment is set up appropriately
 const RootComponent =
-  process.env.EXPO_PUBLIC_TODAY_PREVIEW === 'true' ? TodayScreen : App;
+  process.env.EXPO_PUBLIC_APP_MODE === 'today-preview' ? TodayScreen : App;
 
 registerRootComponent(RootComponent);

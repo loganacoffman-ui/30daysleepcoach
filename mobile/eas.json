@@ -10,6 +10,13 @@
     "preview": {
       "distribution": "internal"
     },
+    "testflight-preview": {
+      "extends": "production",
+      "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_APP_MODE": "today-preview"
+      }
+    },
     "production": {
       "autoIncrement": true
     }
