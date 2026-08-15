@@ -9,7 +9,8 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.30daysleepcoach.30daysleepcoach"
+      "bundleIdentifier": "com.30daysleepcoach.30daysleepcoach",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -29,6 +30,7 @@
       }
     },
     "plugins": [
+      "expo-apple-authentication",
       "expo-web-browser",
       [
         "expo-build-properties",
