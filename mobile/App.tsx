@@ -4,7 +4,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,8 +18,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
 
+import { Onboarding } from './Onboarding';
 import { supabase } from './supabase';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -76,17 +78,22 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
 }
 
-export default function App() {
+function AppContent() {
   const incomingUrl = Linking.useLinkingURL();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [session, setSession] = useState<Session | null>(null);
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [appleSignInAvailable, setAppleSignInAvailable] = useState(false);
+
+  const handleOnboardingComplete = useCallback(() => {
+    setOnboardingComplete(true);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -158,6 +165,10 @@ export default function App() {
         setMessage(getErrorMessage(error));
       });
   }, [incomingUrl]);
+
+  useEffect(() => {
+    setOnboardingComplete(false);
+  }, [session?.user.id]);
 
   const runAuthAction = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -365,6 +376,19 @@ export default function App() {
     );
   }
 
+  if (session && !onboardingComplete) {
+    return (
+      <>
+        <Onboarding
+          key={session.user.id}
+          onComplete={handleOnboardingComplete}
+          session={session}
+        />
+        <StatusBar style="light" />
+      </>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -547,6 +571,14 @@ export default function App() {
       </ScrollView>
       <StatusBar style="dark" />
     </KeyboardAvoidingView>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
   );
 }
 
