@@ -111,3 +111,18 @@ pnpm exec expo run:android
 ```
 
 The fallback key is the project's public client key. Expo embeds all `EXPO_PUBLIC_` values in the app, so never use a service-role or secret key.
+
+## Create a production iOS build
+
+The App Store build uses the `production` profile in `eas.json` and the
+`com.30daysleepcoach.app` bundle identifier.
+
+```bash
+pnpm build:ios:production
+```
+
+The completed build is automatically submitted to App Store Connect for
+TestFlight processing.
+
+On the first build, sign in to Expo and Apple when prompted. EAS can create and
+manage the iOS distribution certificate and provisioning profile.
