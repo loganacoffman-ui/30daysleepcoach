@@ -3,14 +3,17 @@
     "name": "30daysleepcoach",
     "slug": "30daysleepcoach",
     "scheme": "thirtydaysleepcoach",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.30daysleepcoach.30daysleepcoach",
-      "usesAppleSignIn": true
+      "bundleIdentifier": "com.30daysleepcoach.app",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {

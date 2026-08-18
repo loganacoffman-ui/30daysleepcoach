@@ -29,7 +29,8 @@
     "start:tunnel": "expo start --dev-client --clear --tunnel",
     "android": "expo start --dev-client --android",
     "ios": "expo start --dev-client --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:ios:production": "pnpm dlx eas-cli@latest build --platform ios --profile production --auto-submit"
   },
   "private": true
 }
