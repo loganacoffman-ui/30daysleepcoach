@@ -19,7 +19,9 @@ export const mockTodayRepository: TodayRepository = {
     const date = localISODate();
     const snapshot: TodaySnapshot = {
       date,
+      dayNumber: 1,
       greetingName: 'Logan',
+      coachingMessage: 'We’re starting with one small, high-impact anchor.',
       commitment: {
         id: 'mock-commitment',
         behaviorDate: date,
@@ -27,6 +29,7 @@ export const mockTodayRepository: TodayRepository = {
         why: 'A steady morning anchor helps your sleep pressure and body clock line up tonight.',
         status: 'committed',
       },
+      previousCommitment: null,
       checkin: savedCheckin,
     };
 
@@ -47,4 +50,5 @@ export const mockTodayRepository: TodayRepository = {
 
     return savedCheckin;
   },
+  async updateCommitmentStatus() {},
 };

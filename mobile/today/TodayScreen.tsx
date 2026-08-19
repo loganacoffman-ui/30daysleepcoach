@@ -68,6 +68,7 @@ export default function TodayScreen({ repository = mockTodayRepository }: TodayS
   const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [adherenceSaving, setAdherenceSaving] = useState(false);
   const [error, setError] = useState('');
   const [feeling, setFeeling] = useState<number | null>(null);
   const [suspectedFactor, setSuspectedFactor] = useState<SuspectedFactorKey | undefined>();
@@ -121,13 +122,27 @@ export default function TodayScreen({ repository = mockTodayRepository }: TodayS
     }
   };
 
+  const saveAdherence = async (status: 'completed' | 'partial' | 'skipped') => {
+    if (!snapshot?.previousCommitment) return;
+    setAdherenceSaving(true);
+    setError('');
+    try {
+      await repository.updateCommitmentStatus(snapshot.previousCommitment.id, status);
+      setSnapshot(await repository.loadToday());
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Your response was not saved.');
+    } finally {
+      setAdherenceSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.centeredState}>
         <View style={styles.moonMark}>
           <Text style={styles.moonMarkText}>☾</Text>
         </View>
-        <ActivityIndicator color="#5b50d6" size="large" />
+        <ActivityIndicator color="#4f7cff" size="large" />
         <Text style={styles.stateTitle}>Preparing today</Text>
         <Text style={styles.stateCopy}>Pulling together your check-in and tonight’s focus.</Text>
       </View>
@@ -166,10 +181,46 @@ export default function TodayScreen({ repository = mockTodayRepository }: TodayS
             <Text style={styles.date}>{formatLongDate(snapshot.date)}</Text>
           </View>
           <View style={styles.dayBadge}>
-            <Text style={styles.dayBadgeNumber}>1</Text>
+            <Text style={styles.dayBadgeNumber}>{snapshot.dayNumber}</Text>
             <Text style={styles.dayBadgeLabel}>DAY</Text>
           </View>
         </View>
+
+        <View style={styles.planProgress}>
+          <View style={styles.planProgressHeader}>
+            <Text style={styles.planProgressTitle}>YOUR 7-DAY START</Text>
+            <Text style={styles.planProgressCount}>{snapshot.dayNumber} of 7</Text>
+          </View>
+          <View style={styles.planDots}>
+            {Array.from({ length: 7 }, (_, index) => (
+              <View key={index} style={[styles.planDot, index < snapshot.dayNumber && styles.planDotActive]} />
+            ))}
+          </View>
+        </View>
+
+        {snapshot.previousCommitment && (
+          <View style={styles.adherenceCard}>
+            <Text style={styles.sectionEyebrow}>LAST NIGHT’S EXPERIMENT</Text>
+            <Text style={styles.adherenceTitle}>How did it go?</Text>
+            <Text style={styles.adherenceBehavior}>{snapshot.previousCommitment.behavior}</Text>
+            <View style={styles.adherenceActions}>
+              {([
+                ['completed', 'Did it'],
+                ['partial', 'Partly'],
+                ['skipped', 'Not yet'],
+              ] as const).map(([status, label]) => (
+                <Pressable
+                  disabled={adherenceSaving}
+                  key={status}
+                  onPress={() => void saveAdherence(status)}
+                  style={({ pressed }) => [styles.adherenceButton, pressed && styles.pressed]}
+                >
+                  <Text style={styles.adherenceButtonText}>{label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
 
         {snapshot.checkin ? (
           <View style={styles.completedCard}>
@@ -306,7 +357,7 @@ export default function TodayScreen({ repository = mockTodayRepository }: TodayS
               <View style={styles.coachNote}>
                 <Text style={styles.coachMark}>☾</Text>
                 <Text style={styles.coachNoteText}>
-                  Don’t chase a perfect night. Just protect this one small experiment.
+                  {snapshot.coachingMessage || 'Don’t chase a perfect night. Just protect this one small experiment.'}
                 </Text>
               </View>
             </>
@@ -320,9 +371,6 @@ export default function TodayScreen({ repository = mockTodayRepository }: TodayS
           )}
         </View>
 
-        <Text style={styles.prototypeNote}>
-          Local prototype data only. Supabase persistence will connect after the shared schema lands.
-        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -330,7 +378,7 @@ export default function TodayScreen({ repository = mockTodayRepository }: TodayS
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: '#f5f3f8',
+    backgroundColor: '#fafafa',
     flex: 1,
   },
   content: {
@@ -342,10 +390,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   eyebrow: {
-    color: '#665bd2',
+    color: '#4f7cff',
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.8,
@@ -364,22 +412,60 @@ const styles = StyleSheet.create({
   },
   dayBadge: {
     alignItems: 'center',
-    backgroundColor: '#ebe7fb',
+    backgroundColor: '#f0f4ff',
     borderRadius: 18,
     minWidth: 56,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   dayBadgeNumber: {
-    color: '#5449bf',
+    color: '#3d6ae8',
     fontSize: 20,
     fontWeight: '800',
   },
   dayBadgeLabel: {
-    color: '#7168be',
+    color: '#4f7cff',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 1.2,
+  },
+  planProgress: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e8e4ec',
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 18,
+    padding: 14,
+  },
+  planProgressHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  planProgressTitle: {
+    color: '#716d7d',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  planProgressCount: {
+    color: '#3d6ae8',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  planDots: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 11,
+  },
+  planDot: {
+    backgroundColor: '#e8ecf7',
+    borderRadius: 4,
+    flex: 1,
+    height: 6,
+  },
+  planDotActive: {
+    backgroundColor: '#4f7cff',
   },
   checkinCard: {
     backgroundColor: '#ffffff',
@@ -392,6 +478,44 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.07,
     shadowRadius: 18,
   },
+  adherenceCard: {
+    backgroundColor: '#f0f4ff',
+    borderColor: '#c7d2fe',
+    borderRadius: 22,
+    borderWidth: 1,
+    marginBottom: 16,
+    padding: 18,
+  },
+  adherenceTitle: {
+    color: '#24212d',
+    fontSize: 21,
+    fontWeight: '800',
+  },
+  adherenceBehavior: {
+    color: '#52525b',
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 8,
+  },
+  adherenceActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 16,
+  },
+  adherenceButton: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderColor: '#dbe5ff',
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    paddingVertical: 11,
+  },
+  adherenceButtonText: {
+    color: '#3d6ae8',
+    fontSize: 13,
+    fontWeight: '800',
+  },
   sectionHeadingRow: {
     alignItems: 'flex-start',
     flexDirection: 'row',
@@ -399,7 +523,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sectionEyebrow: {
-    color: '#746acb',
+    color: '#4f7cff',
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.4,
@@ -427,7 +551,7 @@ const styles = StyleSheet.create({
   },
   feelingButton: {
     alignItems: 'center',
-    backgroundColor: '#f7f5f9',
+    backgroundColor: '#f4f4f5',
     borderColor: '#eeebf1',
     borderRadius: 16,
     borderWidth: 1,
@@ -437,8 +561,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   feelingButtonSelected: {
-    backgroundColor: '#5b50d6',
-    borderColor: '#5b50d6',
+    backgroundColor: '#4f7cff',
+    borderColor: '#4f7cff',
   },
   feelingNumber: {
     color: '#5d5967',
@@ -475,7 +599,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   chip: {
-    backgroundColor: '#f7f5f9',
+    backgroundColor: '#f4f4f5',
     borderColor: '#e8e4ec',
     borderRadius: 18,
     borderWidth: 1,
@@ -483,8 +607,8 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   chipSelected: {
-    backgroundColor: '#ece9ff',
-    borderColor: '#6c60da',
+    backgroundColor: '#f0f4ff',
+    borderColor: '#4f7cff',
   },
   chipText: {
     color: '#625e6a',
@@ -492,10 +616,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   chipTextSelected: {
-    color: '#4f44bc',
+    color: '#3d6ae8',
   },
   noteInput: {
-    backgroundColor: '#f8f7fa',
+    backgroundColor: '#f4f4f5',
     borderColor: '#e8e4ec',
     borderRadius: 16,
     borderWidth: 1,
@@ -514,7 +638,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#5b50d6',
+    backgroundColor: '#4f7cff',
     borderRadius: 17,
     justifyContent: 'center',
     marginTop: 22,
@@ -550,7 +674,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   commitmentEyebrow: {
-    color: '#bdb4ff',
+    color: '#a5b4fc',
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.5,
@@ -565,13 +689,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   statusDot: {
-    backgroundColor: '#a99cff',
+    backgroundColor: '#a5b4fc',
     borderRadius: 4,
     height: 7,
     width: 7,
   },
   statusText: {
-    color: '#ded9ff',
+    color: '#dbe5ff',
     fontSize: 10,
     fontWeight: '700',
   },
@@ -598,7 +722,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   coachMark: {
-    color: '#bdb4ff',
+    color: '#a5b4fc',
     fontSize: 23,
   },
   coachNoteText: {
@@ -610,15 +734,15 @@ const styles = StyleSheet.create({
   },
   completedCard: {
     alignItems: 'center',
-    backgroundColor: '#efecff',
-    borderColor: '#ded8ff',
+    backgroundColor: '#f0f4ff',
+    borderColor: '#dbe5ff',
     borderRadius: 26,
     borderWidth: 1,
     padding: 24,
   },
   completedIcon: {
     alignItems: 'center',
-    backgroundColor: '#5b50d6',
+    backgroundColor: '#4f7cff',
     borderRadius: 24,
     height: 48,
     justifyContent: 'center',
@@ -631,7 +755,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   completedEyebrow: {
-    color: '#6257c9',
+    color: '#3d6ae8',
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.4,
@@ -652,14 +776,14 @@ const styles = StyleSheet.create({
   },
   centeredState: {
     alignItems: 'center',
-    backgroundColor: '#f5f3f8',
+    backgroundColor: '#fafafa',
     flex: 1,
     justifyContent: 'center',
     padding: 32,
   },
   moonMark: {
     alignItems: 'center',
-    backgroundColor: '#ece8ff',
+    backgroundColor: '#f0f4ff',
     borderRadius: 30,
     height: 60,
     justifyContent: 'center',
@@ -667,11 +791,11 @@ const styles = StyleSheet.create({
     width: 60,
   },
   moonMarkText: {
-    color: '#5b50d6',
+    color: '#4f7cff',
     fontSize: 32,
   },
   stateEyebrow: {
-    color: '#665bd2',
+    color: '#4f7cff',
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.8,
@@ -692,7 +816,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: '#5b50d6',
+    backgroundColor: '#4f7cff',
     borderRadius: 16,
     marginTop: 22,
     paddingHorizontal: 24,
@@ -702,13 +826,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 15,
     fontWeight: '800',
-  },
-  prototypeNote: {
-    color: '#918c9b',
-    fontSize: 11,
-    lineHeight: 16,
-    marginTop: 16,
-    textAlign: 'center',
   },
   pressed: {
     opacity: 0.78,

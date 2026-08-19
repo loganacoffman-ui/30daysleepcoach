@@ -28,8 +28,11 @@ export type DailyCheckin = {
 
 export type TodaySnapshot = {
   date: string;
+  dayNumber: number;
   greetingName?: string;
+  coachingMessage?: string;
   commitment: BehaviorCommitment | null;
+  previousCommitment: BehaviorCommitment | null;
   checkin: DailyCheckin | null;
 };
 
@@ -42,4 +45,5 @@ export type DailyCheckinDraft = {
 export interface TodayRepository {
   loadToday(): Promise<TodaySnapshot>;
   saveCheckin(draft: DailyCheckinDraft): Promise<DailyCheckin>;
+  updateCommitmentStatus(id: string, status: Exclude<CommitmentStatus, 'committed'>): Promise<void>;
 }

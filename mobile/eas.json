@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 16.0.0"
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -12,10 +13,7 @@
     },
     "testflight-preview": {
       "extends": "production",
-      "environment": "preview",
-      "env": {
-        "EXPO_PUBLIC_APP_MODE": "today-preview"
-      }
+      "environment": "preview"
     },
     "production": {
       "autoIncrement": true

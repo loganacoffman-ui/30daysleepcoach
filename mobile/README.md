@@ -111,3 +111,9 @@ pnpm exec expo run:android
 ```
 
 The fallback key is the project's public client key. Expo embeds all `EXPO_PUBLIC_` values in the app, so never use a service-role or secret key.
+
+## Sign in with Apple
+
+The iOS app uses native Sign in with Apple through `expo-apple-authentication` and exchanges Apple's identity token with Supabase Auth. The Apple Developer membership, explicit App ID, Apple capability, and Supabase Apple provider must be configured before testing a standalone build.
+
+See [`APP_STORE_READINESS.md`](./APP_STORE_READINESS.md) for the exact setup, account-deletion deployment, privacy questionnaire notes, and release smoke test.
