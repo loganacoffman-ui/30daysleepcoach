@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.30daysleepcoach.app",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "usesAppleSignIn": true,
       "config": {
         "usesNonExemptEncryption": false
