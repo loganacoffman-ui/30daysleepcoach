@@ -16,7 +16,7 @@ function getCorsHeaders(req: Request) {
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  if (req.method !== 'GET') return jsonResponse(req, { error: 'Method not allowed' }, 405);
+  if (req.method !== 'GET' && req.method !== 'POST') return jsonResponse(req, { error: 'Method not allowed' }, 405);
 
   try {
     const supabaseUrl = mustEnv('SUPABASE_URL');

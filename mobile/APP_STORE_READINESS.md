@@ -32,6 +32,8 @@ supabase functions deploy delete-account
 
 The function verifies the caller's Supabase session and uses `SUPABASE_SERVICE_ROLE_KEY` only on the server to delete the authenticated user. User-owned tables should reference `auth.users(id)` with `ON DELETE CASCADE`; verify this for `entries`, `ai_cache`, `oura_connections`, and `oura_oauth_states` before production deletion testing.
 
+Production deployment was refreshed on August 23, 2026. All repository migrations are present in the linked project, the required Oura secrets are configured, and the Oura OAuth/proxy and account-deletion functions are active. A real Oura-account authorization and a destructive test-account deletion still require physical-device QA.
+
 ## App privacy questionnaire working notes
 
 Confirm the final production build and vendor configuration before submitting these answers.
@@ -46,8 +48,8 @@ Confirm the final production build and vendor configuration before submitting th
 
 ## Pre-activation checks
 
-- [ ] `pnpm exec tsc --noEmit` passes.
-- [ ] Expo config resolves `com.30daysleepcoach.app` and `usesAppleSignIn: true`.
+- [x] `pnpm exec tsc --noEmit` passes.
+- [x] Expo config resolves `com.30daysleepcoach.app`, `usesAppleSignIn: true`, and iPhone-only support.
 - [ ] Email sign-up confirmation path works.
 - [ ] Email/password sign-in and sign-out work.
 - [ ] Google sign-in cancellation and success paths work.
@@ -55,6 +57,8 @@ Confirm the final production build and vendor configuration before submitting th
 - [ ] Health disclaimer is readable on a small phone screen.
 - [ ] Delete Account shows Cancel and destructive confirmation actions.
 - [ ] A failed deletion request leaves the user signed in and shows a recoverable message.
+- [ ] Oura authorization returns to `thirtydaysleepcoach://oura/callback`.
+- [ ] Oura status, latest sleep-score refresh, token refresh, and disconnect work on a physical iPhone.
 
 ## Physical-device and TestFlight checks
 
@@ -80,4 +84,3 @@ Run only after Apple membership activation, App ID registration, and provider se
 pnpm dlx eas-cli@latest build --platform ios --profile production
 pnpm dlx eas-cli@latest submit --platform ios --profile production
 ```
-

@@ -6,6 +6,7 @@ import * as Linking from 'expo-linking';
 import { supabase } from '../supabase';
 import type { SleepProfile } from '../onboarding/types';
 import { getStarterExperiment } from '../coaching/experiments';
+import OuraIntegration from '../oura/OuraIntegration';
 
 const concernLabels: Record<string,string> = { falling_asleep:'Falling asleep', staying_asleep:'Staying asleep', waking_tired:'Waking refreshed', schedule:'A steadier schedule', stress:'Stress and recovery' };
 
@@ -25,7 +26,7 @@ export function CoachScreen({ profile }: { profile: SleepProfile }) {
 }
 
 export function SettingsScreen({ user, profile, busy, onSignOut, onDeleteAccount }: { user:User;profile:SleepProfile;busy:boolean;onSignOut:()=>void;onDeleteAccount:()=>void }) {
-  return <ScrollView contentContainerStyle={s.content}><Text style={s.eyebrow}>SETTINGS</Text><Text style={s.title}>{profile.displayName||'Your profile'}</Text><Text style={s.copy}>{user.email}</Text><View style={s.card}><Text style={s.cardEyebrow}>SLEEP PROFILE</Text><Setting label="Primary focus" value={concernLabels[profile.primaryConcern]}/><Setting label="Usual bedtime" value={profile.typicalBedtime||'Not set'}/><Setting label="Usual wake time" value={profile.typicalWakeTime||'Not set'}/><Setting label="Timezone" value={profile.timezone}/></View><View style={s.card}><Text style={s.cardEyebrow}>INTEGRATIONS</Text><Text style={s.cardTitle}>Oura connection</Text><Text style={s.cardCopy}>Oura setup is coming next. Manual check-ins always remain available.</Text></View><Pressable onPress={()=>void Linking.openURL('https://30daysleepcoach.com/privacy.html')} style={s.button}><Text style={s.buttonText}>Privacy policy</Text></Pressable><Pressable disabled={busy} onPress={onSignOut} style={s.button}><Text style={s.buttonText}>Sign out</Text></Pressable><Pressable disabled={busy} onPress={onDeleteAccount} style={[s.button,s.dangerButton]}><Text style={s.dangerText}>Delete account</Text></Pressable></ScrollView>;
+  return <ScrollView contentContainerStyle={s.content}><Text style={s.eyebrow}>SETTINGS</Text><Text style={s.title}>{profile.displayName||'Your profile'}</Text><Text style={s.copy}>{user.email}</Text><View style={s.card}><Text style={s.cardEyebrow}>SLEEP PROFILE</Text><Setting label="Primary focus" value={concernLabels[profile.primaryConcern]}/><Setting label="Usual bedtime" value={profile.typicalBedtime||'Not set'}/><Setting label="Usual wake time" value={profile.typicalWakeTime||'Not set'}/><Setting label="Timezone" value={profile.timezone}/></View><View style={s.card}><Text style={s.cardEyebrow}>INTEGRATIONS</Text><Text style={s.cardTitle}>Oura connection</Text><OuraIntegration /></View><Pressable onPress={()=>void Linking.openURL('https://30daysleepcoach.com/privacy.html')} style={s.button}><Text style={s.buttonText}>Privacy policy</Text></Pressable><Pressable disabled={busy} onPress={onSignOut} style={s.button}><Text style={s.buttonText}>Sign out</Text></Pressable><Pressable disabled={busy} onPress={onDeleteAccount} style={[s.button,s.dangerButton]}><Text style={s.dangerText}>Delete account</Text></Pressable></ScrollView>;
 }
 
 function Setting({label,value}:{label:string;value:string}){return <View style={s.setting}><Text style={s.settingLabel}>{label}</Text><Text style={s.settingValue}>{value}</Text></View>}

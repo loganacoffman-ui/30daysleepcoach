@@ -117,3 +117,15 @@ The fallback key is the project's public client key. Expo embeds all `EXPO_PUBLI
 The iOS app uses native Sign in with Apple through `expo-apple-authentication` and exchanges Apple's identity token with Supabase Auth. The Apple Developer membership, explicit App ID, Apple capability, and Supabase Apple provider must be configured before testing a standalone build.
 
 See [`APP_STORE_READINESS.md`](./APP_STORE_READINESS.md) for the exact setup, account-deletion deployment, privacy questionnaire notes, and release smoke test.
+
+## Oura integration
+
+The native Settings screen uses the server-side Oura OAuth flow. The production Supabase project must have `OURA_CLIENT_ID`, `OURA_CLIENT_SECRET`, and `OURA_REDIRECT_URI` secrets. Register this exact callback in the Oura API application:
+
+```text
+https://qfnouotdhfltgvjhfbld.supabase.co/functions/v1/oura-oauth-callback
+```
+
+The callback returns to the installed app at `thirtydaysleepcoach://oura/callback`. Oura access and refresh tokens are stored only in the protected `oura_connections` server table. The mobile app requests the `daily` and `heartrate` scopes and accesses data through `oura-proxy`.
+
+Oura API applications are limited to ten users by default. Request Oura approval before inviting a larger production audience.

@@ -267,7 +267,7 @@ describe('extractCheckinScore', () => {
 
 describe('formatShortDate', () => {
   it('formats entry with ts', () => {
-    const entry = { ts: new Date('2026-06-15').getTime() };
+    const entry = { ts: new Date(2026, 5, 15).getTime() };
     const result = formatShortDate(entry);
     expect(result).toMatch(/6\/15/);
   });
@@ -472,19 +472,19 @@ describe('getSleepDataForCoach', () => {
 
 describe('getBriefingCacheKey', () => {
   it('produces "briefing_YYYY-MM-DD"', () => {
-    const d = new Date('2026-06-17');
+    const d = new Date(2026, 5, 17);
     expect(getBriefingCacheKey(d)).toBe('briefing_2026-06-17');
   });
 
   it('zero-pads months and days', () => {
-    const d = new Date('2026-01-05');
+    const d = new Date(2026, 0, 5);
     expect(getBriefingCacheKey(d)).toBe('briefing_2026-01-05');
   });
 });
 
 describe('getRecommendationCacheKey', () => {
   it('produces "recommendation_YYYY-MM-DD"', () => {
-    const d = new Date('2026-06-17');
+    const d = new Date(2026, 5, 17);
     expect(getRecommendationCacheKey(d)).toBe('recommendation_2026-06-17');
   });
 });

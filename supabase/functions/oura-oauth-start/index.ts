@@ -53,6 +53,7 @@ Deno.serve(async (req) => {
     authorizeUrl.searchParams.set('client_id', clientId);
     authorizeUrl.searchParams.set('redirect_uri', redirectUri);
     authorizeUrl.searchParams.set('state', state);
+    authorizeUrl.searchParams.set('scope', 'daily heartrate');
 
     return jsonResponse(req, { authorizeUrl: authorizeUrl.toString() });
   } catch (error) {
@@ -63,6 +64,10 @@ Deno.serve(async (req) => {
 function sanitizeRedirect(value: unknown) {
   const fallback = 'https://30daysleepcoach.com/';
   if (typeof value !== 'string') return fallback;
+
+  if (value === 'thirtydaysleepcoach://oura/callback') {
+    return value;
+  }
 
   try {
     const url = new URL(value);
