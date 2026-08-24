@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import { StatusBar } from 'expo-status-bar';
 
+import { colors } from '../design/theme';
 import type { SleepProfile } from '../onboarding/types';
 import TodayScreen from '../today/TodayScreen';
 import { createSupabaseTodayRepository } from '../today/supabaseTodayRepository';
@@ -26,8 +27,8 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
       <View style={styles.tabs}>
         {tabs.map(item => <Pressable accessibilityRole="tab" accessibilityState={{selected:tab===item.key}} key={item.key} onPress={()=>setTab(item.key)} style={styles.tab}><Text style={[styles.icon,tab===item.key&&styles.selected]}>{item.icon}</Text><Text style={[styles.label,tab===item.key&&styles.selected]}>{item.label}</Text></Pressable>)}
       </View>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
     </View>
   );
 }
-const styles=StyleSheet.create({screen:{backgroundColor:'#fafafa',flex:1},body:{flex:1},tabs:{backgroundColor:'#fff',borderTopColor:'#e7e3ea',borderTopWidth:1,flexDirection:'row',paddingBottom:20,paddingTop:9},tab:{alignItems:'center',flex:1},icon:{color:'#8c8793',fontSize:19,fontWeight:'800'},label:{color:'#8c8793',fontSize:10,fontWeight:'700',marginTop:3},selected:{color:'#3d6ae8'}});
+const styles=StyleSheet.create({screen:{backgroundColor:colors.canvas,flex:1},body:{flex:1},tabs:{backgroundColor:colors.surfaceMuted,borderTopColor:colors.border,borderTopWidth:1,flexDirection:'row',paddingBottom:20,paddingTop:9},tab:{alignItems:'center',flex:1},icon:{color:colors.textFaint,fontSize:19,fontWeight:'800'},label:{color:colors.textSubtle,fontSize:10,fontWeight:'700',marginTop:3},selected:{color:colors.accent}});

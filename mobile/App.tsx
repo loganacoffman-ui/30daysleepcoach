@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 
+import { colors } from './design/theme';
 import { Onboarding } from './Onboarding';
 import { supabase } from './supabase';
 import { loadSleepProfile } from './onboarding/profileRepository';
@@ -388,8 +389,8 @@ function AppContent() {
   if (initializing) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator color="#4f7cff" size="large" />
-        <StatusBar style="dark" />
+        <ActivityIndicator color={colors.accent} size="large" />
+        <StatusBar style="light" />
       </View>
     );
   }
@@ -398,8 +399,8 @@ function AppContent() {
     if (profileLoading) {
       return (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color="#4f7cff" size="large" />
-          <StatusBar style="dark" />
+          <ActivityIndicator color={colors.accent} size="large" />
+          <StatusBar style="light" />
         </View>
       );
     }
@@ -455,7 +456,7 @@ function AppContent() {
                 onChangeText={setNewPassword}
                 onSubmitEditing={updatePassword}
                 placeholder="At least 8 characters"
-                placeholderTextColor="#8d8ba3"
+                placeholderTextColor={colors.textFaint}
                 secureTextEntry
                 style={styles.input}
                 value={newPassword}
@@ -513,7 +514,7 @@ function AppContent() {
                 keyboardType="email-address"
                 onChangeText={setEmail}
                 placeholder="you@example.com"
-                placeholderTextColor="#8d8ba3"
+                placeholderTextColor={colors.textFaint}
                 style={styles.input}
                 value={email}
               />
@@ -526,7 +527,7 @@ function AppContent() {
                 onChangeText={setPassword}
                 onSubmitEditing={signInWithPassword}
                 placeholder="Your password"
-                placeholderTextColor="#8d8ba3"
+                placeholderTextColor={colors.textFaint}
                 secureTextEntry
                 style={styles.input}
                 value={password}
@@ -593,7 +594,7 @@ function AppContent() {
             </>
           )}
 
-          {busy && <ActivityIndicator color="#4f7cff" style={styles.activity} />}
+          {busy && <ActivityIndicator color={colors.accent} style={styles.activity} />}
           {!!message && <Text style={styles.message}>{message}</Text>}
         </View>
 
@@ -605,7 +606,7 @@ function AppContent() {
           <Text style={styles.privacyLink}>Privacy Policy</Text>
         </Pressable>
       </ScrollView>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
     </KeyboardAvoidingView>
   );
 }
@@ -617,11 +618,11 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fafafa',
+    backgroundColor: colors.canvas,
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#fafafa',
+    backgroundColor: colors.canvas,
     justifyContent: 'center',
   },
   scrollContent: {
@@ -634,14 +635,14 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   eyebrow: {
-    color: '#4f7cff',
+    color: colors.accentSoft,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.5,
     marginBottom: 12,
   },
   title: {
-    color: '#201f34',
+    color: colors.text,
     fontSize: 34,
     fontWeight: '800',
     letterSpacing: -0.8,
@@ -649,32 +650,32 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   subtitle: {
-    color: '#68657d',
+    color: colors.textMuted,
     fontSize: 16,
     lineHeight: 24,
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderRadius: 24,
     padding: 22,
-    shadowColor: '#312e81',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.09,
     shadowRadius: 20,
     elevation: 4,
   },
   label: {
-    color: '#35334b',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#f4f4f5',
-    borderColor: '#e6e4ef',
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
     borderRadius: 14,
     borderWidth: 1,
-    color: '#201f34',
+    color: colors.text,
     fontSize: 16,
     marginBottom: 18,
     paddingHorizontal: 16,
@@ -689,38 +690,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
   primaryButton: {
-    backgroundColor: '#4f7cff',
+    backgroundColor: colors.accent,
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: colors.ink,
     fontSize: 16,
     fontWeight: '700',
   },
   secondaryButton: {
-    backgroundColor: '#f0f4ff',
+    backgroundColor: colors.surfaceAccent,
   },
   secondaryButtonText: {
-    color: '#3d6ae8',
+    color: colors.accent,
     fontSize: 16,
     fontWeight: '700',
   },
   deleteButton: {
-    backgroundColor: '#fff5f4',
-    borderColor: '#f2b8b5',
+    backgroundColor: colors.dangerSurface,
+    borderColor: colors.danger,
     borderWidth: 1,
   },
   deleteButtonText: {
-    color: '#b42318',
+    color: colors.danger,
     fontSize: 16,
     fontWeight: '700',
   },
   googleButton: {
-    backgroundColor: '#ffffff',
-    borderColor: '#d9d7e3',
+    backgroundColor: colors.surface,
+    borderColor: colors.borderStrong,
     borderWidth: 1,
   },
   googleButtonText: {
-    color: '#35334b',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -742,12 +743,12 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   dividerLine: {
-    backgroundColor: '#e6e4ef',
+    backgroundColor: colors.border,
     flex: 1,
     height: 1,
   },
   dividerText: {
-    color: '#8d8ba3',
+    color: colors.textFaint,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -755,27 +756,27 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   message: {
-    color: '#b42318',
+    color: colors.danger,
     fontSize: 14,
     lineHeight: 20,
     marginTop: 16,
     textAlign: 'center',
   },
   userEmail: {
-    color: '#201f34',
+    color: colors.text,
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 18,
   },
   healthDisclaimer: {
-    color: '#77738d',
+    color: colors.textSubtle,
     fontSize: 12,
     lineHeight: 18,
     marginTop: 20,
     textAlign: 'center',
   },
   privacyLink: {
-    color: '#3d6ae8',
+    color: colors.accent,
     fontSize: 13,
     fontWeight: '600',
     marginTop: 12,
@@ -783,7 +784,7 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   forgotPassword: {
-    color: '#3d6ae8',
+    color: colors.accent,
     fontSize: 14,
     fontWeight: '600',
     marginTop: 16,
