@@ -6,10 +6,11 @@ import { StatusBar } from 'expo-status-bar';
 import type { SleepProfile } from '../onboarding/types';
 import TodayScreen from '../today/TodayScreen';
 import { createSupabaseTodayRepository } from '../today/supabaseTodayRepository';
-import { CoachScreen, ProgressScreen, SettingsScreen } from './InfoScreens';
+import CoachScreen from '../coach/CoachScreen';
+import { ProgressScreen, SettingsScreen } from './InfoScreens';
 
 type Tab='today'|'progress'|'coach'|'settings';
-const tabs:{key:Tab;icon:string;label:string}[]=[{key:'today',icon:'☾',label:'Today'},{key:'progress',icon:'↗',label:'Progress'},{key:'coach',icon:'✦',label:'Coach'},{key:'settings',icon:'○',label:'Settings'}];
+const tabs:{key:Tab;icon:string;label:string}[]=[{key:'today',icon:'☾',label:'Today'},{key:'coach',icon:'✦',label:'Coach'},{key:'progress',icon:'↗',label:'Progress'},{key:'settings',icon:'○',label:'Settings'}];
 
 export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccount}:{session:Session;profile:SleepProfile;busy:boolean;onSignOut:()=>void;onDeleteAccount:()=>void}){
   const [tab,setTab]=useState<Tab>('today');
@@ -19,7 +20,7 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
       <View style={styles.body}>
         {tab === 'today' && <TodayScreen repository={repository} />}
         {tab === 'progress' && <ProgressScreen user={session.user} />}
-        {tab === 'coach' && <CoachScreen profile={profile} />}
+        {tab === 'coach' && <CoachScreen profile={profile} user={session.user} />}
         {tab === 'settings' && <SettingsScreen busy={busy} onDeleteAccount={onDeleteAccount} onSignOut={onSignOut} profile={profile} user={session.user} />}
       </View>
       <View style={styles.tabs}>

@@ -5,7 +5,6 @@ import * as Linking from 'expo-linking';
 
 import { supabase } from '../supabase';
 import type { SleepProfile } from '../onboarding/types';
-import { getStarterExperiment } from '../coaching/experiments';
 import OuraIntegration from '../oura/OuraIntegration';
 
 const concernLabels: Record<string,string> = { falling_asleep:'Falling asleep', staying_asleep:'Staying asleep', waking_tired:'Waking refreshed', schedule:'A steadier schedule', stress:'Stress and recovery' };
@@ -18,11 +17,6 @@ export function ProgressScreen({ user }: { user: User }) {
   const average=rows.length?Math.round(rows.reduce((sum,row)=>sum+row.feeling,0)/rows.length):0;
   const tried=commitments.filter(item=>item.status==='completed'||item.status==='partial').length;
   return <ScrollView contentContainerStyle={s.content}><Text style={s.eyebrow}>PROGRESS</Text><Text style={s.title}>Your sleep, in context</Text><Text style={s.copy}>Trends become more useful as you check in. We’ll focus on direction—not perfect scores.</Text>{loading?<ActivityIndicator color="#4f7cff"/>:<><View style={s.heroCard}><Text style={s.metric}>{rows.length}</Text><Text style={s.metricLabel}>check-ins recorded</Text>{rows.length>0&&<Text style={s.secondaryMetric}>Average feeling: {average}/100</Text>}<Text style={s.secondaryMetric}>Experiments tried: {tried}</Text></View>{commitments.length>0&&<View style={s.card}><Text style={s.cardEyebrow}>RECENT EXPERIMENTS</Text>{commitments.map(item=><View key={item.behavior_date} style={s.experimentRow}><View style={s.experimentCopy}><Text style={s.experimentDate}>{item.behavior_date}</Text><Text style={s.experimentBehavior}>{item.behavior}</Text></View><Text style={[s.experimentStatus,item.status==='completed'&&s.statusComplete,item.status==='partial'&&s.statusPartial]}>{item.status==='committed'?'Tonight':item.status==='completed'?'Done':item.status==='partial'?'Partly':'Skipped'}</Text></View>)}</View>}{rows.length===0?<Empty title="Your trend starts today" copy="Complete your first morning check-in and it will appear here."/>:rows.map(row=><View key={row.checkin_date} style={s.row}><Text style={s.rowDate}>{row.checkin_date}</Text><Text style={s.rowValue}>{row.feeling}/100</Text></View>)}</>}{!!error&&<Text style={s.error}>{error}</Text>}</ScrollView>;
-}
-
-export function CoachScreen({ profile }: { profile: SleepProfile }) {
-  const experiment=getStarterExperiment(profile.primaryConcern);
-  return <ScrollView contentContainerStyle={s.content}><Text style={s.eyebrow}>COACH</Text><Text style={s.title}>A calm plan, not more homework</Text><Text style={s.copy}>Your coaching will adapt as your check-ins build a clearer pattern.</Text><View style={s.heroCard}><Text style={s.heroEyebrow}>YOUR STARTING FOCUS</Text><Text style={s.heroTitle}>{concernLabels[profile.primaryConcern]}</Text><Text style={s.heroLabel}>WHAT BETTER SLEEP WOULD HELP WITH</Text><Text style={s.heroCopy}>{profile.goal||'Feeling more restored and ready for the day.'}</Text></View><View style={s.card}><Text style={s.cardEyebrow}>WHY THIS EXPERIMENT</Text><Text style={s.cardTitle}>{experiment.behavior}</Text><Text style={s.cardCopy}>{experiment.why}</Text><Text style={s.coachNote}>{experiment.coachingNote}</Text></View><View style={s.card}><Text style={s.cardEyebrow}>HOW THIS WORKS</Text><Text style={s.cardTitle}>One experiment at a time</Text><Text style={s.cardCopy}>Try the action, tell us how it went the next morning, and we’ll use your feedback to shape what comes next.</Text></View><Text style={s.disclaimer}>Educational coaching only—not medical advice, diagnosis, or treatment.</Text></ScrollView>;
 }
 
 export function SettingsScreen({ user, profile, busy, onSignOut, onDeleteAccount }: { user:User;profile:SleepProfile;busy:boolean;onSignOut:()=>void;onDeleteAccount:()=>void }) {
