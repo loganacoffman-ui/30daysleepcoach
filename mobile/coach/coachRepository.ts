@@ -43,7 +43,6 @@ export const loadDailyCoaching = async (user: User, profile: SleepProfile): Prom
         date: localDate(),
         profile: {
           primary_concern: profile.primaryConcern,
-          goal: profile.goal,
           typical_bedtime: profile.typicalBedtime,
           typical_wake_time: profile.typicalWakeTime,
           timezone: profile.timezone,

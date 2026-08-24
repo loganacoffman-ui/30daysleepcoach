@@ -7,7 +7,7 @@ import type { SleepProfile } from '../onboarding/types';
 import { loadDailyCoaching } from './coachRepository';
 import type { DailyCoaching } from './coachRepository';
 
-const concernLabels: Record<string,string> = { falling_asleep:'Falling asleep with less effort', staying_asleep:'Sleeping more continuously', waking_tired:'Waking more restored', schedule:'Building a steadier rhythm', stress:'Calming stress before sleep' };
+const concernLabels: Record<string,string> = { falling_asleep:'Falling asleep with less effort', night_waking:'Sleeping more continuously', early_waking:'Extending sleep through the morning', unrefreshed:'Waking more restored', irregular_schedule:'Building a steadier rhythm' };
 
 const Section = ({ label, text, animation, action = false }: { label: string; text: string; animation: Animated.Value; action?: boolean }) => (
   <Animated.View style={{ opacity: animation, transform: [{ translateY: animation.interpolate({ inputRange:[0,1], outputRange:[18,0] }) }] }}>

@@ -1,9 +1,9 @@
 export type PrimaryConcern =
   | 'falling_asleep'
-  | 'staying_asleep'
-  | 'waking_tired'
-  | 'schedule'
-  | 'stress';
+  | 'night_waking'
+  | 'early_waking'
+  | 'unrefreshed'
+  | 'irregular_schedule';
 
 export type SleepProfile = {
   displayName: string;
@@ -11,9 +11,7 @@ export type SleepProfile = {
   typicalBedtime: string;
   typicalWakeTime: string;
   timezone: string;
-  goal: string;
-  safetyConcern: boolean;
+  reminderTime: string;
+  firstExperiment: string;
   onboardingCompletedAt: string;
 };
-
-export type OnboardingDraft = Omit<SleepProfile, 'onboardingCompletedAt'>;

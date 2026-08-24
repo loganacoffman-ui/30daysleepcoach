@@ -7,7 +7,7 @@ import { supabase } from '../supabase';
 import type { SleepProfile } from '../onboarding/types';
 import OuraIntegration from '../oura/OuraIntegration';
 
-const concernLabels: Record<string,string> = { falling_asleep:'Falling asleep', staying_asleep:'Staying asleep', waking_tired:'Waking refreshed', schedule:'A steadier schedule', stress:'Stress and recovery' };
+const concernLabels: Record<string,string> = { falling_asleep:'Falling asleep', night_waking:'Waking during the night', early_waking:'Waking too early', unrefreshed:'Waking refreshed', irregular_schedule:'A steadier schedule' };
 
 export function ProgressScreen({ user }: { user: User }) {
   const [rows,setRows]=useState<{checkin_date:string;feeling:number}[]>([]); const [loading,setLoading]=useState(true); const [error,setError]=useState('');

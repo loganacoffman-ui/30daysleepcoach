@@ -8,15 +8,30 @@ The native app defines the canonical product model. Supabase remains the shared 
 
 All product tables use UUID primary keys, `user_id uuid references auth.users(id) on delete cascade`, row-level security scoped to `auth.uid()`, and `timestamptz` audit fields. User-facing calendar dates are stored as `date`; event instants are stored as `timestamptz`; the user's IANA timezone is recorded where calendar-day interpretation matters.
 
-The current onboarding payload is intentionally small and versioned. A representative stored value is:
+The version 1 onboarding payload follows Isaiah's PR #22 contract. It stores the
+current step after every transition so an interrupted flow can resume safely. A
+representative completed value is:
 
 ```json
 {
-  "goal": "Wake up feeling more rested"
+  "current_step": "complete",
+  "primary_concern": "night_waking",
+  "typical_bedtime": "22:30",
+  "typical_wake_time": "06:30",
+  "schedule_varies": false,
+  "time_in_bed_minutes": 480,
+  "follow_up_key": "wake_duration",
+  "follow_up_answer": "30_to_60",
+  "first_experiment": "Same wake-up, every day: keep your 6:30 AM wake time even after a rough night.",
+  "reminder_time": "07:00"
 }
 ```
 
-The stable `primary_concern` value and safety flag are stored in their dedicated columns rather than duplicated inside `intake_answers`. Future quiz answers may be added as stable keys inside this object, accompanied by an `intake_version` increment and backward-compatible readers.
+The canonical `primary_concern` values are `falling_asleep`, `night_waking`,
+`early_waking`, `unrefreshed`, and `irregular_schedule`. The concern and sleep
+window are duplicated in dedicated columns for efficient product reads while the
+versioned JSON payload preserves the complete resumable onboarding state. Future
+quiz changes require an `intake_version` increment and backward-compatible readers.
 
 ## Current shared client contract
 
@@ -42,11 +57,12 @@ One current onboarding/profile record per user.
 | Column | Type | Notes |
 |---|---|---|
 | `user_id` | uuid PK | Auth user |
-| `primary_concern` | text | Validated application value, not a database enum |
+| `display_name` | text | Reserved profile field; PR #22 onboarding does not write it |
+| `primary_concern` | text | One of the five canonical PR #22 concern keys |
 | `typical_bedtime` | time | Optional |
 | `typical_wake_time` | time | Optional |
 | `timezone` | text | IANA timezone |
-| `safety_flags` | jsonb | Flexible, non-diagnostic flags |
+| `safety_flags` | jsonb | Reserved flexible, non-diagnostic flags; not part of PR #22 intake |
 | `intake_answers` | jsonb | Versioned raw onboarding answers |
 | `intake_version` | integer | Starts at 1 |
 | `onboarding_completed_at` | timestamptz | Null while resumable onboarding is incomplete |
