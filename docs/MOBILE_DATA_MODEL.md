@@ -1,12 +1,37 @@
 # Native mobile data model
 
-Status: proposed contract for 30D-31 and 30D-29 review.
+Status: implementation contract for 30D-31. Reviewed with Isaiah on August 13, 2026; final integration validation is tracked in the merge pull request.
 
 ## Decision
 
 The native app defines the canonical product model. Supabase remains the shared backend and authentication system. Existing web data is small enough to migrate through an explicit adapter after the native contract is approved; the native schema will not reproduce the legacy `entries` shape merely for compatibility.
 
 All product tables use UUID primary keys, `user_id uuid references auth.users(id) on delete cascade`, row-level security scoped to `auth.uid()`, and `timestamptz` audit fields. User-facing calendar dates are stored as `date`; event instants are stored as `timestamptz`; the user's IANA timezone is recorded where calendar-day interpretation matters.
+
+The current onboarding payload is intentionally small and versioned. A representative stored value is:
+
+```json
+{
+  "goal": "Wake up feeling more rested"
+}
+```
+
+The stable `primary_concern` value and safety flag are stored in their dedicated columns rather than duplicated inside `intake_answers`. Future quiz answers may be added as stable keys inside this object, accompanied by an `intake_version` increment and backward-compatible readers.
+
+## Current shared client contract
+
+| Data | Mobile | Web | Server / Edge Functions |
+|---|---|---|---|
+| `auth.users` | Supabase Auth session | Supabase Auth session | Verifies the caller JWT |
+| `sleep_profiles` | Read/write the signed-in user's profile | No current product dependency | No direct write requirement |
+| `daily_checkins` | Read/write the signed-in user's check-ins | No current product dependency | May read only with the caller's JWT |
+| `behavior_commitments` | Read/write the signed-in user's experiment | Existing web behavior remains supported | May read only with the caller's JWT |
+| `coach_recommendations` | Requests and reads the daily artifact | No current product dependency | `sleep-coach` creates or returns the caller's artifact |
+| `entries` | No dependency | Legacy web read/write | Legacy input only; not canonical |
+| `oura_connections` | Accesses Oura through Edge Functions | Accesses Oura through Edge Functions | Owns provider credentials and API access |
+| `ai_cache` | No direct access | No product-record dependency | Internal generation optimization only |
+
+All client writes are made with the signed-in user's JWT. Row-level security must reject anonymous access and cross-user reads or writes. Provider tokens and service-role credentials never belong in either client.
 
 ## Canonical product tables
 
@@ -48,7 +73,9 @@ One subjective morning ritual per user and local calendar day.
 
 Previous-behavior adherence remains on `behavior_commitments`; the check-in updates that existing record rather than copying status into two tables.
 
-### `sleep_nights`
+### Planned: `sleep_nights`
+
+This table defines the intended normalized wearable-history shape, but it is **not part of the currently deployed contract**. The current app reads Oura data through `oura-proxy`. Create `sleep_nights` in a new additive migration only when product work requires persistent objective history; do not make onboarding or a subjective check-in depend on it.
 
 One normalized objective sleep record per user, provider, and sleep date.
 
@@ -116,12 +143,24 @@ Persist the user-visible coaching artifact separately from transport cache.
 4. Update the web client later to read/write canonical tables or leave it in maintenance mode.
 5. Do not delete `entries` until both clients and backups no longer depend on it.
 
+The initial mobile launch does not require migrating the small legacy dataset. Compatibility means the existing web app keeps working while new mobile tables are added; it does not mean new mobile screens must reproduce the `entries` schema.
+
+## Migration, security, and rollback procedure
+
+1. Never edit a migration that has already been applied to production. Every correction is a new, forward-only migration.
+2. Run the full migration history against a fresh local Supabase database with `supabase db reset`.
+3. Compare local and linked histories with `supabase migration list` and review the pending production plan before merge.
+4. Verify RLS with two authenticated test users: each can create and read their own record; neither can read, update, or delete the other's; an anonymous request cannot access product rows.
+5. Merge migration changes through `main`. The production migration workflow applies pending files sequentially and stops on error.
+6. If a deployed migration is wrong, preserve the database backup and ship a compensating migration. Do not delete or rewrite the applied file. Destructive column/table removal requires a separate review after both clients have stopped depending on it.
+
 ## Delivery order
 
-1. Review this contract with Isaiah alongside the onboarding UI.
-2. Implement `sleep_profiles` first for 30D-29.
-3. Add `daily_checkins` and `sleep_nights` immediately before the native daily-loop work.
-4. Add `coach_recommendations` immediately before native coaching is connected.
-5. Migrate the small legacy dataset after the canonical writes are proven.
+1. `sleep_profiles`: implemented for onboarding.
+2. `daily_checkins`: implemented for the native daily loop.
+3. `behavior_commitments`: retained as the shared experiment/adherence record.
+4. `coach_recommendations`: implemented for persistent daily coaching.
+5. `sleep_nights`: defer until persistent wearable history is required.
+6. Legacy `entries` import: defer until canonical mobile writes are proven and preserving the small web dataset is worth the migration effort.
 
 This sequencing avoids speculative tables while preventing each screen from inventing its own storage contract.

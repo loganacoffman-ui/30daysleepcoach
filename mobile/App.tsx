@@ -80,7 +80,7 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
 }
 
-export default function App() {
+function AppContent() {
   const incomingUrl = Linking.useLinkingURL();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -392,7 +392,6 @@ export default function App() {
     );
   }
 
-
   if (session && !recoveryMode) {
     if (profileLoading) {
       return (
@@ -602,6 +601,10 @@ export default function App() {
       <StatusBar style="dark" />
     </KeyboardAvoidingView>
   );
+}
+
+export default function App() {
+  return <AppContent />;
 }
 
 const styles = StyleSheet.create({

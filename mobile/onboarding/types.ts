@@ -17,4 +17,3 @@ export type SleepProfile = {
 };
 
 export type OnboardingDraft = Omit<SleepProfile, 'onboardingCompletedAt'>;
-

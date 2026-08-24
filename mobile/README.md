@@ -129,3 +129,18 @@ https://qfnouotdhfltgvjhfbld.supabase.co/functions/v1/oura-oauth-callback
 The callback returns to the installed app at `thirtydaysleepcoach://oura/callback`. Oura access and refresh tokens are stored only in the protected `oura_connections` server table. The mobile app requests the `daily` and `heartrate` scopes and accesses data through `oura-proxy`.
 
 Oura API applications are limited to ten users by default. Request Oura approval before inviting a larger production audience.
+
+## Create a production iOS build
+
+The App Store build uses the `production` profile in `eas.json` and the
+`com.30daysleepcoach.app` bundle identifier.
+
+```bash
+pnpm build:ios:production
+```
+
+The completed build is automatically submitted to App Store Connect for
+TestFlight processing.
+
+On the first build, sign in to Expo and Apple when prompted. EAS can create and
+manage the iOS distribution certificate and provisioning profile.
