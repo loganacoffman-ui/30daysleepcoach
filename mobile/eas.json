@@ -6,11 +6,16 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "preview"
+      }
     },
     "preview": {
       "distribution": "internal",
-      "autoIncrement": true
+      "env": {
+        "APP_VARIANT": "preview"
+      }
     },
     "testflight-preview": {
       "extends": "production",

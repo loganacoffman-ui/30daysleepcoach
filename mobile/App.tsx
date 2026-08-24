@@ -1,4 +1,3 @@
-import { makeRedirectUri } from 'expo-auth-session';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
@@ -28,10 +27,7 @@ import ProductApp from './product/ProductApp';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const redirectTo = makeRedirectUri({
-  scheme: 'thirtydaysleepcoach',
-  path: 'auth/callback',
-});
+const redirectTo = Linking.createURL('auth/callback');
 
 type AuthCallbackResult = {
   isRecovery: boolean;

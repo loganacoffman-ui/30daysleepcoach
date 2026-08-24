@@ -65,7 +65,10 @@ function sanitizeRedirect(value: unknown) {
   const fallback = 'https://30daysleepcoach.com/';
   if (typeof value !== 'string') return fallback;
 
-  if (value === 'thirtydaysleepcoach://oura/callback') {
+  if (
+    value === 'thirtydaysleepcoach://oura/callback' ||
+    value === 'thirtydaysleepcoach-preview://oura/callback'
+  ) {
     return value;
   }
 

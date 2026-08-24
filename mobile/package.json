@@ -24,6 +24,7 @@
   },
   "scripts": {
     "start": "expo start --dev-client",
+    "start:preview": "APP_VARIANT=preview expo start --dev-client",
     "start:clear": "expo start --dev-client --clear",
     "start:tunnel": "expo start --dev-client --clear --tunnel",
     "android": "expo start --dev-client --android",
