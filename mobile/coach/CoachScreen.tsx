@@ -3,6 +3,7 @@ import { ActivityIndicator, Animated, Easing, Pressable, ScrollView, StyleSheet,
 import type { User } from '@supabase/supabase-js';
 
 import { getStarterExperiment } from '../coaching/experiments';
+import { colors } from '../design/theme';
 import type { SleepProfile } from '../onboarding/types';
 import { loadDailyCoaching } from './coachRepository';
 import type { DailyCoaching } from './coachRepository';
@@ -51,7 +52,7 @@ export default function CoachScreen({ user, profile }: { user: User; profile: Sl
         <View style={styles.focusRow}><View style={styles.focusLine} /><View><Text style={styles.focusLabel}>YOUR STARTING FOCUS</Text><Text style={styles.focusText}>{concernLabels[profile.primaryConcern]}</Text></View></View>
       </Animated.View>
 
-      {loading && <View style={styles.loading}><ActivityIndicator color="#4f7cff" /><Text style={styles.loadingText}>Reading your recent signals…</Text></View>}
+      {loading && <View style={styles.loading}><ActivityIndicator color={colors.accent} /><Text style={styles.loadingText}>Reading your recent signals…</Text></View>}
 
       {!loading && coaching && <View style={styles.coaching}>
         <Section animation={animations[1]} label="WHAT I’M NOTICING" text={coaching.pattern} />
@@ -70,5 +71,5 @@ export default function CoachScreen({ user, profile }: { user: User; profile: Sl
   );
 }
 
-const styles=StyleSheet.create({actionText:{color:'#1f1d25',fontSize:28,fontWeight:'700',letterSpacing:-.7,lineHeight:37},coaching:{gap:34,marginTop:42},content:{backgroundColor:'#fff',flexGrow:1,paddingBottom:56,paddingHorizontal:26,paddingTop:64},disclaimer:{color:'#aaa5af',fontSize:11,lineHeight:17,marginTop:16},error:{color:'#a53434',fontSize:13,lineHeight:19,marginTop:18},eyebrow:{color:'#4f7cff',fontSize:11,fontWeight:'800',letterSpacing:1.8},fallback:{marginTop:52},focusLabel:{color:'#99949f',fontSize:10,fontWeight:'800',letterSpacing:1.2},focusLine:{backgroundColor:'#4f7cff',borderRadius:2,height:38,width:3},focusRow:{alignItems:'center',flexDirection:'row',gap:13,marginTop:22},focusText:{color:'#3d3943',fontSize:16,fontWeight:'700',marginTop:4},loading:{alignItems:'center',gap:14,marginTop:100},loadingText:{color:'#85808e',fontSize:14},retry:{alignSelf:'flex-start',borderBottomColor:'#4f7cff',borderBottomWidth:1,marginTop:24,paddingBottom:3},retryText:{color:'#4f7cff',fontSize:14,fontWeight:'700'},sectionLabel:{color:'#4f7cff',fontSize:10,fontWeight:'800',letterSpacing:1.45,marginBottom:11},sectionText:{color:'#4b4652',fontSize:18,lineHeight:29},timestamp:{color:'#9b96a1',fontSize:11},
+const styles=StyleSheet.create({actionText:{color:colors.text,fontSize:28,fontWeight:'700',letterSpacing:-.7,lineHeight:37},coaching:{gap:34,marginTop:42},content:{backgroundColor:colors.canvas,flexGrow:1,paddingBottom:56,paddingHorizontal:26,paddingTop:64},disclaimer:{color:colors.textFaint,fontSize:11,lineHeight:17,marginTop:16},error:{color:colors.danger,fontSize:13,lineHeight:19,marginTop:18},eyebrow:{color:colors.accentSoft,fontSize:11,fontWeight:'800',letterSpacing:1.8},fallback:{backgroundColor:colors.surface, borderColor:colors.border, borderRadius:22, borderWidth:1, marginTop:42, padding:22},focusLabel:{color:colors.textSubtle,fontSize:10,fontWeight:'800',letterSpacing:1.2},focusLine:{backgroundColor:colors.accent,borderRadius:2,height:38,width:3},focusRow:{alignItems:'center',backgroundColor:colors.surface,borderColor:colors.border,borderRadius:18,borderWidth:1,flexDirection:'row',gap:13,marginTop:22,padding:16},focusText:{color:colors.text,fontSize:16,fontWeight:'700',marginTop:4},loading:{alignItems:'center',gap:14,marginTop:100},loadingText:{color:colors.textSubtle,fontSize:14},retry:{alignSelf:'flex-start',borderBottomColor:colors.accent,borderBottomWidth:1,marginTop:24,paddingBottom:3},retryText:{color:colors.accent,fontSize:14,fontWeight:'700'},sectionLabel:{color:colors.accentSoft,fontSize:10,fontWeight:'800',letterSpacing:1.45,marginBottom:11},sectionText:{color:colors.textMuted,fontSize:18,lineHeight:29},timestamp:{color:colors.textSubtle,fontSize:11},
 });

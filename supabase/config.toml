@@ -1,3 +1,24 @@
+[auth]
+site_url = "https://30daysleepcoach.com"
+additional_redirect_urls = [
+  "thirtydaysleepcoach://auth/callback",
+  "thirtydaysleepcoach://**",
+  "thirtydaysleepcoach-preview://auth/callback",
+]
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[auth.email]
+enable_confirmations = true
+max_frequency = "1m0s"
+otp_length = 8
+
+[auth.external.apple]
+enabled = true
+client_id = "com.30daysleepcoach.app"
+
 [functions.oura-oauth-callback]
 verify_jwt = false
 

@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
+import { colors } from '../design/theme';
 import { supabase } from '../supabase';
 
 const redirectTo = Linking.createURL('oura/callback');
@@ -113,7 +114,7 @@ export default function OuraIntegration() {
           : 'Connect Oura to securely import sleep and recovery signals. Your Oura credentials stay on the server.'}
       </Text>
       {!!error && <Text style={styles.error}>{error}</Text>}
-      {busy ? <ActivityIndicator color="#4f7cff" style={styles.loader} /> : (
+      {busy ? <ActivityIndicator color={colors.accent} style={styles.loader} /> : (
         <View style={styles.actions}>
           <Pressable onPress={status.connected ? () => void refresh() : () => void connect()} style={styles.primaryButton}>
             <Text style={styles.primaryText}>{status.connected ? 'Refresh Oura data' : 'Connect Oura'}</Text>
@@ -126,5 +127,5 @@ export default function OuraIntegration() {
 }
 
 const styles = StyleSheet.create({
-  actions:{gap:8,marginTop:14},copy:{color:'#716d7d',fontSize:14,lineHeight:21,marginTop:8},dot:{backgroundColor:'#aaa5af',borderRadius:5,height:10,width:10},dotConnected:{backgroundColor:'#35a265'},error:{color:'#a53434',fontSize:13,lineHeight:18,marginTop:10},loader:{alignSelf:'flex-start',marginTop:14},primaryButton:{alignItems:'center',backgroundColor:'#4f7cff',borderRadius:13,padding:13},primaryText:{color:'#fff',fontSize:14,fontWeight:'800'},secondaryButton:{alignItems:'center',borderColor:'#ded9e3',borderRadius:13,borderWidth:1,padding:12},secondaryText:{color:'#5f5967',fontSize:14,fontWeight:'800'},status:{color:'#34303c',fontSize:14,fontWeight:'800'},statusRow:{alignItems:'center',flexDirection:'row',gap:8},
+  actions:{gap:8,marginTop:14},copy:{color:colors.textMuted,fontSize:14,lineHeight:21,marginTop:8},dot:{backgroundColor:colors.textFaint,borderRadius:5,height:10,width:10},dotConnected:{backgroundColor:colors.success},error:{color:colors.danger,fontSize:13,lineHeight:18,marginTop:10},loader:{alignSelf:'flex-start',marginTop:14},primaryButton:{alignItems:'center',backgroundColor:colors.accent,borderRadius:13,padding:13},primaryText:{color:colors.ink,fontSize:14,fontWeight:'800'},secondaryButton:{alignItems:'center',borderColor:colors.borderStrong,borderRadius:13,borderWidth:1,padding:12},secondaryText:{color:colors.textMuted,fontSize:14,fontWeight:'800'},status:{color:colors.text,fontSize:14,fontWeight:'800'},statusRow:{alignItems:'center',flexDirection:'row',gap:8},
 });

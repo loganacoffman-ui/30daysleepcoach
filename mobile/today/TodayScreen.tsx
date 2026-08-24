@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { colors } from '../design/theme';
 import { mockTodayRepository } from './mockTodayRepository';
 import type {
   DailyCheckinDraft,
@@ -142,7 +143,7 @@ export default function TodayScreen({ repository = mockTodayRepository }: TodayS
         <View style={styles.moonMark}>
           <Text style={styles.moonMarkText}>☾</Text>
         </View>
-        <ActivityIndicator color="#4f7cff" size="large" />
+        <ActivityIndicator color={colors.accent} size="large" />
         <Text style={styles.stateTitle}>Preparing today</Text>
         <Text style={styles.stateCopy}>Pulling together your check-in and tonight’s focus.</Text>
       </View>
@@ -307,7 +308,7 @@ export default function TodayScreen({ repository = mockTodayRepository }: TodayS
                   multiline
                   onChangeText={setNote}
                   placeholder="A quick note, if you want..."
-                  placeholderTextColor="#8d899d"
+                  placeholderTextColor={colors.textFaint}
                   style={styles.noteInput}
                   textAlignVertical="top"
                   value={note}
@@ -329,7 +330,7 @@ export default function TodayScreen({ repository = mockTodayRepository }: TodayS
               ]}
             >
               {saving ? (
-                <ActivityIndicator color="#ffffff" />
+                <ActivityIndicator color={colors.ink} />
               ) : (
                 <Text style={styles.primaryButtonText}>
                   {selectedFeeling ? `Check in feeling ${selectedFeeling.label.toLowerCase()}` : 'Choose how you feel'}
@@ -378,7 +379,7 @@ export default function TodayScreen({ repository = mockTodayRepository }: TodayS
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: '#fafafa',
+    backgroundColor: colors.canvas,
     flex: 1,
   },
   content: {
@@ -393,45 +394,45 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   eyebrow: {
-    color: '#4f7cff',
+    color: colors.accentSoft,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.8,
     marginBottom: 8,
   },
   title: {
-    color: '#24212d',
+    color: colors.text,
     fontSize: 30,
     fontWeight: '800',
     letterSpacing: -0.8,
   },
   date: {
-    color: '#716d7d',
+    color: colors.textMuted,
     fontSize: 15,
     marginTop: 5,
   },
   dayBadge: {
     alignItems: 'center',
-    backgroundColor: '#f0f4ff',
+    backgroundColor: colors.surfaceAccent,
     borderRadius: 18,
     minWidth: 56,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   dayBadgeNumber: {
-    color: '#3d6ae8',
+    color: colors.accent,
     fontSize: 20,
     fontWeight: '800',
   },
   dayBadgeLabel: {
-    color: '#4f7cff',
+    color: colors.accentSoft,
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 1.2,
   },
   planProgress: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e8e4ec',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 18,
     borderWidth: 1,
     marginBottom: 18,
@@ -443,13 +444,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   planProgressTitle: {
-    color: '#716d7d',
+    color: colors.textMuted,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1.2,
   },
   planProgressCount: {
-    color: '#3d6ae8',
+    color: colors.accent,
     fontSize: 11,
     fontWeight: '800',
   },
@@ -459,40 +460,40 @@ const styles = StyleSheet.create({
     marginTop: 11,
   },
   planDot: {
-    backgroundColor: '#e8ecf7',
+    backgroundColor: colors.border,
     borderRadius: 4,
     flex: 1,
     height: 6,
   },
   planDotActive: {
-    backgroundColor: '#4f7cff',
+    backgroundColor: colors.accent,
   },
   checkinCard: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e8e4ec',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 26,
     borderWidth: 1,
     padding: 20,
-    shadowColor: '#332b52',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.07,
     shadowRadius: 18,
   },
   adherenceCard: {
-    backgroundColor: '#f0f4ff',
-    borderColor: '#c7d2fe',
+    backgroundColor: colors.surfaceAccent,
+    borderColor: colors.borderSelected,
     borderRadius: 22,
     borderWidth: 1,
     marginBottom: 16,
     padding: 18,
   },
   adherenceTitle: {
-    color: '#24212d',
+    color: colors.text,
     fontSize: 21,
     fontWeight: '800',
   },
   adherenceBehavior: {
-    color: '#52525b',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 21,
     marginTop: 8,
@@ -504,15 +505,15 @@ const styles = StyleSheet.create({
   },
   adherenceButton: {
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#dbe5ff',
+    backgroundColor: colors.surface,
+    borderColor: colors.borderStrong,
     borderRadius: 14,
     borderWidth: 1,
     flex: 1,
     paddingVertical: 11,
   },
   adherenceButtonText: {
-    color: '#3d6ae8',
+    color: colors.accent,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -523,21 +524,21 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sectionEyebrow: {
-    color: '#4f7cff',
+    color: colors.accentSoft,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.4,
     marginBottom: 6,
   },
   sectionTitle: {
-    color: '#292631',
+    color: colors.text,
     fontSize: 23,
     fontWeight: '800',
   },
   optionalLabel: {
-    backgroundColor: '#f1eff7',
+    backgroundColor: colors.surfaceRaised,
     borderRadius: 12,
-    color: '#767183',
+    color: colors.textSubtle,
     fontSize: 11,
     fontWeight: '700',
     overflow: 'hidden',
@@ -551,8 +552,8 @@ const styles = StyleSheet.create({
   },
   feelingButton: {
     alignItems: 'center',
-    backgroundColor: '#f4f4f5',
-    borderColor: '#eeebf1',
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
     borderRadius: 16,
     borderWidth: 1,
     flex: 1,
@@ -561,34 +562,34 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   feelingButtonSelected: {
-    backgroundColor: '#4f7cff',
-    borderColor: '#4f7cff',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   feelingNumber: {
-    color: '#5d5967',
+    color: colors.textMuted,
     fontSize: 18,
     fontWeight: '800',
   },
   feelingNumberSelected: {
-    color: '#ffffff',
+    color: colors.ink,
   },
   feelingText: {
-    color: '#75717f',
+    color: colors.textSubtle,
     fontSize: 10,
     fontWeight: '700',
     marginTop: 6,
   },
   feelingTextSelected: {
-    color: '#ffffff',
+    color: colors.ink,
   },
   prompt: {
-    color: '#34303c',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '800',
     marginTop: 24,
   },
   promptHint: {
-    color: '#85808e',
+    color: colors.textSubtle,
     fontSize: 12,
     marginTop: 4,
   },
@@ -599,31 +600,31 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   chip: {
-    backgroundColor: '#f4f4f5',
-    borderColor: '#e8e4ec',
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
     borderRadius: 18,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 9,
   },
   chipSelected: {
-    backgroundColor: '#f0f4ff',
-    borderColor: '#4f7cff',
+    backgroundColor: colors.surfaceAccent,
+    borderColor: colors.accent,
   },
   chipText: {
-    color: '#625e6a',
+    color: colors.textMuted,
     fontSize: 13,
     fontWeight: '700',
   },
   chipTextSelected: {
-    color: '#3d6ae8',
+    color: colors.accent,
   },
   noteInput: {
-    backgroundColor: '#f4f4f5',
-    borderColor: '#e8e4ec',
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
     borderRadius: 16,
     borderWidth: 1,
-    color: '#2f2b36',
+    color: colors.text,
     fontSize: 15,
     lineHeight: 21,
     marginTop: 12,
@@ -631,14 +632,14 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   characterCount: {
-    color: '#9792a0',
+    color: colors.textFaint,
     fontSize: 11,
     marginTop: 5,
     textAlign: 'right',
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#4f7cff',
+    backgroundColor: colors.accent,
     borderRadius: 17,
     justifyContent: 'center',
     marginTop: 22,
@@ -646,23 +647,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   primaryButtonDisabled: {
-    backgroundColor: '#d7d3df',
+    backgroundColor: colors.borderStrong,
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: colors.ink,
     fontSize: 15,
     fontWeight: '800',
     textAlign: 'center',
   },
   inlineError: {
-    color: '#b42318',
+    color: colors.danger,
     fontSize: 13,
     marginTop: 16,
     textAlign: 'center',
   },
   commitmentCard: {
-    backgroundColor: '#29243f',
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
     borderRadius: 26,
+    borderWidth: 1,
     marginTop: 16,
     overflow: 'hidden',
     padding: 22,
@@ -674,14 +677,14 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   commitmentEyebrow: {
-    color: '#a5b4fc',
+    color: colors.accent,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.5,
   },
   statusPill: {
     alignItems: 'center',
-    backgroundColor: '#3b3555',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     flexDirection: 'row',
     gap: 6,
@@ -689,32 +692,32 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   statusDot: {
-    backgroundColor: '#a5b4fc',
+    backgroundColor: colors.accent,
     borderRadius: 4,
     height: 7,
     width: 7,
   },
   statusText: {
-    color: '#dbe5ff',
+    color: colors.textMuted,
     fontSize: 10,
     fontWeight: '700',
   },
   commitmentTitle: {
-    color: '#ffffff',
+    color: colors.text,
     fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.35,
     lineHeight: 29,
   },
   commitmentWhy: {
-    color: '#c9c4d8',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 21,
     marginTop: 12,
   },
   coachNote: {
     alignItems: 'center',
-    borderTopColor: '#45405b',
+    borderTopColor: colors.border,
     borderTopWidth: 1,
     flexDirection: 'row',
     gap: 10,
@@ -722,11 +725,11 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   coachMark: {
-    color: '#a5b4fc',
+    color: colors.accent,
     fontSize: 23,
   },
   coachNoteText: {
-    color: '#aaa4bc',
+    color: colors.textSubtle,
     flex: 1,
     fontSize: 12,
     fontStyle: 'italic',
@@ -734,15 +737,15 @@ const styles = StyleSheet.create({
   },
   completedCard: {
     alignItems: 'center',
-    backgroundColor: '#f0f4ff',
-    borderColor: '#dbe5ff',
+    backgroundColor: colors.surfaceAccent,
+    borderColor: colors.borderStrong,
     borderRadius: 26,
     borderWidth: 1,
     padding: 24,
   },
   completedIcon: {
     alignItems: 'center',
-    backgroundColor: '#4f7cff',
+    backgroundColor: colors.accent,
     borderRadius: 24,
     height: 48,
     justifyContent: 'center',
@@ -750,25 +753,25 @@ const styles = StyleSheet.create({
     width: 48,
   },
   completedIconText: {
-    color: '#ffffff',
+    color: colors.ink,
     fontSize: 24,
     fontWeight: '800',
   },
   completedEyebrow: {
-    color: '#3d6ae8',
+    color: colors.accent,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.4,
   },
   completedTitle: {
-    color: '#2f2a43',
+    color: colors.text,
     fontSize: 20,
     fontWeight: '800',
     marginTop: 8,
     textAlign: 'center',
   },
   completedCopy: {
-    color: '#6d6780',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
     marginTop: 10,
@@ -776,14 +779,14 @@ const styles = StyleSheet.create({
   },
   centeredState: {
     alignItems: 'center',
-    backgroundColor: '#fafafa',
+    backgroundColor: colors.canvas,
     flex: 1,
     justifyContent: 'center',
     padding: 32,
   },
   moonMark: {
     alignItems: 'center',
-    backgroundColor: '#f0f4ff',
+    backgroundColor: colors.surfaceAccent,
     borderRadius: 30,
     height: 60,
     justifyContent: 'center',
@@ -791,24 +794,24 @@ const styles = StyleSheet.create({
     width: 60,
   },
   moonMarkText: {
-    color: '#4f7cff',
+    color: colors.accentSoft,
     fontSize: 32,
   },
   stateEyebrow: {
-    color: '#4f7cff',
+    color: colors.accentSoft,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.8,
   },
   stateTitle: {
-    color: '#2c2933',
+    color: colors.text,
     fontSize: 22,
     fontWeight: '800',
     marginTop: 14,
     textAlign: 'center',
   },
   stateCopy: {
-    color: '#76717f',
+    color: colors.textSubtle,
     fontSize: 14,
     lineHeight: 21,
     marginTop: 8,
@@ -816,14 +819,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: '#4f7cff',
+    backgroundColor: colors.accent,
     borderRadius: 16,
     marginTop: 22,
     paddingHorizontal: 24,
     paddingVertical: 14,
   },
   retryButtonText: {
-    color: '#ffffff',
+    color: colors.ink,
     fontSize: 15,
     fontWeight: '800',
   },
