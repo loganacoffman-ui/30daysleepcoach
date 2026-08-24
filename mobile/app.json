@@ -1,18 +1,19 @@
 {
   "expo": {
-    "name": "30daysleepcoach",
+    "name": "30 Day Sleep Coach",
     "slug": "30daysleepcoach",
     "scheme": "thirtydaysleepcoach",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.30daysleepcoach.app",
+      "buildNumber": "12",
       "usesAppleSignIn": true,
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+      "config": {
+        "usesNonExemptEncryption": false
       }
     },
     "android": {
@@ -33,8 +34,8 @@
       }
     },
     "plugins": [
-      "expo-apple-authentication",
       "expo-web-browser",
+      "expo-apple-authentication",
       [
         "expo-build-properties",
         {

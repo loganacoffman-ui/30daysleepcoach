@@ -302,13 +302,94 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { messages, sleepData, cacheKey, mode } = await req.json();
+    const { messages, sleepData, cacheKey, mode, coachContext } = await req.json();
 
     // Create a Supabase client that respects the user's JWT for RLS
     const authHeader = req.headers.get("Authorization");
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader ?? "" } },
     });
+
+    // ─── NATIVE DAILY COACH (persistent one-per-calendar-day artifact) ─
+    if (mode === "daily_coach") {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        return new Response(JSON.stringify({ error: "Authentication required" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const recommendationDate = typeof coachContext?.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(coachContext.date)
+        ? coachContext.date
+        : new Date().toISOString().split("T")[0];
+
+      const { data: existing } = await supabase
+        .from("coach_recommendations")
+        .select("pattern, meaning, action, why, generated_at")
+        .eq("user_id", user.id)
+        .eq("recommendation_date", recommendationDate)
+        .maybeSingle();
+
+      if (existing) {
+        return new Response(JSON.stringify({
+          status: "ok",
+          recommendation: existing,
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json", "X-Cache": "HIT" },
+        });
+      }
+
+      const userMessage = `Generate today's four-section coaching recommendation from this combined context. Subjective check-ins and notes describe how the user felt and what they think affected sleep. Experiment adherence shows what they actually tried. Oura sleep is the quantitative layer when connected. Be honest when data is sparse; do not invent measurements. Always return all four required sections.\n\n${JSON.stringify(coachContext, null, 2)}`;
+      let rawText = await callAnthropicNonStreaming(userMessage);
+      let sections = rawText ? parseRecommendation(rawText) : null;
+      if (!sections) {
+        rawText = await callAnthropicNonStreaming(userMessage);
+        sections = rawText ? parseRecommendation(rawText) : null;
+      }
+
+      if (!sections) {
+        return new Response(JSON.stringify({ status: "generation_failed" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const generatedAt = new Date().toISOString();
+      const record = {
+        user_id: user.id,
+        recommendation_date: recommendationDate,
+        pattern: sections.pattern,
+        meaning: sections.meaning,
+        action: sections.action,
+        why: sections.why,
+        source_context: {
+          subjective_checkin_count: Array.isArray(coachContext?.subjective_checkins) ? coachContext.subjective_checkins.length : 0,
+          adherence_count: Array.isArray(coachContext?.experiment_adherence) ? coachContext.experiment_adherence.length : 0,
+          oura_sleep_count: Array.isArray(coachContext?.oura_sleep) ? coachContext.oura_sleep.length : 0,
+        },
+        prompt_version: "native-daily-v1",
+        model: "claude-sonnet-4-6",
+        generated_at: generatedAt,
+      };
+
+      const { data: saved, error: saveError } = await supabase
+        .from("coach_recommendations")
+        .upsert(record, { onConflict: "user_id,recommendation_date" })
+        .select("pattern, meaning, action, why, generated_at")
+        .single();
+
+      if (saveError || !saved) {
+        return new Response(JSON.stringify({ error: saveError?.message ?? "Could not save coaching" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ status: "ok", recommendation: saved }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json", "X-Cache": "MISS" },
+      });
+    }
 
     // ─── RECOMMENDATION MODE (non-streaming, structured JSON) ─────────
     if (mode === "recommendation") {

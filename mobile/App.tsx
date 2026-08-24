@@ -4,7 +4,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,11 +18,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
 
-import { Onboarding } from './Onboarding';
 import { supabase } from './supabase';
+import OnboardingScreen from './onboarding/OnboardingScreen';
+import { loadSleepProfile, saveSleepProfile } from './onboarding/profileRepository';
+import type { OnboardingDraft, SleepProfile } from './onboarding/types';
+import ProductApp from './product/ProductApp';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -84,16 +86,13 @@ function AppContent() {
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [session, setSession] = useState<Session | null>(null);
-  const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [appleSignInAvailable, setAppleSignInAvailable] = useState(false);
-
-  const handleOnboardingComplete = useCallback(() => {
-    setOnboardingComplete(true);
-  }, []);
+  const [profile, setProfile] = useState<SleepProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -167,7 +166,18 @@ function AppContent() {
   }, [incomingUrl]);
 
   useEffect(() => {
-    setOnboardingComplete(false);
+    let mounted = true;
+    if (!session) {
+      setProfile(null);
+      setProfileLoading(false);
+      return;
+    }
+    setProfileLoading(true);
+    void loadSleepProfile(session.user)
+      .then((nextProfile) => { if (mounted) setProfile(nextProfile); })
+      .catch((error: unknown) => { if (mounted) setMessage(getErrorMessage(error)); })
+      .finally(() => { if (mounted) setProfileLoading(false); });
+    return () => { mounted = false; };
   }, [session?.user.id]);
 
   const runAuthAction = async (action: () => Promise<void>) => {
@@ -367,25 +377,44 @@ function AppContent() {
     );
   };
 
+  const completeOnboarding = async (draft: OnboardingDraft) => {
+    if (!session) return;
+    const nextProfile = await saveSleepProfile(session.user, draft);
+    setProfile(nextProfile);
+  };
+
   if (initializing) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator color="#5956e9" size="large" />
+        <ActivityIndicator color="#4f7cff" size="large" />
         <StatusBar style="dark" />
       </View>
     );
   }
 
-  if (session && !onboardingComplete) {
+  if (session && !recoveryMode) {
+    if (profileLoading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator color="#4f7cff" size="large" />
+          <StatusBar style="dark" />
+        </View>
+      );
+    }
+
+    if (!profile) {
+      const metadataName = session.user.user_metadata?.given_name ?? session.user.user_metadata?.full_name ?? '';
+      return <OnboardingScreen initialName={metadataName} onComplete={completeOnboarding} />;
+    }
+
     return (
-      <>
-        <Onboarding
-          key={session.user.id}
-          onComplete={handleOnboardingComplete}
-          session={session}
-        />
-        <StatusBar style="light" />
-      </>
+      <ProductApp
+        busy={busy}
+        onDeleteAccount={deleteAccount}
+        onSignOut={signOut}
+        profile={profile}
+        session={session}
+      />
     );
   }
 
@@ -557,7 +586,7 @@ function AppContent() {
             </>
           )}
 
-          {busy && <ActivityIndicator color="#5956e9" style={styles.activity} />}
+          {busy && <ActivityIndicator color="#4f7cff" style={styles.activity} />}
           {!!message && <Text style={styles.message}>{message}</Text>}
         </View>
 
@@ -575,21 +604,17 @@ function AppContent() {
 }
 
 export default function App() {
-  return (
-    <SafeAreaProvider>
-      <AppContent />
-    </SafeAreaProvider>
-  );
+  return <AppContent />;
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f4ff',
+    backgroundColor: '#fafafa',
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#f5f4ff',
+    backgroundColor: '#fafafa',
     justifyContent: 'center',
   },
   scrollContent: {
@@ -602,7 +627,7 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   eyebrow: {
-    color: '#5956e9',
+    color: '#4f7cff',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.5,
@@ -638,7 +663,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#f8f7fc',
+    backgroundColor: '#f4f4f5',
     borderColor: '#e6e4ef',
     borderRadius: 14,
     borderWidth: 1,
@@ -657,7 +682,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
   primaryButton: {
-    backgroundColor: '#5956e9',
+    backgroundColor: '#4f7cff',
   },
   primaryButtonText: {
     color: '#ffffff',
@@ -665,10 +690,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   secondaryButton: {
-    backgroundColor: '#eeedff',
+    backgroundColor: '#f0f4ff',
   },
   secondaryButtonText: {
-    color: '#4d49c7',
+    color: '#3d6ae8',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -743,7 +768,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   privacyLink: {
-    color: '#4d49c7',
+    color: '#3d6ae8',
     fontSize: 13,
     fontWeight: '600',
     marginTop: 12,
@@ -751,7 +776,7 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   forgotPassword: {
-    color: '#4d49c7',
+    color: '#3d6ae8',
     fontSize: 14,
     fontWeight: '600',
     marginTop: 16,

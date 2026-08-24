@@ -2,3 +2,6 @@
 *.zip
 supabase/.temp/
 node_modules/
+.pnpm-store/
+.git.icloud-placeholder-backup/
+/arbitrage-engine/
