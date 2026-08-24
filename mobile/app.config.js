@@ -14,7 +14,7 @@ module.exports = {
       bundleIdentifier: isPreview
         ? 'com.30daysleepcoach.app.preview'
         : 'com.30daysleepcoach.app',
-      buildNumber: '12',
+      buildNumber: '13',
       usesAppleSignIn: true,
       config: {
         usesNonExemptEncryption: false,

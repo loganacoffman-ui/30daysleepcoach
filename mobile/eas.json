@@ -21,9 +21,7 @@
       "extends": "production",
       "environment": "preview"
     },
-    "production": {
-      "autoIncrement": true
-    }
+    "production": {}
   },
   "submit": {
     "production": {
