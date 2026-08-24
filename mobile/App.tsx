@@ -1,10 +1,9 @@
-import { makeRedirectUri } from 'expo-auth-session';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,18 +19,15 @@ import {
 } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 
+import { Onboarding } from './Onboarding';
 import { supabase } from './supabase';
-import OnboardingScreen from './onboarding/OnboardingScreen';
-import { loadSleepProfile, saveSleepProfile } from './onboarding/profileRepository';
-import type { OnboardingDraft, SleepProfile } from './onboarding/types';
+import { loadSleepProfile } from './onboarding/profileRepository';
+import type { SleepProfile } from './onboarding/types';
 import ProductApp from './product/ProductApp';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const redirectTo = makeRedirectUri({
-  scheme: 'thirtydaysleepcoach',
-  path: 'auth/callback',
-});
+const redirectTo = Linking.createURL('auth/callback');
 
 type AuthCallbackResult = {
   isRecovery: boolean;
@@ -377,11 +373,17 @@ function AppContent() {
     );
   };
 
-  const completeOnboarding = async (draft: OnboardingDraft) => {
-    if (!session) return;
-    const nextProfile = await saveSleepProfile(session.user, draft);
+  const completeOnboarding = useCallback(async () => {
+    if (!session) {
+      return;
+    }
+
+    const nextProfile = await loadSleepProfile(session.user);
+    if (!nextProfile) {
+      throw new Error('Your onboarding answers were saved, but the completed profile could not be loaded.');
+    }
     setProfile(nextProfile);
-  };
+  }, [session]);
 
   if (initializing) {
     return (
@@ -403,8 +405,13 @@ function AppContent() {
     }
 
     if (!profile) {
-      const metadataName = session.user.user_metadata?.given_name ?? session.user.user_metadata?.full_name ?? '';
-      return <OnboardingScreen initialName={metadataName} onComplete={completeOnboarding} />;
+      return (
+        <Onboarding
+          key={session.user.id}
+          onComplete={completeOnboarding}
+          session={session}
+        />
+      );
     }
 
     return (

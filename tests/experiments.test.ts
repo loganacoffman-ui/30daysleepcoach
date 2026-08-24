@@ -3,15 +3,29 @@ import { describe, expect, it } from 'vitest';
 import { getAdaptiveExperiment, getStarterExperiment, localISODate } from '../mobile/coaching/experiments';
 
 describe('adaptive coaching experiments', () => {
+  it('supports every canonical PR #22 concern key', () => {
+    const concerns = [
+      'falling_asleep',
+      'night_waking',
+      'early_waking',
+      'unrefreshed',
+      'irregular_schedule',
+    ] as const;
+
+    for (const concern of concerns) {
+      expect(getStarterExperiment(concern).behavior).toBeTruthy();
+    }
+  });
+
   it('starts with the experiment mapped to the primary concern', () => {
-    const result = getAdaptiveExperiment('stress', []);
+    const result = getAdaptiveExperiment('early_waking', []);
     expect(result.decision).toBe('start');
-    expect(result.behavior).toBe(getStarterExperiment('stress').behavior);
+    expect(result.behavior).toBe(getStarterExperiment('early_waking').behavior);
   });
 
   it('repeats the latest experiment after partial adherence', () => {
-    const starter = getStarterExperiment('schedule');
-    const result = getAdaptiveExperiment('schedule', [{ behavior: starter.behavior, status: 'partial' }]);
+    const starter = getStarterExperiment('irregular_schedule');
+    const result = getAdaptiveExperiment('irregular_schedule', [{ behavior: starter.behavior, status: 'partial' }]);
     expect(result.decision).toBe('repeat');
     expect(result.behavior).toBe(starter.behavior);
   });
@@ -24,12 +38,12 @@ describe('adaptive coaching experiments', () => {
   });
 
   it('advances after completion without running beyond the program', () => {
-    const starter = getStarterExperiment('waking_tired');
-    const next = getAdaptiveExperiment('waking_tired', [{ behavior: starter.behavior, status: 'completed' }]);
+    const starter = getStarterExperiment('unrefreshed');
+    const next = getAdaptiveExperiment('unrefreshed', [{ behavior: starter.behavior, status: 'completed' }]);
     expect(next.decision).toBe('advance');
     expect(next.behavior).not.toBe(starter.behavior);
 
-    const final = getAdaptiveExperiment('waking_tired', [{ behavior: 'Avoid using snooze tomorrow morning.', status: 'completed' }]);
+    const final = getAdaptiveExperiment('unrefreshed', [{ behavior: 'Avoid using snooze tomorrow morning.', status: 'completed' }]);
     expect(final.behavior).toBe('Avoid using snooze tomorrow morning.');
   });
 });
