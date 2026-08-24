@@ -39,6 +39,19 @@ type IntakeAnswers = {
   first_experiment?: string;
 };
 
+const getSaveErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error) return error.message;
+  if (
+    error &&
+    typeof error === 'object' &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
+    return error.message;
+  }
+  return fallback;
+};
+
 type ConcernOption = {
   key: ConcernKey;
   label: string;
@@ -432,7 +445,7 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
       await transitionTo(nextStep, direction);
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : 'We could not save that answer. Try again.',
+        getSaveErrorMessage(error, 'We could not save that answer. Try again.'),
       );
     } finally {
       setSaving(false);
@@ -593,9 +606,10 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
       await onComplete();
     } catch (error) {
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : 'We could not finish setup. Your earlier answers are still saved.',
+        getSaveErrorMessage(
+          error,
+          'We could not finish setup. Your earlier answers are still saved.',
+        ),
       );
       setSaving(false);
     }

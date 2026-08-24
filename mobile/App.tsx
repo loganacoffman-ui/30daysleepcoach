@@ -74,7 +74,18 @@ async function createSessionFromUrl(url: string): Promise<AuthCallbackResult> {
 }
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (
+    error &&
+    typeof error === 'object' &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
+    return error.message;
+  }
+  return 'Something went wrong. Please try again.';
 }
 
 function AppContent() {
@@ -93,23 +104,46 @@ function AppContent() {
 
   useEffect(() => {
     let mounted = true;
+    let storedSessionValidated = false;
 
-    void supabase.auth.getSession().then(({ data, error }) => {
-      if (!mounted) {
+    const restoreSession = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (!mounted) return;
+
+      if (error || !data.session) {
+        storedSessionValidated = true;
+        setSession(null);
+        if (error) setMessage(error.message);
+        setInitializing(false);
         return;
       }
 
-      if (error) {
-        setMessage(error.message);
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (!mounted) return;
+
+      if (userError || !userData.user) {
+        await supabase.auth.signOut({ scope: 'local' });
+        if (!mounted) return;
+        storedSessionValidated = true;
+        setSession(null);
+        setMessage('Your previous session expired. Please sign in again.');
+        setInitializing(false);
+        return;
       }
 
-      setSession(data.session);
+      storedSessionValidated = true;
+      setSession({ ...data.session, user: userData.user });
       setInitializing(false);
-    });
+    };
+
+    void restoreSession();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === 'INITIAL_SESSION' && !storedSessionValidated) {
+        return;
+      }
       setSession(nextSession);
       if (event === 'PASSWORD_RECOVERY') {
         setRecoveryMode(true);
