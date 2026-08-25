@@ -6,3 +6,5 @@ minimumReleaseAgeExclude:
   - expo@57.0.10
   - expo-auth-session@57.0.6
   - expo-linking@57.0.5
+  - '@expo/image-utils@0.11.5'
+  - '@expo/require-utils@57.0.5'

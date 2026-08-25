@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   LayoutChangeEvent,
+  Linking,
   PanResponder,
   Pressable,
   ScrollView,
@@ -14,6 +16,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
 
+import {
+  cancelDailyCheckInReminder,
+  scheduleDailyCheckInReminder,
+} from './notifications';
 import type { PrimaryConcern } from './onboarding/types';
 import { supabase } from './supabase';
 
@@ -566,7 +572,7 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
     );
   };
 
-  const completeOnboarding = async () => {
+  const completeOnboarding = async (skipReminder = false) => {
     if (saving) {
       return;
     }
@@ -582,7 +588,40 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
 
     setSaving(true);
     setErrorMessage('');
+    let scheduledReminderIdentifier: string | undefined;
     try {
+      if (!skipReminder) {
+        const reminderResult = await scheduleDailyCheckInReminder(reminderTime);
+
+        if (reminderResult.status === 'denied') {
+          setSaving(false);
+          Alert.alert(
+            'Notifications are off',
+            'Turn on notifications in Settings to receive your daily check-in reminder.',
+            [
+              { text: 'Not now', style: 'cancel' },
+              {
+                text: 'Open Settings',
+                onPress: () => {
+                  void Linking.openSettings();
+                },
+              },
+              {
+                text: 'Continue without reminder',
+                onPress: () => {
+                  void completeOnboarding(true);
+                },
+              },
+            ],
+          );
+          return;
+        }
+
+        if (reminderResult.status === 'scheduled') {
+          scheduledReminderIdentifier = reminderResult.identifier;
+        }
+      }
+
       const { error } = await supabase.rpc('complete_sleep_onboarding', {
         p_behavior: firstExperiment,
         p_behavior_date: localISODate(),
@@ -605,6 +644,9 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
       setAnswers(completedAnswers);
       await onComplete();
     } catch (error) {
+      if (scheduledReminderIdentifier) {
+        await cancelDailyCheckInReminder(scheduledReminderIdentifier);
+      }
       setErrorMessage(
         getSaveErrorMessage(
           error,
@@ -949,11 +991,12 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
           </View>
           <Text style={styles.reminderHint}>
             We’ll ask how last night went and use that context to refine your next step.
+            You’ll be asked to allow notifications when you continue.
           </Text>
         </View>
         <PrimaryButton
           busy={saving}
-          label="Start my first night"
+          label="Schedule reminder & start"
           onPress={() => void completeOnboarding()}
         />
       </View>
