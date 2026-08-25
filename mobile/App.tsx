@@ -20,6 +20,7 @@ import {
 import type { Session } from '@supabase/supabase-js';
 
 import { colors } from './design/theme';
+import { clearDailyCheckInReminder } from './notifications';
 import { Onboarding } from './Onboarding';
 import { supabase } from './supabase';
 import { loadSleepProfile } from './onboarding/profileRepository';
@@ -399,6 +400,7 @@ function AppContent() {
                 throw new Error('We could not delete your account. Your account is still active.');
               }
 
+              await clearDailyCheckInReminder();
               await supabase.auth.signOut({ scope: 'local' });
               setMessage('Your account has been permanently deleted.');
             });

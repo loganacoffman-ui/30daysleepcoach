@@ -45,6 +45,13 @@ module.exports = {
       'expo-web-browser',
       'expo-apple-authentication',
       [
+        'expo-notifications',
+        {
+          defaultChannel: 'daily-check-in',
+          color: '#FFB347',
+        },
+      ],
+      [
         'expo-build-properties',
         {
           ios: {

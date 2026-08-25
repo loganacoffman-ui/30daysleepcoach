@@ -63,6 +63,42 @@ pnpm start:tunnel
 
 Start editing `App.tsx`; Expo will reload the app as you save.
 
+## Daily check-in notifications
+
+The onboarding reminder uses an Expo recurring local notification. The permission
+prompt appears only after the user chooses a reminder time and taps **Schedule
+reminder & start**. The notification repeats in the device's local time and does
+not require an internet connection, Expo push token, Supabase function, or
+server cron.
+
+After onboarding, Settings → Reminders shows the device's actual scheduled state.
+Users can turn the reminder off, turn it back on (requesting OS permission when
+needed), or move it earlier or later in 15-minute increments.
+
+`expo-notifications` and its config plugin are native dependencies, so create and
+install a new development or production build after pulling this change:
+
+```bash
+pnpm dlx eas-cli@latest build --profile development --platform ios
+pnpm dlx eas-cli@latest build --profile development --platform android
+```
+
+The plugin adds Apple's push-notification entitlement. On the first iOS build,
+let EAS enable Push Notifications for the production and preview App IDs and
+generate or reuse an Apple Push Notifications key when prompted. The local
+reminder does not send through APNs, but matching the entitlement and provisioning
+profile keeps the signed binary correctly configured. Android does not need
+Firebase/FCM credentials for this local reminder.
+
+Test on a physical device by choosing a reminder a few minutes ahead, accepting
+the OS permission prompt, and backgrounding the app. If permission was previously
+denied, re-enable it in the device's notification settings and tap the onboarding
+button again.
+
+Expo push-token registration, token storage, FCM credentials, and a delivery
+backend are only needed if the product later sends remote, server-initiated
+notifications.
+
 ## Supabase authentication
 
 The app is connected to the `qfnouotdhfltgvjhfbld` Supabase project and supports:
