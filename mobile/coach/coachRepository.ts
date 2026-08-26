@@ -4,7 +4,28 @@ import type { SleepProfile } from '../onboarding/types';
 import { supabase } from '../supabase';
 
 export type DailyCoaching = { pattern: string; meaning: string; action: string; why: string; generatedAt: string };
-export type CoachMessage = { id: string; role: 'user' | 'assistant'; content: string; createdAt: string; pending?: boolean };
+export type CoachToolCallStatus = 'pending' | 'completed' | 'cancelled' | 'failed' | 'expired';
+export type CoachToolCall = {
+  id: string;
+  name: string;
+  status: CoachToolCallStatus;
+  requiresConfirmation: boolean;
+  expiresAt: string;
+  proposal: {
+    previousExperiment: string;
+    replacementExperiment: string;
+    userReason: string;
+    coachRationale: string;
+  };
+};
+export type CoachMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+  pending?: boolean;
+  toolCall?: CoachToolCall;
+};
 export type CoachExperience = {
   conversationId: string;
   messages: CoachMessage[];
@@ -66,6 +87,75 @@ const createRequestId = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[x
   return (character === 'x' ? random : (random & 0x3) | 0x8).toString(16);
 });
 
+type StoredCoachMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+  metadata?: Record<string, unknown> | null;
+};
+
+type StoredCoachToolCall = {
+  id: string;
+  tool_name: string;
+  status: CoachToolCallStatus;
+  input: Record<string, unknown>;
+  requires_confirmation: boolean;
+  expires_at: string;
+};
+
+const storedToolCallToCoachToolCall = (toolCall: StoredCoachToolCall): CoachToolCall | null => {
+  const previousExperiment = toolCall.input.previous_experiment;
+  const replacementExperiment = toolCall.input.replacement_experiment;
+  const userReason = toolCall.input.user_reason;
+  const coachRationale = toolCall.input.coach_rationale;
+  if (
+    typeof previousExperiment !== 'string'
+    || typeof replacementExperiment !== 'string'
+    || typeof userReason !== 'string'
+    || typeof coachRationale !== 'string'
+  ) {
+    return null;
+  }
+  return {
+    id: toolCall.id,
+    name: toolCall.tool_name,
+    status: toolCall.status,
+    requiresConfirmation: toolCall.requires_confirmation,
+    expiresAt: toolCall.expires_at,
+    proposal: {
+      previousExperiment,
+      replacementExperiment,
+      userReason,
+      coachRationale,
+    },
+  };
+};
+
+const mapCoachMessages = (
+  messages: StoredCoachMessage[],
+  toolCalls: StoredCoachToolCall[],
+): CoachMessage[] => {
+  const callsById = new Map(
+    toolCalls
+      .map(storedToolCallToCoachToolCall)
+      .filter((toolCall): toolCall is CoachToolCall => toolCall !== null)
+      .map(toolCall => [toolCall.id, toolCall]),
+  );
+  return messages.map(message => {
+    const toolCallId = message.metadata?.tool_action
+      ? undefined
+      : message.metadata?.tool_call_id;
+    return {
+      id: message.id,
+      role: message.role,
+      content: message.content,
+      createdAt: message.created_at,
+      toolCall: typeof toolCallId === 'string' ? callsById.get(toolCallId) : undefined,
+    };
+  });
+};
+
 const loadCoachContext = async (user: User, profile: SleepProfile): Promise<CoachContext> => {
   const [checkinsResult, commitmentsResult, ouraResult] = await Promise.all([
     supabase.from('daily_checkins').select('checkin_date, feeling, suspected_factor, note, completed_at').eq('user_id', user.id).order('checkin_date', { ascending: false }).limit(14),
@@ -121,19 +211,25 @@ export const loadCoachConversation = async (user: User, conversationId: string):
   if (conversation.error) throw conversation.error;
   if (!conversation.data) throw new Error('That coaching conversation is no longer available.');
 
-  const messagesResult = await supabase
-    .from('coach_messages')
-    .select('id, role, content, created_at')
-    .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true })
-    .limit(60);
+  const [messagesResult, toolCallsResult] = await Promise.all([
+    supabase
+      .from('coach_messages')
+      .select('id, role, content, created_at, metadata')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true })
+      .limit(60),
+    supabase
+      .from('coach_tool_calls')
+      .select('id, tool_name, status, input, requires_confirmation, expires_at')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true }),
+  ]);
   if (messagesResult.error) throw messagesResult.error;
-  return (messagesResult.data ?? []).map(message => ({
-    id: message.id,
-    role: message.role as CoachMessage['role'],
-    content: message.content,
-    createdAt: message.created_at,
-  }));
+  if (toolCallsResult.error) throw toolCallsResult.error;
+  return mapCoachMessages(
+    (messagesResult.data ?? []) as StoredCoachMessage[],
+    (toolCallsResult.data ?? []) as StoredCoachToolCall[],
+  );
 };
 
 export const loadDailyCoaching = async (user: User, profile: SleepProfile, context?: CoachContext): Promise<DailyCoaching> => {
@@ -154,13 +250,20 @@ export const loadDailyCoaching = async (user: User, profile: SleepProfile, conte
 
 export const loadCoachExperience = async (user: User, profile: SleepProfile): Promise<CoachExperience> => {
   const [conversationId, context] = await Promise.all([ensureConversation(user), loadCoachContext(user, profile)]);
-  const messagesResult = await supabase.from('coach_messages').select('id, role, content, created_at').eq('conversation_id', conversationId).order('created_at', { ascending: true }).limit(100);
+  const [messagesResult, toolCallsResult] = await Promise.all([
+    supabase.from('coach_messages').select('id, role, content, created_at, metadata').eq('conversation_id', conversationId).order('created_at', { ascending: true }).limit(100),
+    supabase.from('coach_tool_calls').select('id, tool_name, status, input, requires_confirmation, expires_at').eq('conversation_id', conversationId).order('created_at', { ascending: true }),
+  ]);
   if (messagesResult.error) throw messagesResult.error;
+  if (toolCallsResult.error) throw toolCallsResult.error;
   let dailyCoaching: DailyCoaching | null = null;
   try { dailyCoaching = await loadDailyCoaching(user, profile, context); } catch { /* Chat remains useful if today's artifact is unavailable. */ }
   return {
     conversationId,
-    messages: (messagesResult.data ?? []).map(message => ({ id: message.id, role: message.role as CoachMessage['role'], content: message.content, createdAt: message.created_at })),
+    messages: mapCoachMessages(
+      (messagesResult.data ?? []) as StoredCoachMessage[],
+      (toolCallsResult.data ?? []) as StoredCoachToolCall[],
+    ),
     dailyCoaching,
     hasCheckedInToday: context.subjective_checkins.some(checkin => typeof checkin === 'object' && checkin !== null && 'checkin_date' in checkin && checkin.checkin_date === localDate()),
     hasOuraData: context.oura_sleep.length > 0,
@@ -173,6 +276,7 @@ export const sendCoachMessage = async (user: User, profile: SleepProfile, conver
   const { data, error } = await supabase.functions.invoke<{
     status?: string;
     message?: { id: string; role: 'assistant'; content: string; created_at: string };
+    toolCall?: CoachToolCall | null;
   }>('sleep-coach', {
     body: {
       mode: 'coach_chat',
@@ -183,5 +287,47 @@ export const sendCoachMessage = async (user: User, profile: SleepProfile, conver
     },
   });
   if (error || data?.status !== 'ok' || !data.message) throw error ?? new Error('Your coach could not respond. Please try again.');
-  return { id: data.message.id, role: 'assistant', content: data.message.content, createdAt: data.message.created_at };
+  return {
+    id: data.message.id,
+    role: 'assistant',
+    content: data.message.content,
+    createdAt: data.message.created_at,
+    toolCall: data.toolCall ?? undefined,
+  };
+};
+
+export const resolveCoachToolCall = async (
+  conversationId: string,
+  toolCallId: string,
+  action: 'confirm' | 'cancel',
+): Promise<{ messages: CoachMessage[]; toolCall: CoachToolCall }> => {
+  const { data, error } = await supabase.functions.invoke<{
+    status?: string;
+    messages?: Array<{
+      id: string;
+      role: 'user' | 'assistant';
+      content: string;
+      created_at: string;
+    }>;
+    toolCall?: CoachToolCall;
+  }>('sleep-coach', {
+    body: {
+      mode: 'coach_tool_action',
+      conversationId,
+      toolCallId,
+      action,
+    },
+  });
+  if (error || data?.status !== 'ok' || !data.messages || !data.toolCall) {
+    throw error ?? new Error('The experiment change could not be updated. Please try again.');
+  }
+  return {
+    messages: data.messages.map(message => ({
+      id: message.id,
+      role: message.role,
+      content: message.content,
+      createdAt: message.created_at,
+    })),
+    toolCall: data.toolCall,
+  };
 };

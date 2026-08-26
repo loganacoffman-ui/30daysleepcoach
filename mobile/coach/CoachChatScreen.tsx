@@ -24,6 +24,7 @@ import {
   loadCoachConversation,
   loadDailyCoaching,
   localDate,
+  resolveCoachToolCall,
   sendCoachMessage,
 } from "./coachRepository";
 import type { CoachHomeState, CoachMessage, DailyCoaching } from "./coachRepository";
@@ -148,8 +149,23 @@ const LauncherAction = ({
   </Pressable>
 );
 
-const Message = ({ animate, message }: { animate: boolean; message: CoachMessage }) => {
+const Message = ({
+  animate,
+  message,
+  onResolveToolCall,
+  resolving,
+}: {
+  animate: boolean;
+  message: CoachMessage;
+  onResolveToolCall: (toolCallId: string, action: "confirm" | "cancel") => void;
+  resolving: boolean;
+}) => {
   const isUser = message.role === "user";
+  const toolCall = message.toolCall;
+  const proposalExpired = toolCall
+    ? toolCall.status === "expired" ||
+      (toolCall.status === "pending" && new Date(toolCall.expiresAt) <= new Date())
+    : false;
   return (
     <View style={[styles.messageRow, isUser && styles.userMessageRow]}>
       <View style={[styles.message, isUser ? styles.userMessage : styles.coachMessage]}>
@@ -159,6 +175,53 @@ const Message = ({ animate, message }: { animate: boolean; message: CoachMessage
           style={[styles.messageText, isUser && styles.userMessageText]}
           text={message.content}
         />
+        {toolCall && (
+          <View style={styles.toolCard}>
+            <Text style={styles.toolEyebrow}>PROPOSED EXPERIMENT</Text>
+            <Text style={styles.toolPreviousLabel}>Replace</Text>
+            <Text style={styles.toolPrevious}>{toolCall.proposal.previousExperiment}</Text>
+            <Text style={styles.toolPreviousLabel}>With</Text>
+            <Text style={styles.toolReplacement}>
+              {toolCall.proposal.replacementExperiment}
+            </Text>
+            <Text style={styles.toolRationale}>{toolCall.proposal.coachRationale}</Text>
+            <Text style={styles.toolReason}>Based on your reason: {toolCall.proposal.userReason}</Text>
+            {toolCall.status === "pending" && !proposalExpired ? (
+              <View style={styles.toolActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={resolving}
+                  onPress={() => onResolveToolCall(toolCall.id, "confirm")}
+                  style={[styles.toolConfirm, resolving && styles.disabled]}
+                >
+                  {resolving ? (
+                    <ActivityIndicator color={colors.ink} size="small" />
+                  ) : (
+                    <Text style={styles.toolConfirmText}>Change tonight</Text>
+                  )}
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={resolving}
+                  onPress={() => onResolveToolCall(toolCall.id, "cancel")}
+                  style={[styles.toolCancel, resolving && styles.disabled]}
+                >
+                  <Text style={styles.toolCancelText}>Keep current</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Text style={styles.toolStatus}>
+                {toolCall.status === "completed"
+                  ? "Changed"
+                  : toolCall.status === "cancelled"
+                    ? "Not applied"
+                    : proposalExpired
+                      ? "Proposal expired"
+                      : "Unavailable"}
+              </Text>
+            )}
+          </View>
+        )}
       </View>
     </View>
   );
@@ -204,6 +267,7 @@ export default function CoachChatScreen({
   const [revealingMessageId, setRevealingMessageId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [resolvingToolCallId, setResolvingToolCallId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState(false);
   const [error, setError] = useState("");
   const listRef = useRef<FlatList<CoachMessage>>(null);
@@ -255,7 +319,7 @@ export default function CoachChatScreen({
 
   const send = async (suggested?: string) => {
     const content = (suggested ?? input).trim();
-    if (!content || sending || busyAction) return;
+    if (!content || sending || busyAction || resolvingToolCallId) return;
 
     const optimistic: CoachMessage = {
       id: `pending-${Date.now()}`,
@@ -277,9 +341,19 @@ export default function CoachChatScreen({
       const response = await sendCoachMessage(user, profile, id, content);
       setRevealingMessageId(response.id);
       setMessages(current => [
-        ...current.map(message =>
-          message.id === optimistic.id ? { ...message, pending: false } : message,
-        ),
+        ...current.map(message => {
+          const savedMessage = message.id === optimistic.id
+            ? { ...message, pending: false }
+            : message;
+          return response.toolCall &&
+              savedMessage.toolCall?.name === response.toolCall.name &&
+              savedMessage.toolCall.status === "pending"
+            ? {
+              ...savedMessage,
+              toolCall: { ...savedMessage.toolCall, status: "cancelled" as const },
+            }
+            : savedMessage;
+        }),
         response,
       ]);
       await rememberConversation(id);
@@ -290,6 +364,39 @@ export default function CoachChatScreen({
       setError(sendError instanceof Error ? sendError.message : "Your coach could not respond.");
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleToolCall = async (
+    toolCallId: string,
+    action: "confirm" | "cancel",
+  ) => {
+    if (!conversationId || resolvingToolCallId) return;
+    setResolvingToolCallId(toolCallId);
+    setError("");
+    try {
+      const result = await resolveCoachToolCall(conversationId, toolCallId, action);
+      setMessages(current => [
+        ...current.map(message =>
+          message.toolCall?.id === toolCallId
+            ? { ...message, toolCall: result.toolCall }
+            : message
+        ),
+        ...result.messages,
+      ]);
+      const assistantMessage = [...result.messages]
+        .reverse()
+        .find(message => message.role === "assistant");
+      setRevealingMessageId(assistantMessage?.id ?? null);
+      scrollToLatest();
+    } catch (toolError) {
+      setError(
+        toolError instanceof Error
+          ? toolError.message
+          : "The experiment change could not be updated.",
+      );
+    } finally {
+      setResolvingToolCallId(null);
     }
   };
 
@@ -321,6 +428,7 @@ export default function CoachChatScreen({
     setMessages([]);
     setRevealingMessageId(null);
     setInput("");
+    setResolvingToolCallId(null);
     setError("");
   };
 
@@ -446,7 +554,14 @@ export default function CoachChatScreen({
             keyExtractor={message => message.id}
             ref={listRef}
             renderItem={({ item }) => (
-              <Message animate={item.id === revealingMessageId} message={item} />
+              <Message
+                animate={item.id === revealingMessageId}
+                message={item}
+                onResolveToolCall={(toolCallId, action) =>
+                  void handleToolCall(toolCallId, action)
+                }
+                resolving={resolvingToolCallId === item.toolCall?.id}
+              />
             )}
             showsVerticalScrollIndicator={false}
           />
@@ -457,7 +572,8 @@ export default function CoachChatScreen({
           <View style={styles.composer}>
             <TextInput
               accessibilityLabel="Ask your sleep coach"
-              editable={!sending && !busyAction}
+              autoCorrect
+              editable={!sending && !busyAction && !resolvingToolCallId}
               maxLength={4000}
               multiline
               onChangeText={setInput}
@@ -469,11 +585,12 @@ export default function CoachChatScreen({
             />
             <Pressable
               accessibilityLabel="Send message"
-              disabled={!input.trim() || sending || busyAction}
+              disabled={!input.trim() || sending || busyAction || !!resolvingToolCallId}
               onPress={() => void send()}
               style={[
                 styles.send,
-                (!input.trim() || sending || busyAction) && styles.sendDisabled,
+                (!input.trim() || sending || busyAction || !!resolvingToolCallId) &&
+                  styles.sendDisabled,
               ]}
             >
               {sending ? (
@@ -759,6 +876,89 @@ const styles = StyleSheet.create({
   },
   talkButtonArrow: { color: colors.ink, fontSize: 13, fontWeight: "800" },
   talkButtonText: { color: colors.ink, fontSize: 12, fontWeight: "800" },
+  toolActions: { flexDirection: "row", gap: 8, marginTop: 16 },
+  toolCancel: {
+    alignItems: "center",
+    borderColor: colors.borderStrong,
+    borderRadius: 13,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 42,
+    paddingHorizontal: 12,
+  },
+  toolCancelText: { color: colors.textMuted, fontSize: 12, fontWeight: "700" },
+  toolCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.borderSelected,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginTop: 14,
+    padding: 16,
+  },
+  toolConfirm: {
+    alignItems: "center",
+    backgroundColor: colors.accent,
+    borderRadius: 13,
+    flex: 1.2,
+    justifyContent: "center",
+    minHeight: 42,
+    paddingHorizontal: 12,
+  },
+  toolConfirmText: { color: colors.ink, fontSize: 12, fontWeight: "800" },
+  toolEyebrow: {
+    color: colors.accent,
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1.3,
+    marginBottom: 12,
+  },
+  toolPrevious: {
+    color: colors.textSubtle,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 11,
+    textDecorationLine: "line-through",
+  },
+  toolPreviousLabel: {
+    color: colors.textFaint,
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    marginBottom: 4,
+    textTransform: "uppercase",
+  },
+  toolRationale: {
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 9,
+  },
+  toolReason: {
+    color: colors.textSubtle,
+    fontSize: 11,
+    fontStyle: "italic",
+    lineHeight: 17,
+    marginTop: 10,
+  },
+  toolReplacement: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "700",
+    lineHeight: 21,
+  },
+  toolStatus: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.surfaceAccent,
+    borderRadius: 10,
+    color: colors.accentSoft,
+    fontSize: 10,
+    fontWeight: "800",
+    marginTop: 14,
+    overflow: "hidden",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
   title: {
     color: colors.text,
     fontSize: 30,
