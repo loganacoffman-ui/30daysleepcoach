@@ -11,10 +11,10 @@ import CoachScreen from '../coach/CoachScreen';
 import { ProgressScreen, SettingsScreen } from './InfoScreens';
 
 type Tab='today'|'progress'|'coach'|'settings';
-const tabs:{key:Tab;icon:string;label:string}[]=[{key:'today',icon:'☾',label:'Today'},{key:'coach',icon:'✦',label:'Coach'},{key:'progress',icon:'↗',label:'Progress'},{key:'settings',icon:'○',label:'Settings'}];
+const tabs:{key:Tab;icon:string;label:string}[]=[{key:'coach',icon:'✦',label:'Coach'},{key:'today',icon:'☾',label:'Today'},{key:'progress',icon:'↗',label:'Progress'},{key:'settings',icon:'○',label:'Settings'}];
 
 export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccount}:{session:Session;profile:SleepProfile;busy:boolean;onSignOut:()=>void;onDeleteAccount:()=>void}){
-  const [tab,setTab]=useState<Tab>('today');
+  const [tab,setTab]=useState<Tab>('coach');
   const repository=useMemo(()=>createSupabaseTodayRepository(session.user,profile.displayName,profile.primaryConcern),[session.user,profile.displayName,profile.primaryConcern]);
   return (
     <View style={styles.screen}>

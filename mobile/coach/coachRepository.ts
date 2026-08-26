@@ -3,15 +3,25 @@ import type { User } from '@supabase/supabase-js';
 import type { SleepProfile } from '../onboarding/types';
 import { supabase } from '../supabase';
 
-export type DailyCoaching = {
-  pattern: string;
-  meaning: string;
-  action: string;
-  why: string;
-  generatedAt: string;
+export type DailyCoaching = { pattern: string; meaning: string; action: string; why: string; generatedAt: string };
+export type CoachMessage = { id: string; role: 'user' | 'assistant'; content: string; createdAt: string; pending?: boolean };
+export type CoachExperience = {
+  conversationId: string;
+  messages: CoachMessage[];
+  dailyCoaching: DailyCoaching | null;
+  hasCheckedInToday: boolean;
+  hasOuraData: boolean;
 };
 
-const localDate = (date = new Date()) =>
+type CoachContext = {
+  date: string;
+  profile: { primary_concern: string; typical_bedtime: string; typical_wake_time: string; timezone: string };
+  subjective_checkins: unknown[];
+  experiment_adherence: unknown[];
+  oura_sleep: Array<{ day: string; score?: number }>;
+};
+
+export const localDate = (date = new Date()) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 const daysAgo = (count: number) => {
@@ -20,7 +30,12 @@ const daysAgo = (count: number) => {
   return localDate(date);
 };
 
-export const loadDailyCoaching = async (user: User, profile: SleepProfile): Promise<DailyCoaching> => {
+const createRequestId = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, character => {
+  const random = Math.floor(Math.random() * 16);
+  return (character === 'x' ? random : (random & 0x3) | 0x8).toString(16);
+});
+
+const loadCoachContext = async (user: User, profile: SleepProfile): Promise<CoachContext> => {
   const [checkinsResult, commitmentsResult, ouraResult] = await Promise.all([
     supabase.from('daily_checkins').select('checkin_date, feeling, suspected_factor, note, completed_at').eq('user_id', user.id).order('checkin_date', { ascending: false }).limit(14),
     supabase.from('behavior_commitments').select('behavior_date, behavior, status').eq('user_id', user.id).order('behavior_date', { ascending: false }).limit(14),
@@ -28,36 +43,38 @@ export const loadDailyCoaching = async (user: User, profile: SleepProfile): Prom
       body: { endpoint: 'daily_sleep', start_date: daysAgo(14), end_date: localDate() },
     }),
   ]);
-
   if (checkinsResult.error) throw checkinsResult.error;
   if (commitmentsResult.error) throw commitmentsResult.error;
+  return {
+    date: localDate(),
+    profile: {
+      primary_concern: profile.primaryConcern,
+      typical_bedtime: profile.typicalBedtime,
+      typical_wake_time: profile.typicalWakeTime,
+      timezone: profile.timezone,
+    },
+    subjective_checkins: checkinsResult.data ?? [],
+    experiment_adherence: commitmentsResult.data ?? [],
+    oura_sleep: ouraResult.error ? [] : ouraResult.data?.data ?? [],
+  };
+};
 
+const ensureConversation = async (user: User) => {
+  const existing = await supabase.from('coach_conversations').select('id').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+  if (existing.error) throw existing.error;
+  if (existing.data) return existing.data.id as string;
+  const created = await supabase.from('coach_conversations').insert({ user_id: user.id, title: 'Sleep coaching' }).select('id').single();
+  if (created.error || !created.data) throw created.error ?? new Error('Could not start your coaching conversation.');
+  return created.data.id as string;
+};
+
+export const loadDailyCoaching = async (user: User, profile: SleepProfile, context?: CoachContext): Promise<DailyCoaching> => {
+  const coachContext = context ?? await loadCoachContext(user, profile);
   const { data, error } = await supabase.functions.invoke<{
     status?: string;
     recommendation?: { pattern: string; meaning: string; action: string; why: string; generated_at: string };
-  }>('sleep-coach', {
-    body: {
-      mode: 'daily_coach',
-      cacheKey: `daily_coach_${localDate()}`,
-      coachContext: {
-        date: localDate(),
-        profile: {
-          primary_concern: profile.primaryConcern,
-          typical_bedtime: profile.typicalBedtime,
-          typical_wake_time: profile.typicalWakeTime,
-          timezone: profile.timezone,
-        },
-        subjective_checkins: checkinsResult.data ?? [],
-        experiment_adherence: commitmentsResult.data ?? [],
-        oura_sleep: ouraResult.error ? [] : ouraResult.data?.data ?? [],
-      },
-    },
-  });
-
-  if (error || data?.status !== 'ok' || !data.recommendation) {
-    throw error ?? new Error('Your daily coaching could not be generated.');
-  }
-
+  }>('sleep-coach', { body: { mode: 'daily_coach', cacheKey: `daily_coach_${localDate()}`, coachContext } });
+  if (error || data?.status !== 'ok' || !data.recommendation) throw error ?? new Error('Your daily coaching could not be generated.');
   return {
     pattern: data.recommendation.pattern,
     meaning: data.recommendation.meaning,
@@ -65,4 +82,38 @@ export const loadDailyCoaching = async (user: User, profile: SleepProfile): Prom
     why: data.recommendation.why,
     generatedAt: data.recommendation.generated_at,
   };
+};
+
+export const loadCoachExperience = async (user: User, profile: SleepProfile): Promise<CoachExperience> => {
+  const [conversationId, context] = await Promise.all([ensureConversation(user), loadCoachContext(user, profile)]);
+  const messagesResult = await supabase.from('coach_messages').select('id, role, content, created_at').eq('conversation_id', conversationId).order('created_at', { ascending: true }).limit(100);
+  if (messagesResult.error) throw messagesResult.error;
+  let dailyCoaching: DailyCoaching | null = null;
+  try { dailyCoaching = await loadDailyCoaching(user, profile, context); } catch { /* Chat remains useful if today's artifact is unavailable. */ }
+  return {
+    conversationId,
+    messages: (messagesResult.data ?? []).map(message => ({ id: message.id, role: message.role as CoachMessage['role'], content: message.content, createdAt: message.created_at })),
+    dailyCoaching,
+    hasCheckedInToday: context.subjective_checkins.some(checkin => typeof checkin === 'object' && checkin !== null && 'checkin_date' in checkin && checkin.checkin_date === localDate()),
+    hasOuraData: context.oura_sleep.length > 0,
+  };
+};
+
+export const sendCoachMessage = async (user: User, profile: SleepProfile, conversationId: string, content: string): Promise<CoachMessage> => {
+  const trimmed = content.trim();
+  if (!trimmed) throw new Error('Ask your coach a question first.');
+  const { data, error } = await supabase.functions.invoke<{
+    status?: string;
+    message?: { id: string; role: 'assistant'; content: string; created_at: string };
+  }>('sleep-coach', {
+    body: {
+      mode: 'coach_chat',
+      conversationId,
+      message: trimmed,
+      clientRequestId: createRequestId(),
+      coachContext: await loadCoachContext(user, profile),
+    },
+  });
+  if (error || data?.status !== 'ok' || !data.message) throw error ?? new Error('Your coach could not respond. Please try again.');
+  return { id: data.message.id, role: 'assistant', content: data.message.content, createdAt: data.message.created_at };
 };

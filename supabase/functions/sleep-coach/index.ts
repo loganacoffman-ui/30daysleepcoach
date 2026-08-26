@@ -523,6 +523,36 @@ async function callAnthropicNonStreaming(
     .join("\n") ?? "";
 }
 
+async function callAnthropicConversation(
+  messages: CoachMessage[],
+  coachContext: unknown,
+  memories: Memory[],
+): Promise<string | null> {
+  const response = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 900,
+      system: SYSTEM_PROMPT + formatMemoryContext(memories) +
+        `\n\nCURRENT USER CONTEXT:\n${compactJson(coachContext, 10_000)}\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
+      messages,
+      stream: false,
+    }),
+  });
+
+  if (!response.ok) return null;
+  const json = await response.json();
+  return json.content
+    ?.filter((block: { type: string }) => block.type === "text")
+    .map((block: { text: string }) => block.text)
+    .join("\n")?.trim() ?? null;
+}
+
 Deno.serve(async (req: Request) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -537,7 +567,15 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body = await req.json();
-    const { sleepData, cacheKey, mode, coachContext } = body;
+    const {
+      sleepData,
+      cacheKey,
+      mode,
+      coachContext,
+      conversationId,
+      message,
+      clientRequestId,
+    } = body;
     const messages = normalizeMessages(body.messages);
     const memoryMode = typeof mode === "string"
       ? mode
@@ -558,6 +596,158 @@ Deno.serve(async (req: Request) => {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
+      );
+    }
+
+    // ─── NATIVE COACH CHAT (persisted and memory-aware) ─────────────
+    if (mode === "coach_chat") {
+      const content = typeof message === "string" ? message.trim() : "";
+      if (!conversationId || !content || content.length > 4_000) {
+        return new Response(
+          JSON.stringify({
+            error: "A valid conversation and message are required",
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const { data: conversation } = await supabase
+        .from("coach_conversations")
+        .select("id")
+        .eq("id", conversationId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!conversation) {
+        return new Response(JSON.stringify({ error: "Conversation not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      let userMessageId: string | null = null;
+      if (typeof clientRequestId === "string") {
+        const { data: prior } = await supabase
+          .from("coach_messages")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("client_request_id", clientRequestId)
+          .maybeSingle();
+        userMessageId = prior?.id ?? null;
+      }
+
+      if (!userMessageId) {
+        const { data: inserted, error: insertError } = await supabase
+          .from("coach_messages")
+          .insert({
+            conversation_id: conversationId,
+            user_id: user.id,
+            role: "user",
+            content,
+            client_request_id: typeof clientRequestId === "string"
+              ? clientRequestId
+              : null,
+          })
+          .select("id")
+          .single();
+        if (insertError || !inserted) {
+          return new Response(
+            JSON.stringify({
+              error: insertError?.message ?? "Could not save message",
+            }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+        userMessageId = inserted.id;
+      }
+
+      const { data: recentMessages, error: historyError } = await supabase
+        .from("coach_messages")
+        .select("role, content")
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: false })
+        .limit(30);
+      if (historyError) {
+        return new Response(JSON.stringify({ error: historyError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const chatHistory = normalizeMessages((recentMessages ?? []).reverse());
+      const memories = await recallCoachMemory(
+        user.id,
+        buildMemoryQuery(memoryMode, chatHistory, sleepData, coachContext),
+      );
+      const responseText = await callAnthropicConversation(
+        chatHistory,
+        coachContext,
+        memories,
+      );
+      if (!responseText) {
+        return new Response(
+          JSON.stringify({ error: "The coach could not generate a response" }),
+          {
+            status: 502,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const { data: assistantMessage, error: assistantError } = await supabase
+        .from("coach_messages")
+        .insert({
+          conversation_id: conversationId,
+          user_id: user.id,
+          role: "assistant",
+          content: responseText,
+          metadata: {
+            model: "claude-sonnet-4-6",
+            prompt_version: "native-chat-v1-memory",
+            memory_count: memories.length,
+            memory_provider: memoryProvider.name,
+            responding_to: userMessageId,
+          },
+        })
+        .select("id, role, content, created_at")
+        .single();
+      if (assistantError || !assistantMessage) {
+        return new Response(
+          JSON.stringify({
+            error: assistantError?.message ?? "Could not save response",
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      runInBackground(Promise.all([
+        supabase.from("coach_conversations").update({
+          updated_at: new Date().toISOString(),
+        }).eq("id", conversationId).then(() => undefined),
+        persistCoachMemory(
+          user.id,
+          memoryMode,
+          buildMemoryObservation(
+            memoryMode,
+            chatHistory,
+            sleepData,
+            coachContext,
+          ),
+          responseText,
+        ),
+      ]).then(() => undefined));
+
+      return new Response(
+        JSON.stringify({ status: "ok", message: assistantMessage }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
