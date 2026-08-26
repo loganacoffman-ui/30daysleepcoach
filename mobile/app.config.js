@@ -1,28 +1,45 @@
-const isPreview = process.env.APP_VARIANT === 'preview';
+const appVariant = process.env.APP_VARIANT ?? 'production';
+const variants = {
+  development: {
+    name: 'Sleep Coach Dev',
+    scheme: 'thirtydaysleepcoach-dev',
+    iosBundleIdentifier: 'com.30daysleepcoach.app.dev',
+    androidPackage: 'com.thirtydaysleepcoach.app.dev',
+  },
+  preview: {
+    name: 'Sleep Coach Preview',
+    scheme: 'thirtydaysleepcoach-preview',
+    iosBundleIdentifier: 'com.30daysleepcoach.app.preview',
+    androidPackage: 'com.thirtydaysleepcoach.app.preview',
+  },
+  production: {
+    name: '30 Day Sleep Coach',
+    scheme: 'thirtydaysleepcoach',
+    iosBundleIdentifier: 'com.30daysleepcoach.app',
+    androidPackage: 'com.thirtydaysleepcoach.app',
+  },
+};
+const variant = variants[appVariant] ?? variants.production;
 
 module.exports = {
   expo: {
-    name: isPreview ? 'Sleep Coach Preview' : '30 Day Sleep Coach',
+    name: variant.name,
     slug: '30daysleepcoach',
-    scheme: isPreview ? 'thirtydaysleepcoach-preview' : 'thirtydaysleepcoach',
+    scheme: variant.scheme,
     version: '1.0.1',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'dark',
     ios: {
       supportsTablet: false,
-      bundleIdentifier: isPreview
-        ? 'com.30daysleepcoach.app.preview'
-        : 'com.30daysleepcoach.app',
+      bundleIdentifier: variant.iosBundleIdentifier,
       usesAppleSignIn: true,
       config: {
         usesNonExemptEncryption: false,
       },
     },
     android: {
-      package: isPreview
-        ? 'com.thirtydaysleepcoach.app.preview'
-        : 'com.thirtydaysleepcoach.app',
+      package: variant.androidPackage,
       adaptiveIcon: {
         backgroundColor: '#E6F4FE',
         foregroundImage: './assets/android-icon-foreground.png',
@@ -35,7 +52,7 @@ module.exports = {
       favicon: './assets/favicon.png',
     },
     extra: {
-      appVariant: isPreview ? 'preview' : 'production',
+      appVariant,
       eas: {
         projectId: '48f61526-b884-445b-aa4b-ffdcec6e4ade',
       },

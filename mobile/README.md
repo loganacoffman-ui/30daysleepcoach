@@ -136,10 +136,15 @@ Google sign-in also needs this one-time dashboard setup:
 
    ```text
    thirtydaysleepcoach://**
+   thirtydaysleepcoach-dev://**
    thirtydaysleepcoach-preview://**
    ```
 
-The `preview` and `development` EAS profiles install as **Sleep Coach Preview** with bundle identifier `com.30daysleepcoach.app.preview`. This allows the internal preview and TestFlight app to coexist on one iPhone. Production continues to use `com.30daysleepcoach.app`.
+The three iOS variants install independently:
+
+- `development`: **Sleep Coach Dev** (`com.30daysleepcoach.app.dev`) connects to Metro.
+- `preview`: **Sleep Coach Preview** (`com.30daysleepcoach.app.preview`) is a standalone internal build.
+- `production`: **30 Day Sleep Coach** (`com.30daysleepcoach.app`) is used for TestFlight and App Store releases.
 
 Use a development build when testing native Google sign-in so the app's custom URL scheme is installed:
 
@@ -165,7 +170,7 @@ The native Settings screen uses the server-side Oura OAuth flow. The production 
 https://qfnouotdhfltgvjhfbld.supabase.co/functions/v1/oura-oauth-callback
 ```
 
-The callback returns to the active app variant at either `thirtydaysleepcoach://oura/callback` or `thirtydaysleepcoach-preview://oura/callback`. Oura access and refresh tokens are stored only in the protected `oura_connections` server table. The mobile app requests the `daily` and `heartrate` scopes and accesses data through `oura-proxy`.
+The callback returns to the active app variant at `thirtydaysleepcoach://oura/callback`, `thirtydaysleepcoach-dev://oura/callback`, or `thirtydaysleepcoach-preview://oura/callback`. Oura access and refresh tokens are stored only in the protected `oura_connections` server table. The mobile app requests the `daily` and `heartrate` scopes and accesses data through `oura-proxy`.
 
 Oura API applications are limited to ten users by default. Request Oura approval before inviting a larger production audience.
 

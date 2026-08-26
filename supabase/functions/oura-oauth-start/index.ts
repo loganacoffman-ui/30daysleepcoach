@@ -67,6 +67,7 @@ function sanitizeRedirect(value: unknown) {
 
   if (
     value === 'thirtydaysleepcoach://oura/callback' ||
+    value === 'thirtydaysleepcoach-dev://oura/callback' ||
     value === 'thirtydaysleepcoach-preview://oura/callback'
   ) {
     return value;
