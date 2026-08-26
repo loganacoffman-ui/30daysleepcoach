@@ -10,8 +10,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import type { User } from '@supabase/supabase-js';
 
+import { loadDailyCoaching } from '../coach/coachRepository';
 import { colors } from '../design/theme';
+import type { SleepProfile } from '../onboarding/types';
 import { mockTodayRepository } from './mockTodayRepository';
 import type {
   DailyCheckinDraft,
@@ -22,6 +25,8 @@ import type {
 
 type TodayScreenProps = {
   repository?: TodayRepository;
+  profile?: SleepProfile;
+  user?: User;
 };
 
 type FeelingOption = {
@@ -65,7 +70,15 @@ const formatLongDate = (date: string) => {
 const feelingLabel = (score: number) =>
   feelingOptions.find((option) => option.score === score)?.label ?? 'Checked in';
 
-export default function TodayScreen({ repository = mockTodayRepository }: TodayScreenProps) {
+const timeGreeting = () => {
+  const hour = new Date().getHours();
+  return hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+};
+
+const plainCoachText = (text: string) =>
+  text.replace(/\*\*/g, '').replace(/__/g, '').replace(/`/g, '').trim();
+
+export default function TodayScreen({ profile, repository = mockTodayRepository, user }: TodayScreenProps) {
   const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -74,6 +87,11 @@ export default function TodayScreen({ repository = mockTodayRepository }: TodayS
   const [feeling, setFeeling] = useState<number | null>(null);
   const [suspectedFactor, setSuspectedFactor] = useState<SuspectedFactorKey | undefined>();
   const [note, setNote] = useState('');
+  const [dailyCoaching, setDailyCoaching] = useState<{
+    pattern: string;
+    meaning: string;
+    action: string;
+  } | null>(null);
 
   const loadToday = useCallback(async () => {
     setLoading(true);
@@ -92,6 +110,21 @@ export default function TodayScreen({ repository = mockTodayRepository }: TodayS
   useEffect(() => {
     void loadToday();
   }, [loadToday]);
+
+  useEffect(() => {
+    if (!user || !profile) return;
+    let active = true;
+    void loadDailyCoaching(user, profile)
+      .then(coaching => {
+        if (active) setDailyCoaching(coaching);
+      })
+      .catch(() => {
+        if (active) setDailyCoaching(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [profile, user]);
 
   const canSubmit = feeling !== null && !saving;
   const selectedFeeling = useMemo(
@@ -177,7 +210,9 @@ export default function TodayScreen({ repository = mockTodayRepository }: TodayS
           <View>
             <Text style={styles.eyebrow}>TODAY</Text>
             <Text style={styles.title}>
-              {snapshot.greetingName ? `Morning, ${snapshot.greetingName}` : 'Good morning'}
+              {snapshot.greetingName
+                ? `${timeGreeting()}, ${snapshot.greetingName}`
+                : timeGreeting()}
             </Text>
             <Text style={styles.date}>{formatLongDate(snapshot.date)}</Text>
           </View>
@@ -186,6 +221,17 @@ export default function TodayScreen({ repository = mockTodayRepository }: TodayS
             <Text style={styles.dayBadgeLabel}>DAY</Text>
           </View>
         </View>
+
+        {dailyCoaching && (
+          <View style={styles.dailyGreeting}>
+            <Text style={styles.dailyGreetingText}>{plainCoachText(dailyCoaching.pattern)}</Text>
+            <Text style={styles.dailyGreetingText}>{plainCoachText(dailyCoaching.meaning)}</Text>
+            <Text style={styles.dailyGreetingText}>
+              <Text style={styles.dailyGreetingLabel}>Tonight: </Text>
+              {plainCoachText(dailyCoaching.action)}
+            </Text>
+          </View>
+        )}
 
         <View style={styles.planProgress}>
           <View style={styles.planProgressHeader}>
@@ -410,6 +456,14 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 15,
     marginTop: 5,
+  },
+  dailyGreeting: { marginBottom: 24, paddingRight: 8 },
+  dailyGreetingLabel: { color: colors.text, fontWeight: '800' },
+  dailyGreetingText: {
+    color: colors.textMuted,
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 9,
   },
   dayBadge: {
     alignItems: 'center',

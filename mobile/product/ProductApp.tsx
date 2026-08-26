@@ -7,7 +7,7 @@ import { colors } from '../design/theme';
 import type { SleepProfile } from '../onboarding/types';
 import TodayScreen from '../today/TodayScreen';
 import { createSupabaseTodayRepository } from '../today/supabaseTodayRepository';
-import CoachScreen from '../coach/CoachScreen';
+import CoachChatScreen from '../coach/CoachChatScreen';
 import { ProgressScreen, SettingsScreen } from './InfoScreens';
 
 type Tab='today'|'progress'|'coach'|'settings';
@@ -19,9 +19,9 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
   return (
     <View style={styles.screen}>
       <View style={styles.body}>
-        {tab === 'today' && <TodayScreen repository={repository} />}
+        {tab === 'today' && <TodayScreen profile={profile} repository={repository} user={session.user} />}
         {tab === 'progress' && <ProgressScreen user={session.user} />}
-        {tab === 'coach' && <CoachScreen profile={profile} user={session.user} />}
+        {tab === 'coach' && <CoachChatScreen profile={profile} user={session.user} />}
         {tab === 'settings' && <SettingsScreen busy={busy} onDeleteAccount={onDeleteAccount} onSignOut={onSignOut} profile={profile} user={session.user} />}
       </View>
       <View style={styles.tabs}>

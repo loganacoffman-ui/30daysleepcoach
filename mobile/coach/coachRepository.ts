@@ -12,6 +12,11 @@ export type CoachExperience = {
   hasCheckedInToday: boolean;
   hasOuraData: boolean;
 };
+export type CoachHomeState = {
+  hasCheckedInToday: boolean;
+  feeling: number | null;
+  sleepScore: number | null;
+};
 
 type CoachContext = {
   date: string;
@@ -28,6 +33,32 @@ const daysAgo = (count: number) => {
   const date = new Date();
   date.setDate(date.getDate() - count);
   return localDate(date);
+};
+
+export const loadCoachHomeState = async (user: User): Promise<CoachHomeState> => {
+  const [checkinResult, ouraResult] = await Promise.all([
+    supabase
+      .from('daily_checkins')
+      .select('checkin_date, feeling')
+      .eq('user_id', user.id)
+      .eq('checkin_date', localDate())
+      .limit(1)
+      .maybeSingle(),
+    supabase.functions.invoke<{ data?: Array<{ day: string; score?: number }> }>('oura-proxy', {
+      body: { endpoint: 'daily_sleep', start_date: daysAgo(2), end_date: localDate() },
+    }),
+  ]);
+  if (checkinResult.error) throw checkinResult.error;
+  const latestOuraDay = ouraResult.error
+    ? null
+    : [...(ouraResult.data?.data ?? [])]
+      .filter(item => typeof item.score === 'number' && typeof item.day === 'string')
+      .sort((a, b) => b.day.localeCompare(a.day))[0] ?? null;
+  return {
+    hasCheckedInToday: Boolean(checkinResult.data),
+    feeling: typeof checkinResult.data?.feeling === 'number' ? checkinResult.data.feeling : null,
+    sleepScore: latestOuraDay?.score ?? null,
+  };
 };
 
 const createRequestId = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, character => {
@@ -66,6 +97,43 @@ const ensureConversation = async (user: User) => {
   const created = await supabase.from('coach_conversations').insert({ user_id: user.id, title: 'Sleep coaching' }).select('id').single();
   if (created.error || !created.data) throw created.error ?? new Error('Could not start your coaching conversation.');
   return created.data.id as string;
+};
+
+export const createCoachConversation = async (user: User) => {
+  const created = await supabase
+    .from('coach_conversations')
+    .insert({ user_id: user.id, title: `Sleep coaching ${localDate()}` })
+    .select('id')
+    .single();
+  if (created.error || !created.data) {
+    throw created.error ?? new Error('Could not start your coaching conversation.');
+  }
+  return created.data.id as string;
+};
+
+export const loadCoachConversation = async (user: User, conversationId: string): Promise<CoachMessage[]> => {
+  const conversation = await supabase
+    .from('coach_conversations')
+    .select('id')
+    .eq('id', conversationId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (conversation.error) throw conversation.error;
+  if (!conversation.data) throw new Error('That coaching conversation is no longer available.');
+
+  const messagesResult = await supabase
+    .from('coach_messages')
+    .select('id, role, content, created_at')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: true })
+    .limit(60);
+  if (messagesResult.error) throw messagesResult.error;
+  return (messagesResult.data ?? []).map(message => ({
+    id: message.id,
+    role: message.role as CoachMessage['role'],
+    content: message.content,
+    createdAt: message.created_at,
+  }));
 };
 
 export const loadDailyCoaching = async (user: User, profile: SleepProfile, context?: CoachContext): Promise<DailyCoaching> => {

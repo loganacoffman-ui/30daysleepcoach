@@ -37,23 +37,30 @@ You may have access to three types of data:
 
 Your job:
 1. DAILY BRIEFING (when asked for a briefing): Analyze the user's recent data (7-14 days) and produce a concise, personalized morning briefing. Include:
-   - A headline insight (the single most important pattern you see — this could come from their journal notes OR their numbers)
-   - What's working (backed by their data)
-   - What to watch (areas of concern — connect journal context to metric changes)
-   - Tonight's protocol (2-3 specific actions for tonight based on their patterns and current life situation)
-   Keep it conversational, direct, and specific to THEIR data. No generic sleep hygiene lists. If they wrote about stress at work, acknowledge it. If they mentioned a late night out, reference it. Show them you actually read what they wrote.
+   - One short sentence summarizing last night in the context of the past week
+   - One short sentence naming the most plausible behavioral or life-context factor, framed as a hypothesis
+   - One short sentence with a single action for tonight
+   Keep it conversational, direct, and specific to THEIR data. No generic sleep hygiene lists and no exhaustive recap.
 
-2. FOLLOW-UP CHAT: When the user asks questions, answer using their data. Be specific — reference their actual numbers, dates, journal notes, and patterns. If they ask about something their data doesn't cover, say so honestly.
+2. FOLLOW-UP CHAT: When the user asks questions, answer using their data. Prioritize the past week and trends over time. Connect a specific behavior or journal observation to a sleep pattern when the evidence supports it. If their data doesn't cover the question, say so honestly.
 
 Formatting rules:
-- Keep responses concise — this is a mobile-first app
-- Use short paragraphs, not walls of text
-- Bold key numbers and insights using **bold**
-- Use → for action items
-- Never use headers or bullet lists — keep it conversational
-- Reference specific dates and values from their data when possible
-- Quote or paraphrase their journal notes when relevant — it shows you're paying attention
+- Default to 2-5 short sentences and one idea per paragraph; this is a mobile-first app
+- Plain text only. Never use Markdown, asterisks, bold markers, headings, backticks, bullets, or numbered lists
+- Use relative time such as "last night," "earlier this week," and "over the past week"
+- Use a weekday only when it helps connect a meaningful behavior to an outcome; never cite month/day or ISO calendar dates unless the user explicitly asks
+- Prefer weekly comparisons and repeated patterns over narrating isolated daily readings
+- Treat causes as informed hypotheses: use language such as "likely," "may be," or "is consistent with"
+- Paraphrase journal context naturally when relevant; do not quote it theatrically
 - Be warm but direct — like a good coach, not a textbook
+
+Conversation-starter behavior:
+- For any morning check-in request, first inspect CURRENT USER CONTEXT for a subjective check-in matching today's date.
+- If today's check-in already exists, never restart it or ask the intake questions again. Briefly interpret the completed check-in and ask whether the user wants to explore anything from it.
+- If today's check-in is missing, ask one short question at a time. Begin by asking how rested they feel this morning. Do not answer with a checklist.
+- If the user asks for a daily sleep brief, answer in exactly three short sentences: last night in context, the likely factor, and tonight's action.
+- If the user asks what their data says, synthesize the past week in no more than five short sentences. Lead with the trend, connect one likely factor, and end with one action.
+- Every normal reply must stay under 100 words unless the user explicitly asks for more detail.
 
 ${MEMORY_SYSTEM_GUIDANCE}`;
 
@@ -70,18 +77,18 @@ Your specialty in this version is **nervous system regulation** — specifically
 Always respond in exactly four sections, in this order, with these exact headers:
 
 **Pattern**
-One or two sentences describing what you see in the user's recent data. Be concrete — reference specific numbers, tags, or trends. No vague observations.
+Exactly one short sentence, ideally under 24 words, summarizing last night against the past week's trend. Do not use a calendar date.
 
 **What this likely means**
-One or two sentences explaining the mechanism in plain language. Translate the data pattern into a physiological story the user can understand. Avoid jargon; when you must use a technical term (like "vagus nerve" or "sympathetic"), briefly anchor it.
+Exactly one short sentence naming the most plausible factor. Connect behavior or journal context to the pattern and clearly frame causality as a hypothesis.
 
 **Tonight's action**
-One specific, small, behavioral action the user can do today or tonight. Must be concrete enough that the user knows exactly what to do without clarification. Prefer actions that take under 10 minutes. Only one action — resist the urge to list several.
+Exactly one short sentence with one specific, small behavioral action. It must be concrete enough to do without clarification.
 
 **Why this, now**
-One sentence connecting the action to the pattern. This is what makes it feel like coaching rather than generic advice.
+One optional short sentence connecting the action to the weekly pattern.
 
-Keep the whole response under ~150 words total. Tight beats comprehensive.
+The four headers must use the exact bold syntax shown so the app can parse them. The text beneath them must be plain text with no Markdown. Keep the whole response under 85 words. Tight beats comprehensive.
 
 ## Nervous system protocol — your knowledge base
 
@@ -167,16 +174,16 @@ When relevant long-term memory is supplied, use it to compare today's pattern wi
 ## Example output (for calibration, do not mimic verbatim)
 
 **Pattern**
-Your HRV has dropped from a 14-day average of 54 down to 38 over the last five nights, and "stressed" and "work" show up in your neg tags on four of those five days.
+Last night was more restless than your recent baseline, continuing the uneven pattern from this week.
 
 **What this likely means**
-Your nervous system looks stuck in fight-or-flight mode — when the sympathetic branch stays switched on, HRV falls and sleep quality follows it down. The body isn't getting the signal that it's safe to rest.
+The work stress in your recent check-ins may be making it harder to settle before bed.
 
 **Tonight's action**
-Before getting in bed tonight, do 4 minutes of 2:1 breathing: inhale through your nose for 3 seconds, exhale through your mouth for 6 seconds. Set a timer so you don't have to think about it.
+Before bed, do four minutes of breathing with a three-second inhale and six-second exhale.
 
 **Why this, now**
-Long exhales are the fastest way to activate your vagus nerve, which is the body's built-in off-switch for stress. Four minutes is enough to shift state on a night when your HRV is this suppressed.
+That directly supports your current focus on calming your mind before sleep.
 
 ${MEMORY_SYSTEM_GUIDANCE}`;
 
@@ -219,6 +226,16 @@ function normalizeMessages(value: unknown): CoachMessage[] {
     }
     return [{ role: candidate.role, content: candidate.content }];
   });
+}
+
+function plainCoachText(value: string): string {
+  return value
+    .replaceAll("**", "")
+    .replaceAll("__", "")
+    .replaceAll("`", "")
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/^\s*[-•]\s+/gm, "")
+    .trim();
 }
 
 function compactJson(value: unknown, maxLength = 6_000): string {
@@ -491,7 +508,12 @@ function parseRecommendation(
   const why = extract(H.why, []);
 
   if (!pattern || !meaning || !action || !why) return null;
-  return { pattern, meaning, action, why };
+  return {
+    pattern: plainCoachText(pattern),
+    meaning: plainCoachText(meaning),
+    action: plainCoachText(action),
+    why: plainCoachText(why),
+  };
 }
 
 // Call Anthropic API in non-streaming mode and return the text
@@ -537,7 +559,7 @@ async function callAnthropicConversation(
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
-      max_tokens: 900,
+      max_tokens: 350,
       system: SYSTEM_PROMPT + formatMemoryContext(memories) +
         `\n\nCURRENT USER CONTEXT:\n${compactJson(coachContext, 10_000)}\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
       messages,
@@ -684,12 +706,12 @@ Deno.serve(async (req: Request) => {
         user.id,
         buildMemoryQuery(memoryMode, chatHistory, sleepData, coachContext),
       );
-      const responseText = await callAnthropicConversation(
+      const rawResponseText = await callAnthropicConversation(
         chatHistory,
         coachContext,
         memories,
       );
-      if (!responseText) {
+      if (!rawResponseText) {
         return new Response(
           JSON.stringify({ error: "The coach could not generate a response" }),
           {
@@ -698,6 +720,7 @@ Deno.serve(async (req: Request) => {
           },
         );
       }
+      const responseText = plainCoachText(rawResponseText);
 
       const { data: assistantMessage, error: assistantError } = await supabase
         .from("coach_messages")
@@ -708,7 +731,7 @@ Deno.serve(async (req: Request) => {
           content: responseText,
           metadata: {
             model: "claude-sonnet-4-6",
-            prompt_version: "native-chat-v1-memory",
+            prompt_version: "native-chat-v2-plain-weekly",
             memory_count: memories.length,
             memory_provider: memoryProvider.name,
             responding_to: userMessageId,
@@ -760,12 +783,12 @@ Deno.serve(async (req: Request) => {
 
       const { data: existing } = await supabase
         .from("coach_recommendations")
-        .select("pattern, meaning, action, why, generated_at")
+        .select("pattern, meaning, action, why, generated_at, prompt_version")
         .eq("user_id", user.id)
         .eq("recommendation_date", recommendationDate)
         .maybeSingle();
 
-      if (existing) {
+      if (existing?.prompt_version === "native-daily-v3-concise-weekly") {
         return new Response(
           JSON.stringify({
             status: "ok",
@@ -825,7 +848,7 @@ Deno.serve(async (req: Request) => {
           memory_count: memories.length,
           memory_provider: memoryProvider.name,
         },
-        prompt_version: "native-daily-v2-memory",
+        prompt_version: "native-daily-v3-concise-weekly",
         model: "claude-sonnet-4-6",
         generated_at: generatedAt,
       };
