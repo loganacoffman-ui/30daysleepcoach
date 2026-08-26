@@ -8,7 +8,7 @@ module.exports = {
     version: '1.0.1',
     orientation: 'portrait',
     icon: './assets/icon.png',
-    userInterfaceStyle: 'light',
+    userInterfaceStyle: 'dark',
     ios: {
       supportsTablet: false,
       bundleIdentifier: isPreview
@@ -47,7 +47,7 @@ module.exports = {
         'expo-notifications',
         {
           defaultChannel: 'daily-check-in',
-          color: '#FFB347',
+          color: '#BDB5FF',
         },
       ],
       [

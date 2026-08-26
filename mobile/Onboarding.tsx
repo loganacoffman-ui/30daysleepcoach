@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
 
+import { colors } from './design/theme';
 import {
   cancelDailyCheckInReminder,
   scheduleDailyCheckInReminder,
@@ -672,7 +673,7 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color="#e8b978" size="large" />
+          <ActivityIndicator color={colors.accent} size="large" />
           <Text style={styles.loadingText}>Finding your place…</Text>
         </View>
       </SafeAreaView>
@@ -854,10 +855,10 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
             </View>
             <Switch
               accessibilityLabel="My schedule varies a lot"
-              ios_backgroundColor="#263b49"
+              ios_backgroundColor={colors.borderStrong}
               onValueChange={setScheduleVaries}
-              thumbColor={scheduleVaries ? '#fff7e8' : '#c0ccd3'}
-              trackColor={{ false: '#263b49', true: '#a66f39' }}
+              thumbColor={scheduleVaries ? colors.input : colors.textMuted}
+              trackColor={{ false: colors.borderStrong, true: colors.accentStrong }}
               value={scheduleVaries}
             />
           </View>
@@ -1066,7 +1067,7 @@ function PrimaryButton({
       ]}
     >
       {busy ? (
-        <ActivityIndicator color="#101b25" />
+        <ActivityIndicator color={colors.ink} />
       ) : (
         <Text style={styles.primaryButtonText}>{label}</Text>
       )}
@@ -1076,7 +1077,7 @@ function PrimaryButton({
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: '#07131f',
+    backgroundColor: colors.canvas,
     flex: 1,
   },
   scrollContent: {
@@ -1096,7 +1097,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadingText: {
-    color: '#9cafbd',
+    color: colors.textMuted,
     fontSize: 14,
     marginTop: 14,
   },
@@ -1109,7 +1110,7 @@ const styles = StyleSheet.create({
     height: 48,
   },
   backButtonText: {
-    color: '#aebbc4',
+    color: colors.textMuted,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -1121,8 +1122,8 @@ const styles = StyleSheet.create({
   },
   moonMark: {
     alignItems: 'center',
-    backgroundColor: '#122736',
-    borderColor: '#294151',
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.borderStrong,
     borderRadius: 32,
     borderWidth: 1,
     height: 64,
@@ -1131,12 +1132,12 @@ const styles = StyleSheet.create({
     width: 64,
   },
   moonMarkText: {
-    color: '#e8b978',
+    color: colors.accent,
     fontSize: 34,
     marginTop: -3,
   },
   eyebrow: {
-    color: '#d29a5f',
+    color: colors.accentSoft,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.3,
@@ -1144,7 +1145,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   displayTitle: {
-    color: '#f5f0e8',
+    color: colors.text,
     fontSize: 40,
     fontWeight: '700',
     letterSpacing: -1.2,
@@ -1152,13 +1153,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   bodyText: {
-    color: '#c7d0d6',
+    color: colors.textMuted,
     fontSize: 18,
     lineHeight: 28,
     marginBottom: 18,
   },
   helperText: {
-    color: '#8295a3',
+    color: colors.textSubtle,
     fontSize: 14,
     lineHeight: 21,
     marginBottom: 32,
@@ -1168,14 +1169,14 @@ const styles = StyleSheet.create({
     paddingTop: 14,
   },
   questionTitle: {
-    color: '#f5f0e8',
+    color: colors.text,
     fontSize: 32,
     fontWeight: '700',
     letterSpacing: -0.7,
     lineHeight: 39,
   },
   questionSubtitle: {
-    color: '#91a3af',
+    color: colors.textMuted,
     fontSize: 16,
     lineHeight: 24,
     marginTop: 14,
@@ -1185,8 +1186,8 @@ const styles = StyleSheet.create({
   },
   concernCard: {
     alignItems: 'center',
-    backgroundColor: '#102330',
-    borderColor: '#203a4a',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 18,
     borderWidth: 1,
     flexDirection: 'row',
@@ -1195,12 +1196,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   selectedCard: {
-    backgroundColor: '#173344',
-    borderColor: '#ba824b',
+    backgroundColor: colors.surfaceAccent,
+    borderColor: colors.borderSelected,
   },
   optionIcon: {
     alignItems: 'center',
-    borderColor: '#36505f',
+    borderColor: colors.borderStrong,
     borderRadius: 18,
     borderWidth: 1,
     height: 36,
@@ -1209,18 +1210,18 @@ const styles = StyleSheet.create({
     width: 36,
   },
   optionIconText: {
-    color: '#e8b978',
+    color: colors.accent,
     fontSize: 20,
   },
   concernLabel: {
-    color: '#ecedea',
+    color: colors.text,
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
     lineHeight: 22,
   },
   chevron: {
-    color: '#66808f',
+    color: colors.textFaint,
     fontSize: 25,
     marginLeft: 10,
   },
@@ -1243,23 +1244,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   timeLabel: {
-    color: '#8295a3',
+    color: colors.textSubtle,
     fontSize: 13,
     marginBottom: 5,
   },
   timeValue: {
-    color: '#f5f0e8',
+    color: colors.text,
     fontSize: 21,
     fontWeight: '700',
   },
   durationPill: {
-    backgroundColor: '#172d3a',
+    backgroundColor: colors.surfaceRaised,
     borderRadius: 20,
     paddingHorizontal: 11,
     paddingVertical: 7,
   },
   durationPillText: {
-    color: '#e8b978',
+    color: colors.accent,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1275,7 +1276,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sliderRail: {
-    backgroundColor: '#29404e',
+    backgroundColor: colors.borderStrong,
     borderRadius: 3,
     height: 6,
     left: 0,
@@ -1283,7 +1284,7 @@ const styles = StyleSheet.create({
     right: 0,
   },
   sliderFill: {
-    backgroundColor: '#d59a5d',
+    backgroundColor: colors.accentStrong,
     borderRadius: 3,
     height: 6,
     position: 'absolute',
@@ -1296,12 +1297,12 @@ const styles = StyleSheet.create({
     width: 44,
   },
   sliderHandleInner: {
-    backgroundColor: '#fff7e8',
-    borderColor: '#d59a5d',
+    backgroundColor: colors.input,
+    borderColor: colors.accentStrong,
     borderRadius: 15,
     borderWidth: 5,
     height: 30,
-    shadowColor: '#000000',
+    shadowColor: colors.shadow,
     shadowOffset: { height: 3, width: 0 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -1313,13 +1314,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   tickLabel: {
-    color: '#617684',
+    color: colors.textFaint,
     fontSize: 10,
   },
   switchRow: {
     alignItems: 'center',
-    backgroundColor: '#0e202c',
-    borderColor: '#1e3746',
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: 'row',
@@ -1332,19 +1333,19 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   switchLabel: {
-    color: '#e8ebe9',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '600',
     marginBottom: 3,
   },
   switchHint: {
-    color: '#718692',
+    color: colors.textSubtle,
     fontSize: 12,
     lineHeight: 17,
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#e8b978',
+    backgroundColor: colors.accent,
     borderRadius: 17,
     justifyContent: 'center',
     marginTop: 32,
@@ -1352,18 +1353,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   primaryButtonPressed: {
-    backgroundColor: '#dba968',
+    backgroundColor: colors.accentStrong,
     transform: [{ scale: 0.99 }],
   },
   primaryButtonText: {
-    color: '#101b25',
+    color: colors.ink,
     fontSize: 16,
     fontWeight: '800',
   },
   answerCard: {
     alignItems: 'center',
-    backgroundColor: '#102330',
-    borderColor: '#203a4a',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 17,
     borderWidth: 1,
     flexDirection: 'row',
@@ -1372,7 +1373,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
   },
   answerLabel: {
-    color: '#ecedea',
+    color: colors.text,
     flex: 1,
     fontSize: 17,
     fontWeight: '600',
@@ -1384,13 +1385,13 @@ const styles = StyleSheet.create({
     marginTop: -6,
   },
   summaryText: {
-    color: '#b8c4cb',
+    color: colors.textMuted,
     fontSize: 17,
     lineHeight: 25,
   },
   experimentCard: {
-    backgroundColor: '#112c32',
-    borderColor: '#31504e',
+    backgroundColor: colors.surfaceSuccess,
+    borderColor: colors.success,
     borderRadius: 22,
     borderWidth: 1,
     flexDirection: 'row',
@@ -1398,7 +1399,7 @@ const styles = StyleSheet.create({
   },
   experimentIcon: {
     alignItems: 'center',
-    backgroundColor: '#24433f',
+    backgroundColor: colors.successSurface,
     borderRadius: 20,
     height: 40,
     justifyContent: 'center',
@@ -1406,14 +1407,14 @@ const styles = StyleSheet.create({
     width: 40,
   },
   experimentIconText: {
-    color: '#e8b978',
+    color: colors.accent,
     fontSize: 19,
   },
   experimentCopy: {
     flex: 1,
   },
   experimentTitle: {
-    color: '#e8b978',
+    color: colors.accent,
     fontSize: 13,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -1421,26 +1422,26 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   experimentText: {
-    color: '#f2eee7',
+    color: colors.text,
     fontSize: 17,
     lineHeight: 26,
   },
   hypothesisText: {
-    color: '#78909c',
+    color: colors.textSubtle,
     fontSize: 13,
     lineHeight: 20,
     marginTop: 18,
   },
   reminderCard: {
     alignItems: 'center',
-    backgroundColor: '#102330',
-    borderColor: '#203a4a',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 22,
     borderWidth: 1,
     padding: 22,
   },
   reminderLabel: {
-    color: '#8295a3',
+    color: colors.textSubtle,
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.7,
@@ -1455,32 +1456,32 @@ const styles = StyleSheet.create({
   },
   timeAdjustButton: {
     alignItems: 'center',
-    backgroundColor: '#1b3544',
+    backgroundColor: colors.surfaceAccent,
     borderRadius: 24,
     height: 48,
     justifyContent: 'center',
     width: 48,
   },
   timeAdjustText: {
-    color: '#e8b978',
+    color: colors.accent,
     fontSize: 28,
     fontWeight: '400',
     lineHeight: 31,
   },
   reminderTime: {
-    color: '#f5f0e8',
+    color: colors.text,
     fontSize: 32,
     fontWeight: '700',
     letterSpacing: -0.5,
   },
   reminderHint: {
-    color: '#8fa0aa',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 21,
     textAlign: 'center',
   },
   errorText: {
-    color: '#ffb4a8',
+    color: colors.danger,
     fontSize: 13,
     lineHeight: 19,
     marginTop: 18,

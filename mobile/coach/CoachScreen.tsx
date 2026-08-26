@@ -215,6 +215,10 @@ export default function CoachScreen({
 
   return (
     <SafeAreaView edges={["top"]} style={styles.screen}>
+      <View pointerEvents="none" style={styles.ambient}>
+        <View style={styles.ambientViolet} />
+        <View style={styles.ambientBlue} />
+      </View>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={8}
@@ -361,6 +365,34 @@ export default function CoachScreen({
 }
 
 const styles = StyleSheet.create({
+  ambient: {
+    bottom: 0,
+    left: 0,
+    overflow: "hidden",
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
+  ambientBlue: {
+    backgroundColor: "#20313d",
+    borderRadius: 150,
+    height: 300,
+    left: -170,
+    opacity: 0.16,
+    position: "absolute",
+    top: 250,
+    width: 300,
+  },
+  ambientViolet: {
+    backgroundColor: "#4b426e",
+    borderRadius: 190,
+    height: 380,
+    opacity: 0.2,
+    position: "absolute",
+    right: -210,
+    top: -160,
+    width: 380,
+  },
   bubble: {
     borderRadius: 20,
     maxWidth: "84%",
@@ -450,7 +482,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingBottom: 12,
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 14,
   },
   input: {
     color: ink,
@@ -485,7 +517,7 @@ const styles = StyleSheet.create({
   },
   onlineText: { color: muted, fontSize: 11 },
   retry: { color: accent, fontSize: 12, fontWeight: "800" },
-  screen: { backgroundColor: colors.canvas, flex: 1 },
+  screen: { backgroundColor: colors.canvas, flex: 1, overflow: "hidden" },
   send: {
     alignItems: "center",
     backgroundColor: colors.accent,
