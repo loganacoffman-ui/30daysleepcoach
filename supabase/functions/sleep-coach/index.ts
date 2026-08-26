@@ -3,7 +3,20 @@
 // Set secret: ANTHROPIC_API_KEY via Dashboard → Edge Functions → Secrets
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import {
+  type AnthropicContentBlock,
+  COACH_TOOL_DEFINITIONS,
+  EXPERIMENT_CHANGE_TOOL,
+  experimentCancellationText,
+  experimentCompletionText,
+  experimentProposalText,
+  getTextContent,
+  getToolUse,
+  type PublicCoachToolCall,
+  toPublicCoachToolCall,
+  validateCoachToolInput,
+} from "../_shared/coachTools.ts";
 import {
   createMemoryProvider,
   type Memory,
@@ -43,6 +56,13 @@ Your job:
    Keep it conversational, direct, and specific to THEIR data. No generic sleep hygiene lists and no exhaustive recap.
 
 2. FOLLOW-UP CHAT: When the user asks questions, answer using their data. Prioritize the past week and trends over time. Connect a specific behavior or journal observation to a sleep pattern when the evidence supports it. If their data doesn't cover the question, say so honestly.
+
+Tool behavior:
+- You can propose changing tonight's active, incomplete sleep experiment when the user explicitly asks to modify, change, overhaul, replace, or pick a new experiment.
+- Use the experiment-change tool only after the user has explained why the current experiment does not work for them. If their reason is missing, ask one short question to understand the obstacle instead of calling the tool.
+- Form the replacement from your sleep-coaching expertise, their stated reason, and CURRENT USER CONTEXT. Keep it to one small, concrete behavioral experiment for tonight.
+- Calling the tool creates a proposal only. Never say the experiment has changed until the user confirms and the tool result is recorded.
+- Never use the tool to alter past, completed, or future experiments.
 
 Formatting rules:
 - Default to 2-5 short sentences and one idea per paragraph; this is a mobile-first app
@@ -549,7 +569,13 @@ async function callAnthropicConversation(
   messages: CoachMessage[],
   coachContext: unknown,
   memories: Memory[],
-): Promise<string | null> {
+): Promise<
+  {
+    content: AnthropicContentBlock[];
+    stop_reason: string | null;
+    model?: string;
+  } | null
+> {
   const response = await fetch(ANTHROPIC_URL, {
     method: "POST",
     headers: {
@@ -561,19 +587,177 @@ async function callAnthropicConversation(
       model: "claude-sonnet-4-6",
       max_tokens: 350,
       system: SYSTEM_PROMPT + formatMemoryContext(memories) +
-        `\n\nCURRENT USER CONTEXT:\n${compactJson(coachContext, 10_000)}\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
+        `\n\nCURRENT USER CONTEXT:\n${
+          compactJson(coachContext, 10_000)
+        }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
       messages,
+      tools: COACH_TOOL_DEFINITIONS,
+      tool_choice: { type: "auto", disable_parallel_tool_use: true },
       stream: false,
     }),
   });
 
-  if (!response.ok) return null;
+  if (!response.ok) {
+    console.error("Anthropic conversation failed", await response.text());
+    return null;
+  }
   const json = await response.json();
-  return json.content
-    ?.filter((block: { type: string }) => block.type === "text")
-    .map((block: { text: string }) => block.text)
-    .join("\n")?.trim() ?? null;
+  if (!Array.isArray(json.content)) return null;
+  return {
+    content: json.content as AnthropicContentBlock[],
+    stop_reason: typeof json.stop_reason === "string" ? json.stop_reason : null,
+    model: typeof json.model === "string" ? json.model : undefined,
+  };
 }
+
+type CoachToolPrepareContext = {
+  supabase: SupabaseClient;
+  userId: string;
+  conversationId: string;
+  coachContext: unknown;
+  providerCallId: string;
+  input: unknown;
+};
+
+type CoachToolPrepareResult = {
+  toolCall: PublicCoachToolCall;
+  responseText: string;
+};
+
+type CoachToolHandler = {
+  prepare(context: CoachToolPrepareContext): Promise<CoachToolPrepareResult>;
+  execute(
+    supabase: SupabaseClient,
+    toolCallId: string,
+  ): Promise<Record<string, unknown>>;
+};
+
+class CoachToolUserError extends Error {}
+
+const contextDate = (coachContext: unknown): string => {
+  const value = coachContext && typeof coachContext === "object"
+    ? (coachContext as Record<string, unknown>).date
+    : null;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new CoachToolUserError(
+      "I couldn't identify tonight's active experiment. Please refresh and try again.",
+    );
+  }
+  return value;
+};
+
+const experimentChangeHandler: CoachToolHandler = {
+  async prepare({
+    supabase,
+    userId,
+    conversationId,
+    coachContext,
+    providerCallId,
+    input,
+  }) {
+    const modelInput = validateCoachToolInput(EXPERIMENT_CHANGE_TOOL, input);
+    const behaviorDate = contextDate(coachContext);
+    const { data: commitment, error: commitmentError } = await supabase
+      .from("behavior_commitments")
+      .select("id, behavior_date, behavior, status")
+      .eq("user_id", userId)
+      .eq("behavior_date", behaviorDate)
+      .eq("status", "committed")
+      .maybeSingle();
+    if (commitmentError) throw commitmentError;
+    if (!commitment) {
+      throw new CoachToolUserError(
+        "I can only change tonight's active, incomplete experiment, and I couldn't find one right now.",
+      );
+    }
+    if (
+      commitment.behavior.trim().toLocaleLowerCase() ===
+        modelInput.replacement_experiment.toLocaleLowerCase()
+    ) {
+      throw new CoachToolUserError(
+        "That replacement is effectively the same as tonight's current experiment. Tell me what would fit better and I'll choose a different one.",
+      );
+    }
+
+    const scopeKey = `tonight:${behaviorDate}`;
+    const { error: supersedeError } = await supabase
+      .from("coach_tool_calls")
+      .update({
+        status: "cancelled",
+        output: { reason: "superseded_by_new_proposal" },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId)
+      .eq("tool_name", EXPERIMENT_CHANGE_TOOL)
+      .eq("scope_key", scopeKey)
+      .eq("status", "pending");
+    if (supersedeError) throw supersedeError;
+
+    const fullInput = {
+      ...modelInput,
+      behavior_commitment_id: commitment.id,
+      behavior_date: commitment.behavior_date,
+      previous_experiment: commitment.behavior,
+    };
+    const { data: saved, error: saveError } = await supabase
+      .from("coach_tool_calls")
+      .insert({
+        conversation_id: conversationId,
+        user_id: userId,
+        tool_name: EXPERIMENT_CHANGE_TOOL,
+        scope_key: scopeKey,
+        input: fullInput,
+        requires_confirmation: true,
+        provider_call_id: providerCallId,
+      })
+      .select(
+        "id, tool_name, status, input, output, requires_confirmation, expires_at",
+      )
+      .single();
+    if (saveError || !saved) {
+      throw saveError ?? new Error("Could not save coach tool proposal");
+    }
+    return {
+      toolCall: toPublicCoachToolCall(saved),
+      responseText: experimentProposalText(fullInput),
+    };
+  },
+
+  async execute(supabase, toolCallId) {
+    const { data, error } = await supabase.rpc(
+      "confirm_coach_experiment_change",
+      { requested_tool_call_id: toolCallId },
+    );
+    if (error) throw error;
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      throw new Error("Experiment change returned an invalid result");
+    }
+    return data as Record<string, unknown>;
+  },
+};
+
+const COACH_TOOL_HANDLERS: Record<string, CoachToolHandler> = {
+  [EXPERIMENT_CHANGE_TOOL]: experimentChangeHandler,
+};
+
+const prepareCoachToolCall = (
+  name: string,
+  context: CoachToolPrepareContext,
+): Promise<CoachToolPrepareResult> => {
+  const handler = COACH_TOOL_HANDLERS[name];
+  if (!handler) throw new Error(`Unsupported coach tool: ${name}`);
+  return handler.prepare(context);
+};
+
+const executeCoachToolCall = (
+  name: string,
+  supabase: SupabaseClient,
+  toolCallId: string,
+): Promise<Record<string, unknown>> => {
+  const handler = COACH_TOOL_HANDLERS[name];
+  if (!handler) throw new Error(`Unsupported coach tool: ${name}`);
+  return handler.execute(supabase, toolCallId);
+};
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = {
@@ -597,6 +781,8 @@ Deno.serve(async (req: Request) => {
       conversationId,
       message,
       clientRequestId,
+      toolCallId,
+      action,
     } = body;
     const messages = normalizeMessages(body.messages);
     const memoryMode = typeof mode === "string"
@@ -618,6 +804,222 @@ Deno.serve(async (req: Request) => {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
+      );
+    }
+
+    // ─── CONFIRMED COACH TOOL ACTIONS ────────────────────────────────
+    if (mode === "coach_tool_action") {
+      if (
+        typeof conversationId !== "string" ||
+        typeof toolCallId !== "string" ||
+        (action !== "confirm" && action !== "cancel")
+      ) {
+        return new Response(
+          JSON.stringify({
+            error: "A valid conversation, tool call, and action are required",
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const { data: storedToolCall, error: toolCallError } = await supabase
+        .from("coach_tool_calls")
+        .select(
+          "id, conversation_id, tool_name, status, input, output, requires_confirmation, expires_at",
+        )
+        .eq("id", toolCallId)
+        .eq("conversation_id", conversationId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (toolCallError) throw toolCallError;
+      if (!storedToolCall) {
+        return new Response(JSON.stringify({ error: "Tool call not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const proposalExpired = storedToolCall.status === "pending" &&
+        new Date(storedToolCall.expires_at) <= new Date();
+      if (proposalExpired) {
+        await supabase.from("coach_tool_calls").update({
+          status: "expired",
+          updated_at: new Date().toISOString(),
+        }).eq("id", storedToolCall.id).eq("user_id", user.id);
+        return new Response(
+          JSON.stringify({ error: "This proposal is no longer pending" }),
+          {
+            status: 409,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+      const alreadyResolved =
+        (action === "confirm" && storedToolCall.status === "completed") ||
+        (action === "cancel" && storedToolCall.status === "cancelled");
+      if (storedToolCall.status !== "pending" && !alreadyResolved) {
+        return new Response(
+          JSON.stringify({ error: "This proposal is no longer pending" }),
+          {
+            status: 409,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      let responseText: string;
+      let userActionText: string;
+      let resolvedToolCall;
+      let toolResult: Record<string, unknown>;
+      if (action === "confirm") {
+        if (storedToolCall.status === "pending") {
+          toolResult = await executeCoachToolCall(
+            storedToolCall.tool_name,
+            supabase,
+            storedToolCall.id,
+          );
+          const { data, error } = await supabase
+            .from("coach_tool_calls")
+            .select(
+              "id, tool_name, status, input, output, requires_confirmation, expires_at",
+            )
+            .eq("id", storedToolCall.id)
+            .single();
+          if (error || !data) throw error ?? new Error("Tool call not found");
+          resolvedToolCall = data;
+        } else {
+          if (
+            !storedToolCall.output ||
+            typeof storedToolCall.output !== "object" ||
+            Array.isArray(storedToolCall.output)
+          ) {
+            throw new Error("Completed tool call result is unavailable");
+          }
+          toolResult = storedToolCall.output as Record<string, unknown>;
+          resolvedToolCall = storedToolCall;
+        }
+        const replacement =
+          typeof toolResult.replacement_experiment === "string"
+            ? toolResult.replacement_experiment
+            : "";
+        if (!replacement) {
+          throw new Error("Experiment change did not return a replacement");
+        }
+        responseText = experimentCompletionText(replacement);
+        userActionText = "Confirm the proposed experiment change.";
+      } else {
+        if (storedToolCall.status === "pending") {
+          toolResult = { reason: "cancelled_by_user" };
+          const { data, error } = await supabase
+            .from("coach_tool_calls")
+            .update({
+              status: "cancelled",
+              output: toolResult,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", storedToolCall.id)
+            .eq("user_id", user.id)
+            .eq("status", "pending")
+            .select(
+              "id, tool_name, status, input, output, requires_confirmation, expires_at",
+            )
+            .single();
+          if (error || !data) {
+            throw error ?? new Error("Could not cancel tool call");
+          }
+          resolvedToolCall = data;
+        } else {
+          toolResult = storedToolCall.output &&
+              typeof storedToolCall.output === "object" &&
+              !Array.isArray(storedToolCall.output)
+            ? storedToolCall.output as Record<string, unknown>
+            : { reason: "cancelled_by_user" };
+          resolvedToolCall = storedToolCall;
+        }
+        responseText = experimentCancellationText();
+        userActionText = "Keep tonight's current experiment.";
+      }
+
+      const { data: priorActionMessages, error: priorActionError } =
+        await supabase
+          .from("coach_messages")
+          .select("id, role, content, created_at, metadata")
+          .eq("conversation_id", conversationId)
+          .eq("user_id", user.id)
+          .contains("metadata", {
+            tool_call_id: storedToolCall.id,
+            tool_action: action,
+          })
+          .order("created_at", { ascending: true });
+      if (priorActionError) throw priorActionError;
+
+      let actionMessages = priorActionMessages ?? [];
+      let createdActionMessages = false;
+      if (actionMessages.length === 1) {
+        throw new Error("Stored tool action messages are incomplete");
+      }
+      if (actionMessages.length === 0) {
+        const { data, error } = await supabase
+          .from("coach_messages")
+          .insert([
+            {
+              conversation_id: conversationId,
+              user_id: user.id,
+              role: "user",
+              content: userActionText,
+              metadata: {
+                tool_call_id: storedToolCall.id,
+                tool_action: action,
+              },
+            },
+            {
+              conversation_id: conversationId,
+              user_id: user.id,
+              role: "assistant",
+              content: responseText,
+              metadata: {
+                model: "tool-execution",
+                tool_call_id: storedToolCall.id,
+                tool_name: storedToolCall.tool_name,
+                tool_action: action,
+              },
+            },
+          ])
+          .select("id, role, content, created_at, metadata");
+        if (error || !data) {
+          throw error ?? new Error("Could not save tool response");
+        }
+        actionMessages = data;
+        createdActionMessages = true;
+      }
+
+      if (createdActionMessages) {
+        runInBackground(
+          Promise.all([
+            supabase.from("coach_conversations").update({
+              updated_at: new Date().toISOString(),
+            }).eq("id", conversationId).then(() => undefined),
+            persistCoachMemory(
+              user.id,
+              "coach_tool_action",
+              `User ${action}ed ${storedToolCall.tool_name}. Tool result: ${
+                compactJson(toolResult, 2_000)
+              }`,
+              responseText,
+            ),
+          ]).then(() => undefined),
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          status: "ok",
+          messages: actionMessages,
+          toolCall: toPublicCoachToolCall(resolvedToolCall),
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -643,10 +1045,13 @@ Deno.serve(async (req: Request) => {
         .eq("user_id", user.id)
         .maybeSingle();
       if (!conversation) {
-        return new Response(JSON.stringify({ error: "Conversation not found" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ error: "Conversation not found" }),
+          {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
       let userMessageId: string | null = null;
@@ -706,12 +1111,12 @@ Deno.serve(async (req: Request) => {
         user.id,
         buildMemoryQuery(memoryMode, chatHistory, sleepData, coachContext),
       );
-      const rawResponseText = await callAnthropicConversation(
+      const anthropicResponse = await callAnthropicConversation(
         chatHistory,
         coachContext,
         memories,
       );
-      if (!rawResponseText) {
+      if (!anthropicResponse) {
         return new Response(
           JSON.stringify({ error: "The coach could not generate a response" }),
           {
@@ -720,7 +1125,43 @@ Deno.serve(async (req: Request) => {
           },
         );
       }
-      const responseText = plainCoachText(rawResponseText);
+
+      const toolUse = getToolUse(anthropicResponse.content);
+      let responseText = "";
+      let preparedToolCall: PublicCoachToolCall | null = null;
+      if (toolUse) {
+        try {
+          const prepared = await prepareCoachToolCall(toolUse.name, {
+            supabase,
+            userId: user.id,
+            conversationId,
+            coachContext,
+            providerCallId: toolUse.id,
+            input: toolUse.input,
+          });
+          responseText = prepared.responseText;
+          preparedToolCall = prepared.toolCall;
+        } catch (toolError) {
+          if (toolError instanceof CoachToolUserError) {
+            responseText = toolError.message;
+          } else {
+            throw toolError;
+          }
+        }
+      } else {
+        responseText = plainCoachText(
+          getTextContent(anthropicResponse.content),
+        );
+      }
+      if (!responseText) {
+        return new Response(
+          JSON.stringify({ error: "The coach returned an empty response" }),
+          {
+            status: 502,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
 
       const { data: assistantMessage, error: assistantError } = await supabase
         .from("coach_messages")
@@ -730,16 +1171,26 @@ Deno.serve(async (req: Request) => {
           role: "assistant",
           content: responseText,
           metadata: {
-            model: "claude-sonnet-4-6",
-            prompt_version: "native-chat-v2-plain-weekly",
+            model: anthropicResponse.model ?? "claude-sonnet-4-6",
+            prompt_version: "native-chat-v3-tools",
             memory_count: memories.length,
             memory_provider: memoryProvider.name,
             responding_to: userMessageId,
+            stop_reason: anthropicResponse.stop_reason,
+            tool_call_id: preparedToolCall?.id ?? null,
+            tool_name: preparedToolCall?.name ?? null,
           },
         })
-        .select("id, role, content, created_at")
+        .select("id, role, content, created_at, metadata")
         .single();
       if (assistantError || !assistantMessage) {
+        if (preparedToolCall) {
+          await supabase.from("coach_tool_calls").update({
+            status: "failed",
+            output: { reason: "assistant_message_save_failed" },
+            updated_at: new Date().toISOString(),
+          }).eq("id", preparedToolCall.id).eq("user_id", user.id);
+        }
         return new Response(
           JSON.stringify({
             error: assistantError?.message ?? "Could not save response",
@@ -751,25 +1202,31 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      runInBackground(Promise.all([
-        supabase.from("coach_conversations").update({
-          updated_at: new Date().toISOString(),
-        }).eq("id", conversationId).then(() => undefined),
-        persistCoachMemory(
-          user.id,
-          memoryMode,
-          buildMemoryObservation(
+      runInBackground(
+        Promise.all([
+          supabase.from("coach_conversations").update({
+            updated_at: new Date().toISOString(),
+          }).eq("id", conversationId).then(() => undefined),
+          persistCoachMemory(
+            user.id,
             memoryMode,
-            chatHistory,
-            sleepData,
-            coachContext,
+            buildMemoryObservation(
+              memoryMode,
+              chatHistory,
+              sleepData,
+              coachContext,
+            ),
+            responseText,
           ),
-          responseText,
-        ),
-      ]).then(() => undefined));
+        ]).then(() => undefined),
+      );
 
       return new Response(
-        JSON.stringify({ status: "ok", message: assistantMessage }),
+        JSON.stringify({
+          status: "ok",
+          message: assistantMessage,
+          toolCall: preparedToolCall,
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
