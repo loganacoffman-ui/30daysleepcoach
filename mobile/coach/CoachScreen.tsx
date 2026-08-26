@@ -14,6 +14,7 @@ import {
 import type { User } from "@supabase/supabase-js";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { colors } from "../design/theme";
 import type { SleepProfile } from "../onboarding/types";
 import { loadCoachExperience, sendCoachMessage } from "./coachRepository";
 import type {
@@ -22,11 +23,11 @@ import type {
   DailyCoaching,
 } from "./coachRepository";
 
-const ink = "#17232d";
-const muted = "#65727c";
-const border = "#e5e7e5";
-const accent = "#b7793e";
-const soft = "#f5f2ed";
+const ink = colors.text;
+const muted = colors.textSubtle;
+const border = colors.border;
+const accent = colors.accent;
+const soft = colors.surfaceMuted;
 
 const TodayCoaching = ({
   coaching,
@@ -322,7 +323,7 @@ export default function CoachScreen({
                 onChangeText={setInput}
                 onSubmitEditing={() => void send()}
                 placeholder="Ask your coach…"
-                placeholderTextColor="#8b949b"
+                placeholderTextColor={colors.textFaint}
                 style={styles.input}
                 value={input}
               />
@@ -336,7 +337,7 @@ export default function CoachScreen({
                 ]}
               >
                 {sending ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={colors.ink} size="small" />
                 ) : (
                   <Text style={styles.sendText}>↑</Text>
                 )}
@@ -369,10 +370,15 @@ const styles = StyleSheet.create({
   center: { alignItems: "center", flex: 1, gap: 12, justifyContent: "center" },
   chevron: { color: muted, fontSize: 28, fontWeight: "300" },
   close: { color: ink, fontSize: 32, fontWeight: "300", lineHeight: 34 },
-  coachBubble: { backgroundColor: "#f2f3f1", borderTopLeftRadius: 6 },
+  coachBubble: {
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.border,
+    borderTopLeftRadius: 6,
+    borderWidth: 1,
+  },
   coachMark: {
     alignItems: "center",
-    backgroundColor: ink,
+    backgroundColor: colors.accent,
     borderRadius: 14,
     height: 28,
     justifyContent: "center",
@@ -380,7 +386,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     width: 28,
   },
-  coachMarkText: { color: "#fff", fontSize: 12 },
+  coachMarkText: { color: colors.ink, fontSize: 12 },
   coachingAction: {
     color: ink,
     fontSize: 26,
@@ -396,11 +402,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   coachingSection: { marginBottom: 32 },
-  coachingSheet: { backgroundColor: "#fff", flex: 1 },
-  coachingText: { color: "#44515a", fontSize: 17, lineHeight: 27 },
+  coachingSheet: { backgroundColor: colors.canvas, flex: 1 },
+  coachingText: { color: colors.textMuted, fontSize: 17, lineHeight: 27 },
   composer: {
     alignItems: "flex-end",
-    backgroundColor: "#f3f4f2",
+    backgroundColor: colors.surface,
     borderColor: border,
     borderRadius: 24,
     borderWidth: 1,
@@ -411,20 +417,21 @@ const styles = StyleSheet.create({
     paddingLeft: 16,
   },
   composerArea: {
-    borderTopColor: "#eceeec",
+    backgroundColor: colors.canvas,
+    borderTopColor: colors.border,
     borderTopWidth: 1,
     paddingBottom: 8,
     paddingHorizontal: 16,
     paddingTop: 10,
   },
   disclaimer: {
-    color: "#929aa0",
+    color: colors.textFaint,
     fontSize: 10,
     marginTop: 7,
     textAlign: "center",
   },
   emptyMessages: { flexGrow: 1 },
-  error: { color: "#a34239", flex: 1, fontSize: 12, lineHeight: 17 },
+  error: { color: colors.danger, flex: 1, fontSize: 12, lineHeight: 17 },
   errorRow: {
     alignItems: "center",
     flexDirection: "row",
@@ -471,24 +478,29 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   onlineDot: {
-    backgroundColor: "#62a681",
+    backgroundColor: colors.success,
     borderRadius: 4,
     height: 7,
     width: 7,
   },
   onlineText: { color: muted, fontSize: 11 },
   retry: { color: accent, fontSize: 12, fontWeight: "800" },
-  screen: { backgroundColor: "#fff", flex: 1 },
+  screen: { backgroundColor: colors.canvas, flex: 1 },
   send: {
     alignItems: "center",
-    backgroundColor: ink,
+    backgroundColor: colors.accent,
     borderRadius: 19,
     height: 38,
     justifyContent: "center",
     width: 38,
   },
-  sendDisabled: { backgroundColor: "#bcc2c5" },
-  sendText: { color: "#fff", fontSize: 22, fontWeight: "600", lineHeight: 24 },
+  sendDisabled: { backgroundColor: colors.surfaceAccent },
+  sendText: {
+    color: colors.ink,
+    fontSize: 22,
+    fontWeight: "600",
+    lineHeight: 24,
+  },
   sheetContent: { padding: 24 },
   sheetEyebrow: {
     color: accent,
@@ -512,8 +524,8 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   suggestion: {
-    backgroundColor: "#fff",
-    borderColor: "#d9ddda",
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.borderStrong,
     borderRadius: 18,
     borderWidth: 1,
     marginRight: 8,
@@ -521,7 +533,11 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   suggestions: { paddingBottom: 10 },
-  suggestionText: { color: "#4c5a63", fontSize: 12, fontWeight: "600" },
+  suggestionText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
+  },
   title: {
     color: ink,
     fontSize: 30,
@@ -532,7 +548,7 @@ const styles = StyleSheet.create({
   todayCard: {
     alignItems: "center",
     backgroundColor: soft,
-    borderColor: "#e8e1d8",
+    borderColor: colors.borderSelected,
     borderRadius: 18,
     borderWidth: 1,
     flexDirection: "row",
@@ -543,7 +559,7 @@ const styles = StyleSheet.create({
   todayCopy: { flex: 1, marginHorizontal: 11 },
   todayIcon: {
     alignItems: "center",
-    backgroundColor: "#efe1d1",
+    backgroundColor: colors.surfaceAccent,
     borderRadius: 16,
     height: 32,
     justifyContent: "center",
@@ -557,9 +573,9 @@ const styles = StyleSheet.create({
     letterSpacing: 1.1,
   },
   todayText: { color: ink, fontSize: 14, fontWeight: "600", marginTop: 3 },
-  userBubble: { backgroundColor: ink, borderTopRightRadius: 6 },
+  userBubble: { backgroundColor: colors.accent, borderTopRightRadius: 6 },
   userMessageRow: { justifyContent: "flex-end" },
-  userMessageText: { color: "#fff" },
+  userMessageText: { color: colors.ink },
   welcome: { paddingHorizontal: 24 },
   welcomeBody: { color: muted, fontSize: 16, lineHeight: 25, marginTop: 11 },
   welcomeTitle: {
