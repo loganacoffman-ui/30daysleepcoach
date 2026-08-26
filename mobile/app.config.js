@@ -5,7 +5,7 @@ module.exports = {
     name: isPreview ? 'Sleep Coach Preview' : '30 Day Sleep Coach',
     slug: '30daysleepcoach',
     scheme: isPreview ? 'thirtydaysleepcoach-preview' : 'thirtydaysleepcoach',
-    version: '1.0.0',
+    version: '1.0.1',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
@@ -14,7 +14,6 @@ module.exports = {
       bundleIdentifier: isPreview
         ? 'com.30daysleepcoach.app.preview'
         : 'com.30daysleepcoach.app',
-      buildNumber: '13',
       usesAppleSignIn: true,
       config: {
         usesNonExemptEncryption: false,
