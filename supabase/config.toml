@@ -3,7 +3,10 @@ site_url = "https://30daysleepcoach.com"
 additional_redirect_urls = [
   "thirtydaysleepcoach://auth/callback",
   "thirtydaysleepcoach://**",
+  "thirtydaysleepcoach-dev://auth/callback",
+  "thirtydaysleepcoach-dev://**",
   "thirtydaysleepcoach-preview://auth/callback",
+  "thirtydaysleepcoach-preview://**",
 ]
 
 [auth.mfa.totp]
