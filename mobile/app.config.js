@@ -8,13 +8,13 @@ module.exports = {
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
-    userInterfaceStyle: 'light',
+    userInterfaceStyle: 'dark',
     ios: {
       supportsTablet: false,
       bundleIdentifier: isPreview
         ? 'com.30daysleepcoach.app.preview'
         : 'com.30daysleepcoach.app',
-      buildNumber: '13',
+      buildNumber: '14',
       usesAppleSignIn: true,
       config: {
         usesNonExemptEncryption: false,
@@ -48,7 +48,7 @@ module.exports = {
         'expo-notifications',
         {
           defaultChannel: 'daily-check-in',
-          color: '#FFB347',
+          color: '#BDB5FF',
         },
       ],
       [
