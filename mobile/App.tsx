@@ -4,6 +4,7 @@ import * as Linking from 'expo-linking';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useState } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Alert,
@@ -648,7 +649,11 @@ function AppContent() {
 }
 
 export default function App() {
-  return <AppContent />;
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
+  );
 }
 
 const styles = StyleSheet.create({
