@@ -21,6 +21,7 @@ export type DailyCheckin = {
   id: string;
   checkinDate: string;
   feeling: number;
+  manualSleepScore?: number;
   suspectedFactor?: SuspectedFactorKey;
   note?: string;
   completedAt: string;
@@ -34,10 +35,15 @@ export type TodaySnapshot = {
   commitment: BehaviorCommitment | null;
   previousCommitment: BehaviorCommitment | null;
   checkin: DailyCheckin | null;
+  sleepData: {
+    status: 'wearable' | 'manual' | 'missing';
+    score: number | null;
+  };
 };
 
 export type DailyCheckinDraft = {
   feeling: number;
+  manualSleepScore?: number;
   suspectedFactor?: SuspectedFactorKey;
   note?: string;
 };
@@ -45,5 +51,6 @@ export type DailyCheckinDraft = {
 export interface TodayRepository {
   loadToday(): Promise<TodaySnapshot>;
   saveCheckin(draft: DailyCheckinDraft): Promise<DailyCheckin>;
+  saveManualSleepScore(score: number): Promise<void>;
   updateCommitmentStatus(id: string, status: Exclude<CommitmentStatus, 'committed'>): Promise<void>;
 }

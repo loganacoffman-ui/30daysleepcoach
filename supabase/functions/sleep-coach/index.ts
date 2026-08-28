@@ -610,6 +610,33 @@ async function callAnthropicConversation(
   };
 }
 
+async function callAnthropicConversationStream(
+  messages: CoachMessage[],
+  coachContext: unknown,
+  memories: Memory[],
+): Promise<Response> {
+  return await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 350,
+      system: SYSTEM_PROMPT + formatMemoryContext(memories) +
+        `\n\nCURRENT USER CONTEXT:\n${
+          compactJson(coachContext, 10_000)
+        }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
+      messages,
+      tools: COACH_TOOL_DEFINITIONS,
+      tool_choice: { type: "auto", disable_parallel_tool_use: true },
+      stream: true,
+    }),
+  });
+}
+
 type CoachToolPrepareContext = {
   supabase: SupabaseClient;
   userId: string;
@@ -1111,12 +1138,12 @@ Deno.serve(async (req: Request) => {
         user.id,
         buildMemoryQuery(memoryMode, chatHistory, sleepData, coachContext),
       );
-      const anthropicResponse = await callAnthropicConversation(
+      const anthropicResponse = await callAnthropicConversationStream(
         chatHistory,
         coachContext,
         memories,
       );
-      if (!anthropicResponse) {
+      if (!anthropicResponse.ok || !anthropicResponse.body) {
         return new Response(
           JSON.stringify({ error: "The coach could not generate a response" }),
           {
@@ -1126,109 +1153,149 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      const toolUse = getToolUse(anthropicResponse.content);
-      let responseText = "";
-      let preparedToolCall: PublicCoachToolCall | null = null;
-      if (toolUse) {
-        try {
-          const prepared = await prepareCoachToolCall(toolUse.name, {
-            supabase,
-            userId: user.id,
-            conversationId,
-            coachContext,
-            providerCallId: toolUse.id,
-            input: toolUse.input,
-          });
-          responseText = prepared.responseText;
-          preparedToolCall = prepared.toolCall;
-        } catch (toolError) {
-          if (toolError instanceof CoachToolUserError) {
-            responseText = toolError.message;
-          } else {
-            throw toolError;
+      const encoder = new TextEncoder();
+      const clientStream = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          const reader = anthropicResponse.body!.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let fullText = "";
+          let stopReason: string | null = null;
+          let model = "claude-sonnet-4-6";
+          let toolUse: { id: string; name: string; input: unknown } | null = null;
+          let toolInputJson = "";
+          const sendEvent = (event: unknown) => controller.enqueue(
+            encoder.encode(`${JSON.stringify(event)}\n`),
+          );
+
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split("\n");
+              buffer = lines.pop() ?? "";
+              for (const line of lines) {
+                if (!line.startsWith("data: ")) continue;
+                try {
+                  const event = JSON.parse(line.slice(6));
+                  if (event.type === "message_start" && typeof event.message?.model === "string") {
+                    model = event.message.model;
+                  }
+                  if (event.type === "message_delta" && typeof event.delta?.stop_reason === "string") {
+                    stopReason = event.delta.stop_reason;
+                  }
+                  if (event.type === "content_block_start" && event.content_block?.type === "tool_use") {
+                    toolUse = {
+                      id: event.content_block.id,
+                      name: event.content_block.name,
+                      input: event.content_block.input ?? {},
+                    };
+                    toolInputJson = "";
+                  }
+                  if (event.type === "content_block_delta" && typeof event.delta?.text === "string") {
+                    fullText += event.delta.text;
+                    sendEvent({ type: "delta", text: event.delta.text });
+                  }
+                  if (event.type === "content_block_delta" && typeof event.delta?.partial_json === "string") {
+                    toolInputJson += event.delta.partial_json;
+                  }
+                } catch {
+                  // Ignore malformed provider events while preserving the stream.
+                }
+              }
+            }
+
+            let preparedToolCall: PublicCoachToolCall | null = null;
+            if (toolUse) {
+              if (toolInputJson) toolUse.input = JSON.parse(toolInputJson);
+              try {
+                const prepared = await prepareCoachToolCall(toolUse.name, {
+                  supabase,
+                  userId: user.id,
+                  conversationId,
+                  coachContext,
+                  providerCallId: toolUse.id,
+                  input: toolUse.input,
+                });
+                preparedToolCall = prepared.toolCall;
+                const prefix = fullText.trim() ? "\n\n" : "";
+                fullText += `${prefix}${prepared.responseText}`;
+                sendEvent({ type: "delta", text: `${prefix}${prepared.responseText}` });
+              } catch (toolError) {
+                if (!(toolError instanceof CoachToolUserError)) throw toolError;
+                const prefix = fullText.trim() ? "\n\n" : "";
+                fullText += `${prefix}${toolError.message}`;
+                sendEvent({ type: "delta", text: `${prefix}${toolError.message}` });
+              }
+            }
+
+            const responseText = plainCoachText(fullText);
+            if (!responseText) throw new Error("The coach returned an empty response");
+            const { data: assistantMessage, error: assistantError } = await supabase
+              .from("coach_messages")
+              .insert({
+                conversation_id: conversationId,
+                user_id: user.id,
+                role: "assistant",
+                content: responseText,
+                metadata: {
+                  model,
+                  prompt_version: "native-chat-v4-streaming-tools",
+                  memory_count: memories.length,
+                  memory_provider: memoryProvider.name,
+                  responding_to: userMessageId,
+                  stop_reason: stopReason,
+                  tool_call_id: preparedToolCall?.id ?? null,
+                  tool_name: preparedToolCall?.name ?? null,
+                },
+              })
+              .select("id, role, content, created_at, metadata")
+              .single();
+            if (assistantError || !assistantMessage) {
+              if (preparedToolCall) {
+                await supabase.from("coach_tool_calls").update({
+                  status: "failed",
+                  output: { reason: "assistant_message_save_failed" },
+                  updated_at: new Date().toISOString(),
+                }).eq("id", preparedToolCall.id).eq("user_id", user.id);
+              }
+              throw assistantError ?? new Error("Could not save response");
+            }
+
+            sendEvent({ type: "done", message: assistantMessage, toolCall: preparedToolCall });
+            runInBackground(Promise.all([
+              supabase.from("coach_conversations").update({
+                updated_at: new Date().toISOString(),
+              }).eq("id", conversationId).then(() => undefined),
+              persistCoachMemory(
+                user.id,
+                memoryMode,
+                buildMemoryObservation(memoryMode, chatHistory, sleepData, coachContext),
+                responseText,
+              ),
+            ]).then(() => undefined));
+          } catch (streamError) {
+            sendEvent({
+              type: "error",
+              message: streamError instanceof Error
+                ? streamError.message
+                : "The coach stream ended unexpectedly",
+            });
+          } finally {
+            controller.close();
           }
-        }
-      } else {
-        responseText = plainCoachText(
-          getTextContent(anthropicResponse.content),
-        );
-      }
-      if (!responseText) {
-        return new Response(
-          JSON.stringify({ error: "The coach returned an empty response" }),
-          {
-            status: 502,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
-        );
-      }
+        },
+      });
 
-      const { data: assistantMessage, error: assistantError } = await supabase
-        .from("coach_messages")
-        .insert({
-          conversation_id: conversationId,
-          user_id: user.id,
-          role: "assistant",
-          content: responseText,
-          metadata: {
-            model: anthropicResponse.model ?? "claude-sonnet-4-6",
-            prompt_version: "native-chat-v3-tools",
-            memory_count: memories.length,
-            memory_provider: memoryProvider.name,
-            responding_to: userMessageId,
-            stop_reason: anthropicResponse.stop_reason,
-            tool_call_id: preparedToolCall?.id ?? null,
-            tool_name: preparedToolCall?.name ?? null,
-          },
-        })
-        .select("id, role, content, created_at, metadata")
-        .single();
-      if (assistantError || !assistantMessage) {
-        if (preparedToolCall) {
-          await supabase.from("coach_tool_calls").update({
-            status: "failed",
-            output: { reason: "assistant_message_save_failed" },
-            updated_at: new Date().toISOString(),
-          }).eq("id", preparedToolCall.id).eq("user_id", user.id);
-        }
-        return new Response(
-          JSON.stringify({
-            error: assistantError?.message ?? "Could not save response",
-          }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
-        );
-      }
-
-      runInBackground(
-        Promise.all([
-          supabase.from("coach_conversations").update({
-            updated_at: new Date().toISOString(),
-          }).eq("id", conversationId).then(() => undefined),
-          persistCoachMemory(
-            user.id,
-            memoryMode,
-            buildMemoryObservation(
-              memoryMode,
-              chatHistory,
-              sleepData,
-              coachContext,
-            ),
-            responseText,
-          ),
-        ]).then(() => undefined),
-      );
-
-      return new Response(
-        JSON.stringify({
-          status: "ok",
-          message: assistantMessage,
-          toolCall: preparedToolCall,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return new Response(clientStream, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/x-ndjson",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
     }
 
     // ─── NATIVE DAILY COACH (persistent one-per-calendar-day artifact) ─

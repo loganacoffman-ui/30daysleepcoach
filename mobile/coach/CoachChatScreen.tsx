@@ -5,14 +5,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
 import type { StyleProp, TextStyle } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { User } from "@supabase/supabase-js";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -22,23 +20,23 @@ import {
   createCoachConversation,
   loadCoachHomeState,
   loadCoachConversation,
-  loadDailyCoaching,
-  localDate,
+  listCoachConversations,
   resolveCoachToolCall,
   sendCoachMessage,
 } from "./coachRepository";
-import type { CoachHomeState, CoachMessage, DailyCoaching } from "./coachRepository";
+import type { CoachConversationSummary, CoachHomeState, CoachMessage } from "./coachRepository";
 
-type ViewMode = "launcher" | "chat";
-type SessionMarker = { conversationId: string; date: string };
-
-const sessionKey = (userId: string) => `sleep-coach:active-conversation:${userId}`;
-
-const greetingFor = (name: string) => {
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  const firstName = name.trim().split(/\s+/)[0];
-  return firstName ? `${greeting}, ${firstName}.` : `${greeting}.`;
+const personalizedGreeting = (state: CoachHomeState | null) => {
+  if (!state) return "Your coach will connect the dots as your sleep context builds.";
+  if (typeof state.sleepScore === "number") {
+    const source = state.sleepSource === "manual" ? "self-reported " : "";
+    const energy = typeof state.feeling === "number" ? ` You checked in at ${Math.round(state.feeling)}/100 energy.` : "";
+    return `Last night’s ${source}sleep score was ${Math.round(state.sleepScore)}.${energy}`;
+  }
+  if (state.hasCheckedInToday && typeof state.feeling === "number") {
+    return `Your wearable missed last night, but you checked in at ${Math.round(state.feeling)}/100 energy.`;
+  }
+  return "Add last night’s sleep data to unlock today’s personalized context.";
 };
 
 const plainCoachText = (text: string) =>
@@ -48,28 +46,6 @@ const plainCoachText = (text: string) =>
     .replace(/`/g, "")
     .replace(/^#{1,6}\s*/gm, "")
     .trim();
-
-const shortCoachSentence = (text: string, maxLength = 150) => {
-  const clean = plainCoachText(text).replace(/\s+/g, " ");
-  const firstSentence = clean.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim() ?? clean;
-  if (firstSentence.length <= maxLength) return firstSentence;
-  const shortened = firstSentence.slice(0, maxLength);
-  const wordBoundary = shortened.lastIndexOf(" ");
-  return `${shortened.slice(0, wordBoundary > 80 ? wordBoundary : maxLength).trim()}…`;
-};
-
-const feelingPhrase = (score: number) => {
-  if (score <= 20) return "drained";
-  if (score <= 40) return "tired";
-  if (score <= 60) return "okay";
-  if (score <= 80) return "good";
-  return "great";
-};
-
-const focusPhrase = (action: string) => {
-  const sentence = shortCoachSentence(action).replace(/[.!?]+$/, "");
-  return sentence ? `${sentence.charAt(0).toLowerCase()}${sentence.slice(1)}` : "one small step";
-};
 
 const StreamingText = ({
   animate,
@@ -99,55 +75,8 @@ const StreamingText = ({
     return () => clearInterval(timer);
   }, [animate, clean]);
 
-  return <Text style={style}>{visibleText}</Text>;
+  return <Text style={style}>{animate ? visibleText : clean}</Text>;
 };
-
-const readMarker = async (userId: string): Promise<SessionMarker | null> => {
-  const raw = await AsyncStorage.getItem(sessionKey(userId));
-  if (!raw) return null;
-  try {
-    const marker = JSON.parse(raw) as SessionMarker;
-    if (marker.date === localDate() && marker.conversationId) return marker;
-  } catch {
-    // Ignore malformed local state. The server-side conversation remains intact.
-  }
-  await AsyncStorage.removeItem(sessionKey(userId));
-  return null;
-};
-
-const LauncherAction = ({
-  icon,
-  label,
-  description,
-  onPress,
-  disabled,
-}: {
-  icon: string;
-  label: string;
-  description: string;
-  onPress: () => void;
-  disabled?: boolean;
-}) => (
-  <Pressable
-    accessibilityRole="button"
-    disabled={disabled}
-    onPress={onPress}
-    style={({ pressed }) => [
-      styles.launcherAction,
-      pressed && styles.launcherActionPressed,
-      disabled && styles.disabled,
-    ]}
-  >
-    <View style={styles.launcherIcon}>
-      <Text style={styles.launcherIconText}>{icon}</Text>
-    </View>
-    <View style={styles.launcherActionCopy}>
-      <Text style={styles.launcherActionLabel}>{label}</Text>
-      <Text style={styles.launcherActionDescription}>{description}</Text>
-    </View>
-    <Text style={styles.launcherArrow}>›</Text>
-  </Pressable>
-);
 
 const Message = ({
   animate,
@@ -170,20 +99,22 @@ const Message = ({
     <View style={[styles.messageRow, isUser && styles.userMessageRow]}>
       <View style={[styles.message, isUser ? styles.userMessage : styles.coachMessage]}>
         {!isUser && <Text style={styles.coachLabel}>COACH</Text>}
-        <StreamingText
-          animate={animate && !isUser}
-          style={[styles.messageText, isUser && styles.userMessageText]}
-          text={message.content}
-        />
+        {!isUser && message.pending && !message.content ? (
+          <ActivityIndicator color={colors.accent} size="small" />
+        ) : (
+          <StreamingText
+            animate={animate && !isUser}
+            style={[styles.messageText, isUser && styles.userMessageText]}
+            text={message.content}
+          />
+        )}
         {toolCall && (
           <View style={styles.toolCard}>
             <Text style={styles.toolEyebrow}>PROPOSED EXPERIMENT</Text>
             <Text style={styles.toolPreviousLabel}>Replace</Text>
             <Text style={styles.toolPrevious}>{toolCall.proposal.previousExperiment}</Text>
             <Text style={styles.toolPreviousLabel}>With</Text>
-            <Text style={styles.toolReplacement}>
-              {toolCall.proposal.replacementExperiment}
-            </Text>
+            <Text style={styles.toolReplacement}>{toolCall.proposal.replacementExperiment}</Text>
             <Text style={styles.toolRationale}>{toolCall.proposal.coachRationale}</Text>
             <Text style={styles.toolReason}>Based on your reason: {toolCall.proposal.userReason}</Text>
             {toolCall.status === "pending" && !proposalExpired ? (
@@ -194,9 +125,7 @@ const Message = ({
                   onPress={() => onResolveToolCall(toolCall.id, "confirm")}
                   style={[styles.toolConfirm, resolving && styles.disabled]}
                 >
-                  {resolving ? (
-                    <ActivityIndicator color={colors.ink} size="small" />
-                  ) : (
+                  {resolving ? <ActivityIndicator color={colors.ink} size="small" /> : (
                     <Text style={styles.toolConfirmText}>Change tonight</Text>
                   )}
                 </Pressable>
@@ -211,13 +140,8 @@ const Message = ({
               </View>
             ) : (
               <Text style={styles.toolStatus}>
-                {toolCall.status === "completed"
-                  ? "Changed"
-                  : toolCall.status === "cancelled"
-                    ? "Not applied"
-                    : proposalExpired
-                      ? "Proposal expired"
-                      : "Unavailable"}
+                {toolCall.status === "completed" ? "Changed" : toolCall.status === "cancelled"
+                  ? "Not applied" : proposalExpired ? "Proposal expired" : "Unavailable"}
               </Text>
             )}
           </View>
@@ -227,29 +151,6 @@ const Message = ({
   );
 };
 
-const WelcomeBrief = ({
-  brief,
-  homeState,
-  name,
-}: {
-  brief: DailyCoaching;
-  homeState: CoachHomeState | null;
-  name: string;
-}) => (
-  <View style={styles.compactGreeting}>
-    <Text style={styles.welcomeGreeting}>{greetingFor(name)}</Text>
-    <Text style={styles.compactGreetingText}>
-      {homeState?.sleepScore !== null && homeState?.sleepScore !== undefined
-        ? `Your sleep score was ${Math.round(homeState.sleepScore)} last night. `
-        : ""}
-      {homeState?.feeling !== null && homeState?.feeling !== undefined
-        ? `You’re feeling ${feelingPhrase(homeState.feeling)} today. `
-        : ""}
-      Tonight we’ll focus on {focusPhrase(brief.action)}.
-    </Text>
-  </View>
-);
-
 export default function CoachChatScreen({
   user,
   profile,
@@ -257,60 +158,57 @@ export default function CoachChatScreen({
   user: User;
   profile: SleepProfile;
 }) {
-  const [mode, setMode] = useState<ViewMode>("launcher");
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [resumeConversationId, setResumeConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<CoachMessage[]>([]);
-  const [welcomeBrief, setWelcomeBrief] = useState<DailyCoaching | null>(null);
-  const [welcomeLoading, setWelcomeLoading] = useState(true);
+  const [conversations, setConversations] = useState<CoachConversationSummary[]>([]);
   const [homeState, setHomeState] = useState<CoachHomeState | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [revealingMessageId, setRevealingMessageId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [resolvingToolCallId, setResolvingToolCallId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState(false);
+  const [resolvingToolCallId, setResolvingToolCallId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const listRef = useRef<FlatList<CoachMessage>>(null);
 
-  useEffect(() => {
-    let active = true;
-    void readMarker(user.id).then(marker => {
-      if (active) setResumeConversationId(marker?.conversationId ?? null);
-    });
-    void loadCoachHomeState(user)
-      .then(nextHomeState => {
-        if (active) setHomeState(nextHomeState);
-      })
-      .catch(() => {
-        if (active) setHomeState(null);
-      });
-    setWelcomeLoading(true);
-    void loadDailyCoaching(user, profile)
-      .then(brief => {
-        if (active) setWelcomeBrief(brief);
-      })
-      .catch(() => {
-        // The launcher remains useful when today's cached coaching is unavailable.
-      })
-      .finally(() => {
-        if (active) setWelcomeLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [user.id, profile.primaryConcern]);
-
-  const rememberConversation = async (id: string) => {
-    const marker: SessionMarker = { conversationId: id, date: localDate() };
-    setResumeConversationId(id);
-    await AsyncStorage.setItem(sessionKey(user.id), JSON.stringify(marker));
+  const refreshHistory = async () => {
+    const history = await listCoachConversations(user);
+    setConversations(history);
   };
 
-  const beginConversation = async () => {
-    const id = await createCoachConversation(user);
+  useEffect(() => {
+    void refreshHistory().catch(() => undefined);
+    void loadCoachHomeState(user).then(setHomeState).catch(() => setHomeState(null));
+  }, [user.id]);
+
+  const beginConversation = async (firstMessage: string) => {
+    const id = await createCoachConversation(user, firstMessage);
     setConversationId(id);
-    await rememberConversation(id);
     return id;
+  };
+
+  const startNewChat = () => {
+    setConversationId(null);
+    setMessages([]);
+    setInput("");
+    setError("");
+    setRevealingMessageId(null);
+    setDrawerOpen(false);
+  };
+
+  const openConversation = async (conversation: CoachConversationSummary) => {
+    setBusyAction(true);
+    setError("");
+    try {
+      const loadedMessages = await loadCoachConversation(user, conversation.id);
+      setConversationId(conversation.id);
+      setMessages(loadedMessages);
+      setDrawerOpen(false);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "That conversation could not be loaded.");
+    } finally {
+      setBusyAction(false);
+    }
   };
 
   const scrollToLatest = () => {
@@ -319,7 +217,7 @@ export default function CoachChatScreen({
 
   const send = async (suggested?: string) => {
     const content = (suggested ?? input).trim();
-    if (!content || sending || busyAction || resolvingToolCallId) return;
+    if (!content || sending || busyAction) return;
 
     const optimistic: CoachMessage = {
       id: `pending-${Date.now()}`,
@@ -328,184 +226,97 @@ export default function CoachChatScreen({
       createdAt: new Date().toISOString(),
       pending: true,
     };
+    const streamingId = `streaming-${Date.now()}`;
+    const streaming: CoachMessage = {
+      id: streamingId,
+      role: "assistant",
+      content: "",
+      createdAt: new Date().toISOString(),
+      pending: true,
+    };
 
-    setMode("chat");
     setInput("");
     setError("");
     setSending(true);
-    setMessages(current => [...current, optimistic]);
+    setMessages(current => [...current, optimistic, streaming]);
     scrollToLatest();
 
+    let receivedText = "";
+    let displayedLength = 0;
+    let drainResolver: (() => void) | null = null;
+    let streamFinished = false;
+    const revealTimer = setInterval(() => {
+      const remaining = receivedText.length - displayedLength;
+      if (remaining <= 0) {
+        if (streamFinished && drainResolver) {
+          drainResolver();
+          drainResolver = null;
+        }
+        return;
+      }
+      const step = remaining > 160 ? 5 : remaining > 80 ? 3 : remaining > 32 ? 2 : 1;
+      displayedLength = Math.min(displayedLength + step, receivedText.length);
+      const visible = receivedText.slice(0, displayedLength);
+      setMessages(current => current.map(message => {
+        if (message.id === optimistic.id) return { ...message, pending: false };
+        return message.id === streamingId
+          ? { ...message, content: visible, pending: false }
+          : message;
+      }));
+      scrollToLatest();
+    }, 18);
+
     try {
-      const id = conversationId ?? await beginConversation();
-      const response = await sendCoachMessage(user, profile, id, content);
-      setRevealingMessageId(response.id);
-      setMessages(current => [
-        ...current.map(message => {
-          const savedMessage = message.id === optimistic.id
-            ? { ...message, pending: false }
-            : message;
-          return response.toolCall &&
-              savedMessage.toolCall?.name === response.toolCall.name &&
-              savedMessage.toolCall.status === "pending"
-            ? {
-              ...savedMessage,
-              toolCall: { ...savedMessage.toolCall, status: "cancelled" as const },
-            }
-            : savedMessage;
-        }),
-        response,
-      ]);
-      await rememberConversation(id);
+      const id = conversationId ?? await beginConversation(content);
+      const response = await sendCoachMessage(user, profile, id, content, delta => {
+        receivedText += delta;
+      });
+      streamFinished = true;
+      if (displayedLength < receivedText.length) {
+        await new Promise<void>(resolve => {
+          drainResolver = resolve;
+        });
+      }
+      setMessages(current => current.map(message =>
+        message.id === streamingId ? response : message.id === optimistic.id
+          ? { ...message, pending: false }
+          : message
+      ));
+      await refreshHistory();
       scrollToLatest();
     } catch (sendError) {
-      setMessages(current => current.filter(message => message.id !== optimistic.id));
-      setInput(content);
+      setMessages(current => current
+        .filter(message => message.id !== streamingId)
+        .map(message => message.id === optimistic.id ? { ...message, pending: false } : message));
       setError(sendError instanceof Error ? sendError.message : "Your coach could not respond.");
     } finally {
+      clearInterval(revealTimer);
       setSending(false);
     }
   };
 
-  const handleToolCall = async (
-    toolCallId: string,
-    action: "confirm" | "cancel",
-  ) => {
+  const handleToolCall = async (toolCallId: string, action: "confirm" | "cancel") => {
     if (!conversationId || resolvingToolCallId) return;
     setResolvingToolCallId(toolCallId);
     setError("");
     try {
       const result = await resolveCoachToolCall(conversationId, toolCallId, action);
       setMessages(current => [
-        ...current.map(message =>
-          message.toolCall?.id === toolCallId
-            ? { ...message, toolCall: result.toolCall }
-            : message
-        ),
+        ...current.map(message => message.toolCall?.id === toolCallId
+          ? { ...message, toolCall: result.toolCall }
+          : message),
         ...result.messages,
       ]);
-      const assistantMessage = [...result.messages]
-        .reverse()
-        .find(message => message.role === "assistant");
-      setRevealingMessageId(assistantMessage?.id ?? null);
+      await refreshHistory();
       scrollToLatest();
     } catch (toolError) {
-      setError(
-        toolError instanceof Error
-          ? toolError.message
-          : "The experiment change could not be updated.",
-      );
+      setError(toolError instanceof Error
+        ? toolError.message
+        : "The experiment change could not be updated.");
     } finally {
       setResolvingToolCallId(null);
     }
   };
-
-  const resumeConversation = async () => {
-    if (!resumeConversationId || busyAction || sending) return;
-    setBusyAction(true);
-    setError("");
-    try {
-      const loadedMessages = await loadCoachConversation(user, resumeConversationId);
-      if (loadedMessages.length === 0) {
-        await AsyncStorage.removeItem(sessionKey(user.id));
-        setResumeConversationId(null);
-        throw new Error("There isn’t an active conversation to reopen yet.");
-      }
-      setConversationId(resumeConversationId);
-      setMessages(loadedMessages);
-      setRevealingMessageId(null);
-      setMode("chat");
-    } catch (resumeError) {
-      setError(resumeError instanceof Error ? resumeError.message : "Your conversation could not load.");
-    } finally {
-      setBusyAction(false);
-    }
-  };
-
-  const returnToCoachHome = () => {
-    setMode("launcher");
-    setConversationId(null);
-    setMessages([]);
-    setRevealingMessageId(null);
-    setInput("");
-    setResolvingToolCallId(null);
-    setError("");
-  };
-
-  const renderLauncher = () => (
-    <ScrollView contentContainerStyle={styles.launcher} showsVerticalScrollIndicator={false}>
-      {welcomeBrief ? (
-        <WelcomeBrief
-          brief={welcomeBrief}
-          homeState={homeState}
-          name={profile.displayName}
-        />
-      ) : (
-        <View style={styles.welcomeFallback}>
-          <Text style={styles.welcomeGreeting}>{greetingFor(profile.displayName)}</Text>
-          {welcomeLoading ? (
-            <View style={styles.welcomeLoadingRow}>
-              <ActivityIndicator color={colors.accent} size="small" />
-              <Text style={styles.welcomeLoadingText}>Looking at what matters today…</Text>
-            </View>
-          ) : (
-            <Text style={styles.welcomePattern}>
-              Ask your coach anything, or choose a place to begin.
-            </Text>
-          )}
-        </View>
-      )}
-
-      <View style={styles.launcherActions}>
-        {!!resumeConversationId && (
-          <Pressable
-            accessibilityRole="button"
-            disabled={busyAction}
-            onPress={() => void resumeConversation()}
-            style={styles.resumeAction}
-          >
-            <View style={styles.resumeDot} />
-            <View style={styles.resumeCopy}>
-              <Text style={styles.resumeLabel}>Continue your conversation</Text>
-              <Text style={styles.resumeDescription}>Reopen today’s active coaching thread</Text>
-            </View>
-            {busyAction ? (
-              <ActivityIndicator color={colors.accent} size="small" />
-            ) : (
-              <Text style={styles.resumeArrow}>↗</Text>
-            )}
-          </Pressable>
-        )}
-
-        <LauncherAction
-          description={homeState?.hasCheckedInToday ? "See what Coach noticed" : "Log how last night felt"}
-          disabled={busyAction}
-          icon="☾"
-          label={homeState?.hasCheckedInToday ? "Review morning check-in" : "Morning check-in"}
-          onPress={() => void send(
-            homeState?.hasCheckedInToday
-              ? "Review my completed morning check-in from today."
-              : "Help me with today’s morning check-in.",
-          )}
-        />
-        <LauncherAction
-          description="See today’s personalized focus"
-          disabled={busyAction}
-          icon="✦"
-          label="Your daily brief"
-          onPress={() => void send("Give me my daily sleep brief.")}
-        />
-        <LauncherAction
-          description="Ask Coach to interpret your patterns"
-          disabled={busyAction}
-          icon="↗"
-          label="What does my data say?"
-          onPress={() => void send("What does my recent sleep data indicate?")}
-        />
-      </View>
-      {!!error && <Text style={styles.launcherError}>{error}</Text>}
-    </ScrollView>
-  );
 
   return (
     <SafeAreaView edges={["top"]} style={styles.screen}>
@@ -518,24 +329,48 @@ export default function CoachChatScreen({
         style={styles.keyboard}
       >
         <View style={styles.header}>
+          <Pressable
+            accessibilityLabel="Open chat history"
+            accessibilityRole="button"
+            onPress={() => {
+              setDrawerOpen(true);
+              void refreshHistory().catch(() => undefined);
+            }}
+            style={styles.historyButton}
+          >
+            <Text style={styles.historyButtonText}>☰</Text>
+          </Pressable>
           <View>
             <Text style={styles.eyebrow}>30 DAY SLEEP COACH</Text>
             <Text style={styles.title}>Coach</Text>
           </View>
-          {mode === "chat" ? (
-            <Pressable accessibilityRole="button" onPress={returnToCoachHome} style={styles.newButton}>
-              <Text style={styles.newButtonText}>‹ Coach home</Text>
-            </Pressable>
-          ) : (
-            <View style={styles.status}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusText}>Learning with you</Text>
-            </View>
-          )}
+          <Pressable accessibilityRole="button" onPress={startNewChat} style={styles.newButton}>
+            <Text style={styles.newButtonText}>＋ New chat</Text>
+          </Pressable>
         </View>
 
-        {mode === "launcher" ? (
-          renderLauncher()
+        {!conversationId && messages.length === 0 ? (
+          <View style={styles.newChat}>
+            <Text style={styles.newChatTitle}>What would you like to explore?</Text>
+            <Text style={styles.personalizedNote}>{personalizedGreeting(homeState)}</Text>
+            <View style={styles.suggestions}>
+              {[
+                "How is my sleep trending?",
+                "Today’s coaching",
+                "What’s working?",
+              ].map(suggestion => (
+                <Pressable
+                  accessibilityRole="button"
+                  key={suggestion}
+                  onPress={() => void send(suggestion)}
+                  style={({ pressed }) => [styles.suggestion, pressed && styles.suggestionPressed]}
+                >
+                  <Text style={styles.suggestionText}>{suggestion}</Text>
+                  <Text style={styles.suggestionArrow}>›</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
         ) : (
           <FlatList
             ListEmptyComponent={
@@ -557,9 +392,7 @@ export default function CoachChatScreen({
               <Message
                 animate={item.id === revealingMessageId}
                 message={item}
-                onResolveToolCall={(toolCallId, action) =>
-                  void handleToolCall(toolCallId, action)
-                }
+                onResolveToolCall={(toolCallId, action) => void handleToolCall(toolCallId, action)}
                 resolving={resolvingToolCallId === item.toolCall?.id}
               />
             )}
@@ -568,41 +401,78 @@ export default function CoachChatScreen({
         )}
 
         <View style={styles.composerArea}>
-          {!!error && mode === "chat" && <Text style={styles.error}>{error}</Text>}
+          {!!error && <Text style={styles.error}>{error}</Text>}
           <View style={styles.composer}>
-            <TextInput
-              accessibilityLabel="Ask your sleep coach"
-              autoCorrect
-              editable={!sending && !busyAction && !resolvingToolCallId}
-              maxLength={4000}
-              multiline
-              onChangeText={setInput}
-              onSubmitEditing={() => void send()}
-              placeholder="Ask your coach…"
-              placeholderTextColor={colors.textFaint}
-              style={styles.input}
-              value={input}
-            />
-            <Pressable
-              accessibilityLabel="Send message"
-              disabled={!input.trim() || sending || busyAction || !!resolvingToolCallId}
-              onPress={() => void send()}
-              style={[
-                styles.send,
-                (!input.trim() || sending || busyAction || !!resolvingToolCallId) &&
-                  styles.sendDisabled,
-              ]}
-            >
-              {sending ? (
-                <ActivityIndicator color={colors.ink} size="small" />
-              ) : (
-                <Text style={styles.sendText}>↑</Text>
-              )}
-            </Pressable>
+              <TextInput
+                accessibilityLabel="Ask your sleep coach"
+                autoCorrect
+                editable={!sending && !busyAction && !resolvingToolCallId}
+                maxLength={4000}
+                multiline
+                onChangeText={setInput}
+                onSubmitEditing={() => void send()}
+                placeholder="Ask your coach…"
+                placeholderTextColor={colors.textFaint}
+                style={styles.input}
+                value={input}
+              />
+              <Pressable
+                accessibilityLabel="Send message"
+                disabled={!input.trim() || sending || busyAction || !!resolvingToolCallId}
+                onPress={() => void send()}
+                style={[
+                  styles.send,
+                  (!input.trim() || sending || busyAction || !!resolvingToolCallId) && styles.sendDisabled,
+                ]}
+              >
+                {sending ? (
+                  <ActivityIndicator color={colors.ink} size="small" />
+                ) : (
+                  <Text style={styles.sendText}>↑</Text>
+                )}
+              </Pressable>
           </View>
           <Text style={styles.disclaimer}>Behavioral coaching, not medical advice.</Text>
         </View>
       </KeyboardAvoidingView>
+      {drawerOpen && (
+        <View style={styles.drawerLayer}>
+          <Pressable
+            accessibilityLabel="Close chat history"
+            onPress={() => setDrawerOpen(false)}
+            style={styles.drawerBackdrop}
+          />
+          <View style={styles.drawer}>
+            <View style={styles.drawerHeader}>
+              <Text style={styles.drawerTitle}>Conversations</Text>
+              <Pressable onPress={() => setDrawerOpen(false)}>
+                <Text style={styles.drawerClose}>×</Text>
+              </Pressable>
+            </View>
+            <Pressable onPress={startNewChat} style={styles.drawerNewChat}>
+              <Text style={styles.drawerNewChatText}>＋ New chat</Text>
+            </Pressable>
+            <FlatList
+              contentContainerStyle={styles.drawerList}
+              data={conversations}
+              keyExtractor={conversation => conversation.id}
+              ListEmptyComponent={<Text style={styles.drawerEmpty}>Your conversations will appear here.</Text>}
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => void openConversation(item)}
+                  style={({ pressed }) => [
+                    styles.conversationRow,
+                    item.id === conversationId && styles.conversationRowActive,
+                    pressed && styles.suggestionPressed,
+                  ]}
+                >
+                  <Text numberOfLines={2} style={styles.conversationTitle}>{item.title}</Text>
+                </Pressable>
+              )}
+            />
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -730,13 +600,19 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     paddingTop: 8,
   },
+  historyButton: {
+    alignItems: "center",
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  historyButtonText: { color: colors.textMuted, fontSize: 22 },
   keyboard: { flex: 1 },
   launcher: {
-    flexGrow: 1,
-    justifyContent: "center",
+    flex: 1,
     paddingBottom: 22,
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingHorizontal: 24,
+    paddingTop: 36,
   },
   launcherAction: {
     alignItems: "center",
@@ -810,6 +686,81 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   newButtonText: { color: colors.textMuted, fontSize: 11, fontWeight: "700" },
+  newChat: {
+    flex: 1,
+    paddingBottom: 14,
+    paddingHorizontal: 22,
+    paddingTop: 26,
+  },
+  newChatTitle: {
+    color: colors.text,
+    fontSize: 25,
+    fontWeight: "700",
+    letterSpacing: -0.5,
+    lineHeight: 32,
+  },
+  personalizedNote: {
+    color: colors.textMuted,
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 12,
+  },
+  suggestions: { gap: 8, marginTop: "auto", paddingTop: 48 },
+  suggestion: {
+    alignItems: "center",
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 46,
+    paddingHorizontal: 2,
+  },
+  suggestionPressed: { opacity: 0.58 },
+  suggestionText: { color: colors.textMuted, fontSize: 14 },
+  suggestionArrow: { color: colors.textFaint, fontSize: 23 },
+  drawerLayer: {
+    bottom: 0,
+    flexDirection: "row",
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
+    zIndex: 20,
+  },
+  drawerBackdrop: { backgroundColor: "rgba(0,0,0,0.54)", flex: 1 },
+  drawer: {
+    backgroundColor: colors.surfaceMuted,
+    bottom: 0,
+    left: 0,
+    paddingBottom: 24,
+    paddingHorizontal: 16,
+    paddingTop: 58,
+    position: "absolute",
+    top: 0,
+    width: "82%",
+  },
+  drawerHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  drawerTitle: { color: colors.text, fontSize: 20, fontWeight: "800" },
+  drawerClose: { color: colors.textMuted, fontSize: 30, fontWeight: "300" },
+  drawerNewChat: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  drawerNewChatText: { color: colors.accent, fontSize: 14, fontWeight: "800" },
+  drawerList: { gap: 4, paddingTop: 14 },
+  drawerEmpty: { color: colors.textSubtle, fontSize: 13, lineHeight: 19, padding: 12 },
+  conversationRow: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 13 },
+  conversationRowActive: { backgroundColor: colors.surfaceAccent },
+  conversationTitle: { color: colors.textMuted, fontSize: 14, lineHeight: 19 },
   resumeAction: {
     alignItems: "center",
     backgroundColor: colors.surfaceAccent,
@@ -928,12 +879,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     textTransform: "uppercase",
   },
-  toolRationale: {
-    color: colors.textMuted,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 9,
-  },
+  toolRationale: { color: colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 9 },
   toolReason: {
     color: colors.textSubtle,
     fontSize: 11,
@@ -941,12 +887,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     marginTop: 10,
   },
-  toolReplacement: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: "700",
-    lineHeight: 21,
-  },
+  toolReplacement: { color: colors.text, fontSize: 15, fontWeight: "700", lineHeight: 21 },
   toolStatus: {
     alignSelf: "flex-start",
     backgroundColor: colors.surfaceAccent,

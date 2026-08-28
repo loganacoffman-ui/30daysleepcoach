@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import { StatusBar } from 'expo-status-bar';
@@ -9,6 +9,12 @@ import TodayScreen from '../today/TodayScreen';
 import { createSupabaseTodayRepository } from '../today/supabaseTodayRepository';
 import CoachChatScreen from '../coach/CoachChatScreen';
 import { ProgressScreen, SettingsScreen } from './InfoScreens';
+import { supabase } from '../supabase';
+
+const localDate = () => {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+};
 
 type Tab='today'|'progress'|'coach'|'settings';
 const tabs:{key:Tab;icon:string;label:string}[]=[{key:'coach',icon:'✦',label:'Coach'},{key:'today',icon:'☾',label:'Today'},{key:'progress',icon:'↗',label:'Progress'},{key:'settings',icon:'○',label:'Settings'}];
@@ -16,6 +22,12 @@ const tabs:{key:Tab;icon:string;label:string}[]=[{key:'coach',icon:'✦',label:'
 export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccount}:{session:Session;profile:SleepProfile;busy:boolean;onSignOut:()=>void;onDeleteAccount:()=>void}){
   const [tab,setTab]=useState<Tab>('coach');
   const repository=useMemo(()=>createSupabaseTodayRepository(session.user,profile.displayName,profile.primaryConcern),[session.user,profile.displayName,profile.primaryConcern]);
+  useEffect(()=>{
+    void supabase.from('app_open_days').upsert(
+      {user_id:session.user.id,opened_date:localDate()},
+      {onConflict:'user_id,opened_date',ignoreDuplicates:true},
+    );
+  },[session.user.id]);
   return (
     <View style={styles.screen}>
       <View style={styles.body}>
