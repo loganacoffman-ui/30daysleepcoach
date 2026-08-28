@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import type { User } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { loadDailyCoaching } from '../coach/coachRepository';
 import { colors } from '../design/theme';
@@ -48,6 +49,14 @@ const feelingOptions: FeelingOption[] = [
   { score: 100, icon: '5', label: 'Great' },
 ];
 
+const sleepScoreOptions = [
+  { score: 20, label: 'Very poor' },
+  { score: 40, label: 'Poor' },
+  { score: 60, label: 'Fair' },
+  { score: 80, label: 'Good' },
+  { score: 100, label: 'Excellent' },
+] as const;
+
 const factorOptions: FactorOption[] = [
   { key: 'stress', label: 'Stress' },
   { key: 'late_meal', label: 'Late meal' },
@@ -78,6 +87,43 @@ const timeGreeting = () => {
 const plainCoachText = (text: string) =>
   text.replace(/\*\*/g, '').replace(/__/g, '').replace(/`/g, '').trim();
 
+const DailyReport = ({ action, cacheKey, meaning, pattern }: {
+  action: string;
+  cacheKey: string;
+  meaning: string;
+  pattern: string;
+}) => {
+  const report = `${plainCoachText(pattern)}\n\n${plainCoachText(meaning)}\n\nTonight: ${plainCoachText(action)}`;
+  const [visible, setVisible] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    void AsyncStorage.getItem(cacheKey).then(seen => {
+      if (!active) return;
+      if (seen) {
+        setVisible(report);
+        return;
+      }
+      void AsyncStorage.setItem(cacheKey, 'seen');
+      const words = report.split(/(\s+)/);
+      let count = 0;
+      setVisible('');
+      timer = setInterval(() => {
+        count += 1;
+        setVisible(words.slice(0, count).join(''));
+        if (count >= words.length && timer) clearInterval(timer);
+      }, 28);
+    });
+    return () => {
+      active = false;
+      if (timer) clearInterval(timer);
+    };
+  }, [cacheKey, report]);
+
+  return <Text style={styles.dailyReportText}>{visible}</Text>;
+};
+
 export default function TodayScreen({ profile, repository = mockTodayRepository, user }: TodayScreenProps) {
   const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,12 +131,16 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
   const [adherenceSaving, setAdherenceSaving] = useState(false);
   const [error, setError] = useState('');
   const [feeling, setFeeling] = useState<number | null>(null);
+  const [manualSleepFallback, setManualSleepFallback] = useState(false);
+  const [manualSleepScore, setManualSleepScore] = useState<number | null>(null);
+  const [manualSleepSaving, setManualSleepSaving] = useState(false);
   const [suspectedFactor, setSuspectedFactor] = useState<SuspectedFactorKey | undefined>();
   const [note, setNote] = useState('');
   const [dailyCoaching, setDailyCoaching] = useState<{
     pattern: string;
     meaning: string;
     action: string;
+    generatedAt: string;
   } | null>(null);
 
   const loadToday = useCallback(async () => {
@@ -112,7 +162,10 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
   }, [loadToday]);
 
   useEffect(() => {
-    if (!user || !profile) return;
+    if (!user || !profile || !snapshot?.checkin || snapshot.sleepData.status === 'missing') {
+      setDailyCoaching(null);
+      return;
+    }
     let active = true;
     void loadDailyCoaching(user, profile)
       .then(coaching => {
@@ -124,9 +177,11 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
     return () => {
       active = false;
     };
-  }, [profile, user]);
+  }, [profile, snapshot?.checkin?.completedAt, snapshot?.sleepData.status, snapshot?.sleepData.score, user]);
 
-  const canSubmit = feeling !== null && !saving;
+  const sleepContextReady = snapshot?.sleepData.status !== 'missing' ||
+    (manualSleepFallback && manualSleepScore !== null);
+  const canSubmit = feeling !== null && sleepContextReady && !saving;
   const selectedFeeling = useMemo(
     () => feelingOptions.find((option) => option.score === feeling),
     [feeling],
@@ -142,13 +197,22 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
 
     const draft: DailyCheckinDraft = {
       feeling,
+      manualSleepScore: snapshot.sleepData.status === 'missing'
+        ? manualSleepScore ?? undefined
+        : undefined,
       suspectedFactor,
       note,
     };
 
     try {
       const checkin = await repository.saveCheckin(draft);
-      setSnapshot({ ...snapshot, checkin });
+      setSnapshot({
+        ...snapshot,
+        checkin,
+        sleepData: typeof draft.manualSleepScore === 'number'
+          ? { status: 'manual', score: draft.manualSleepScore }
+          : snapshot.sleepData,
+      });
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Your check-in was not saved.');
     } finally {
@@ -167,6 +231,21 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
       setError(saveError instanceof Error ? saveError.message : 'Your response was not saved.');
     } finally {
       setAdherenceSaving(false);
+    }
+  };
+
+  const saveManualSleep = async () => {
+    if (manualSleepScore === null || !snapshot?.checkin) return;
+    setManualSleepSaving(true);
+    setError('');
+    try {
+      await repository.saveManualSleepScore(manualSleepScore);
+      setSnapshot(await repository.loadToday());
+      setManualSleepFallback(false);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Your manual sleep score was not saved.');
+    } finally {
+      setManualSleepSaving(false);
     }
   };
 
@@ -222,28 +301,119 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
           </View>
         </View>
 
-        {dailyCoaching && (
-          <View style={styles.dailyGreeting}>
-            <Text style={styles.dailyGreetingText}>{plainCoachText(dailyCoaching.pattern)}</Text>
-            <Text style={styles.dailyGreetingText}>{plainCoachText(dailyCoaching.meaning)}</Text>
-            <Text style={styles.dailyGreetingText}>
-              <Text style={styles.dailyGreetingLabel}>Tonight: </Text>
-              {plainCoachText(dailyCoaching.action)}
+        {snapshot.sleepData.status === 'missing' && (
+          <View style={styles.sleepDataCard}>
+            <Text style={styles.sectionEyebrow}>LAST NIGHT'S SLEEP</Text>
+            <Text style={styles.sleepDataTitle}>We couldn't find wearable data yet.</Text>
+            <Text style={styles.sleepDataCopy}>
+              Try syncing once more, or add a sleep score manually if your wearable didn't record the night.
             </Text>
+            <View style={styles.sleepDataActions}>
+              <Pressable onPress={() => void loadToday()} style={styles.sleepDataSecondaryButton}>
+                <Text style={styles.sleepDataSecondaryText}>Try syncing again</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setManualSleepFallback(true)}
+                style={styles.sleepDataPrimaryButton}
+              >
+                <Text style={styles.sleepDataPrimaryText}>Add manually</Text>
+              </Pressable>
+            </View>
+            {manualSleepFallback && (
+              <View style={styles.manualSleepArea}>
+                <Text style={styles.prompt}>How would you score last night's sleep?</Text>
+                <Text style={styles.promptHint}>Your best estimate is enough.</Text>
+                <View style={styles.feelingRow}>
+                  {sleepScoreOptions.map(option => {
+                    const selected = manualSleepScore === option.score;
+                    return (
+                      <Pressable
+                        accessibilityLabel={`${option.label} sleep, ${option.score} out of 100`}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                        key={option.score}
+                        onPress={() => setManualSleepScore(option.score)}
+                        style={({ pressed }) => [
+                          styles.feelingButton,
+                          selected && styles.feelingButtonSelected,
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <Text style={[styles.feelingNumber, selected && styles.feelingNumberSelected]}>
+                          {option.score}
+                        </Text>
+                        <Text style={[styles.feelingText, selected && styles.feelingTextSelected]}>
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                {snapshot.checkin && (
+                  <Pressable
+                    disabled={manualSleepScore === null || manualSleepSaving}
+                    onPress={() => void saveManualSleep()}
+                    style={[
+                      styles.primaryButton,
+                      manualSleepScore === null && styles.primaryButtonDisabled,
+                    ]}
+                  >
+                    {manualSleepSaving
+                      ? <ActivityIndicator color={colors.ink} />
+                      : <Text style={styles.primaryButtonText}>Save manual sleep score</Text>}
+                  </Pressable>
+                )}
+              </View>
+            )}
           </View>
         )}
 
-        <View style={styles.planProgress}>
-          <View style={styles.planProgressHeader}>
-            <Text style={styles.planProgressTitle}>YOUR 7-DAY START</Text>
-            <Text style={styles.planProgressCount}>{snapshot.dayNumber} of 7</Text>
+        {snapshot.sleepData.status !== 'missing' && (
+          <View style={styles.dailyReport}>
+            <View style={styles.sleepDataReadyRow}>
+              <View style={styles.statusDot} />
+              <Text style={styles.sleepDataReadyText}>
+                {snapshot.sleepData.status === 'wearable'
+                  ? `Wearable sleep score saved${typeof snapshot.sleepData.score === 'number' ? ` · ${snapshot.sleepData.score}` : ''}`
+                  : `Manual sleep score saved · ${snapshot.sleepData.score}`}
+              </Text>
+            </View>
+            {snapshot.checkin && (
+              <View style={styles.checkinCompleteRow}>
+                <Text style={styles.checkinCompleteMark}>✓</Text>
+                <Text style={styles.checkinCompleteText}>Check-in complete</Text>
+              </View>
+            )}
+            {dailyCoaching && user && (
+              <DailyReport
+                action={dailyCoaching.action}
+                cacheKey={`sleep-coach:daily-report-seen:${user.id}:${snapshot.date}:${dailyCoaching.generatedAt}`}
+                meaning={dailyCoaching.meaning}
+                pattern={dailyCoaching.pattern}
+              />
+            )}
+            {snapshot.checkin && !dailyCoaching && (
+              <View style={styles.reportLoadingRow}>
+                <ActivityIndicator color={colors.accent} size="small" />
+                <Text style={styles.reportLoadingText}>Preparing today’s coaching…</Text>
+              </View>
+            )}
           </View>
-          <View style={styles.planDots}>
-            {Array.from({ length: 7 }, (_, index) => (
-              <View key={index} style={[styles.planDot, index < snapshot.dayNumber && styles.planDotActive]} />
-            ))}
+        )}
+
+        {snapshot.dayNumber < 7 && (
+          <View style={styles.planProgress}>
+            <View style={styles.planProgressHeader}>
+              <Text style={styles.planProgressTitle}>YOUR 7-DAY START</Text>
+              <Text style={styles.planProgressCount}>{snapshot.dayNumber} of 7</Text>
+            </View>
+            <View style={styles.planDots}>
+              {Array.from({ length: 7 }, (_, index) => (
+                <View key={index} style={[styles.planDot, index < snapshot.dayNumber && styles.planDotActive]} />
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {snapshot.previousCommitment && (
           <View style={styles.adherenceCard}>
@@ -269,21 +439,7 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
           </View>
         )}
 
-        {snapshot.checkin ? (
-          <View style={styles.completedCard}>
-            <View style={styles.completedIcon}>
-              <Text style={styles.completedIconText}>✓</Text>
-            </View>
-            <Text style={styles.completedEyebrow}>CHECK-IN COMPLETE</Text>
-            <Text style={styles.completedTitle}>
-              You’re feeling {feelingLabel(snapshot.checkin.feeling).toLowerCase()} today.
-            </Text>
-            <Text style={styles.completedCopy}>
-              That’s enough for this morning. We’ll use this signal to keep your coaching grounded
-              in how you actually feel.
-            </Text>
-          </View>
-        ) : (
+        {!snapshot.checkin ? (
           <View style={styles.checkinCard}>
             <View style={styles.sectionHeadingRow}>
               <View>
@@ -384,39 +540,7 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
               )}
             </Pressable>
           </View>
-        )}
-
-        <View style={styles.commitmentCard}>
-          <View style={styles.commitmentTopRow}>
-            <Text style={styles.commitmentEyebrow}>TONIGHT’S FOCUS</Text>
-            <View style={styles.statusPill}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusText}>{snapshot.commitment ? 'Committed' : 'Coming next'}</Text>
-            </View>
-          </View>
-
-          {snapshot.commitment ? (
-            <>
-              <Text style={styles.commitmentTitle}>{snapshot.commitment.behavior}</Text>
-              {!!snapshot.commitment.why && (
-                <Text style={styles.commitmentWhy}>{snapshot.commitment.why}</Text>
-              )}
-              <View style={styles.coachNote}>
-                <Text style={styles.coachMark}>☾</Text>
-                <Text style={styles.coachNoteText}>
-                  {snapshot.coachingMessage || 'Don’t chase a perfect night. Just protect this one small experiment.'}
-                </Text>
-              </View>
-            </>
-          ) : (
-            <>
-              <Text style={styles.commitmentTitle}>Your first sleep experiment is almost ready.</Text>
-              <Text style={styles.commitmentWhy}>
-                Finish your morning check-in and your coach will choose one small action for tonight.
-              </Text>
-            </>
-          )}
-        </View>
+        ) : null}
 
       </ScrollView>
     </KeyboardAvoidingView>
@@ -464,6 +588,42 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     marginTop: 9,
+  },
+  dailyReport: {
+    marginBottom: 24,
+    paddingHorizontal: 4,
+  },
+  dailyReportText: {
+    color: colors.text,
+    fontSize: 17,
+    lineHeight: 26,
+    marginTop: 20,
+  },
+  checkinCompleteRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 9,
+  },
+  checkinCompleteMark: {
+    color: colors.success,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  checkinCompleteText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  reportLoadingRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 9,
+    marginTop: 20,
+  },
+  reportLoadingText: {
+    color: colors.textSubtle,
+    fontSize: 13,
   },
   dayBadge: {
     alignItems: 'center',
@@ -533,6 +693,56 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.07,
     shadowRadius: 18,
   },
+  sleepDataCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.borderSelected,
+    borderRadius: 22,
+    borderWidth: 1,
+    marginBottom: 18,
+    padding: 18,
+  },
+  sleepDataTitle: {
+    color: colors.text,
+    fontSize: 19,
+    fontWeight: '800',
+  },
+  sleepDataCopy: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 7,
+  },
+  sleepDataActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 16,
+  },
+  sleepDataSecondaryButton: {
+    alignItems: 'center',
+    borderColor: colors.borderStrong,
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    paddingVertical: 11,
+  },
+  sleepDataSecondaryText: { color: colors.textMuted, fontSize: 12, fontWeight: '800' },
+  sleepDataPrimaryButton: {
+    alignItems: 'center',
+    backgroundColor: colors.accent,
+    borderRadius: 14,
+    flex: 1,
+    paddingVertical: 11,
+  },
+  sleepDataPrimaryText: { color: colors.ink, fontSize: 12, fontWeight: '800' },
+  manualSleepArea: { marginTop: 4 },
+  sleepDataReadyRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  sleepDataReadyText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   adherenceCard: {
     backgroundColor: colors.surfaceAccent,
     borderColor: colors.borderSelected,

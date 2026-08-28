@@ -9,6 +9,13 @@ import {
   type Memory,
   type MemoryMessage,
 } from "../_shared/memory.ts";
+import {
+  DAILY_COACH_PROMPT_VERSION,
+  dailyCoachSourceFingerprint,
+  hasWearableSleepForDate,
+  isDailyCoachCacheFresh,
+  latestOuraSummary,
+} from "../_shared/coaching-cache.ts";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
@@ -561,7 +568,9 @@ async function callAnthropicConversation(
       model: "claude-sonnet-4-6",
       max_tokens: 350,
       system: SYSTEM_PROMPT + formatMemoryContext(memories) +
-        `\n\nCURRENT USER CONTEXT:\n${compactJson(coachContext, 10_000)}\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
+        `\n\nCURRENT USER CONTEXT:\n${
+          compactJson(coachContext, 10_000)
+        }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
       messages,
       stream: false,
     }),
@@ -573,6 +582,31 @@ async function callAnthropicConversation(
     ?.filter((block: { type: string }) => block.type === "text")
     .map((block: { text: string }) => block.text)
     .join("\n")?.trim() ?? null;
+}
+
+async function callAnthropicConversationStream(
+  messages: CoachMessage[],
+  coachContext: unknown,
+  memories: Memory[],
+): Promise<Response> {
+  return await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 350,
+      system: SYSTEM_PROMPT + formatMemoryContext(memories) +
+        `\n\nCURRENT USER CONTEXT:\n${
+          compactJson(coachContext, 10_000)
+        }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
+      messages,
+      stream: true,
+    }),
+  });
 }
 
 Deno.serve(async (req: Request) => {
@@ -643,10 +677,13 @@ Deno.serve(async (req: Request) => {
         .eq("user_id", user.id)
         .maybeSingle();
       if (!conversation) {
-        return new Response(JSON.stringify({ error: "Conversation not found" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ error: "Conversation not found" }),
+          {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
       let userMessageId: string | null = null;
@@ -706,12 +743,12 @@ Deno.serve(async (req: Request) => {
         user.id,
         buildMemoryQuery(memoryMode, chatHistory, sleepData, coachContext),
       );
-      const rawResponseText = await callAnthropicConversation(
+      const anthropicResponse = await callAnthropicConversationStream(
         chatHistory,
         coachContext,
         memories,
       );
-      if (!rawResponseText) {
+      if (!anthropicResponse.ok || !anthropicResponse.body) {
         return new Response(
           JSON.stringify({ error: "The coach could not generate a response" }),
           {
@@ -720,58 +757,104 @@ Deno.serve(async (req: Request) => {
           },
         );
       }
-      const responseText = plainCoachText(rawResponseText);
+      const encoder = new TextEncoder();
+      const clientStream = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          const reader = anthropicResponse.body!.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let fullText = "";
+          const sendEvent = (event: unknown) => controller.enqueue(
+            encoder.encode(`${JSON.stringify(event)}\n`),
+          );
 
-      const { data: assistantMessage, error: assistantError } = await supabase
-        .from("coach_messages")
-        .insert({
-          conversation_id: conversationId,
-          user_id: user.id,
-          role: "assistant",
-          content: responseText,
-          metadata: {
-            model: "claude-sonnet-4-6",
-            prompt_version: "native-chat-v2-plain-weekly",
-            memory_count: memories.length,
-            memory_provider: memoryProvider.name,
-            responding_to: userMessageId,
-          },
-        })
-        .select("id, role, content, created_at")
-        .single();
-      if (assistantError || !assistantMessage) {
-        return new Response(
-          JSON.stringify({
-            error: assistantError?.message ?? "Could not save response",
-          }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
-        );
-      }
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split("\n");
+              buffer = lines.pop() ?? "";
+              for (const line of lines) {
+                if (!line.startsWith("data: ")) continue;
+                const payload = line.slice(6);
+                try {
+                  const event = JSON.parse(payload);
+                  const delta = event.type === "content_block_delta" &&
+                      typeof event.delta?.text === "string"
+                    ? event.delta.text
+                    : "";
+                  if (delta) {
+                    fullText += delta;
+                    sendEvent({ type: "delta", text: delta });
+                  }
+                } catch {
+                  // Ignore non-JSON Anthropic stream events.
+                }
+              }
+            }
 
-      runInBackground(Promise.all([
-        supabase.from("coach_conversations").update({
-          updated_at: new Date().toISOString(),
-        }).eq("id", conversationId).then(() => undefined),
-        persistCoachMemory(
-          user.id,
-          memoryMode,
-          buildMemoryObservation(
-            memoryMode,
-            chatHistory,
-            sleepData,
-            coachContext,
-          ),
-          responseText,
-        ),
-      ]).then(() => undefined));
+            const responseText = plainCoachText(fullText);
+            if (!responseText) throw new Error("The coach returned an empty response");
+            const { data: assistantMessage, error: assistantError } = await supabase
+              .from("coach_messages")
+              .insert({
+                conversation_id: conversationId,
+                user_id: user.id,
+                role: "assistant",
+                content: responseText,
+                metadata: {
+                  model: "claude-sonnet-4-6",
+                  prompt_version: "native-chat-v3-streaming",
+                  memory_count: memories.length,
+                  memory_provider: memoryProvider.name,
+                  responding_to: userMessageId,
+                },
+              })
+              .select("id, role, content, created_at")
+              .single();
+            if (assistantError || !assistantMessage) {
+              throw assistantError ?? new Error("Could not save response");
+            }
 
-      return new Response(
-        JSON.stringify({ status: "ok", message: assistantMessage }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+            sendEvent({ type: "done", message: assistantMessage });
+            runInBackground(Promise.all([
+              supabase.from("coach_conversations").update({
+                updated_at: new Date().toISOString(),
+              }).eq("id", conversationId).then(() => undefined),
+              persistCoachMemory(
+                user.id,
+                memoryMode,
+                buildMemoryObservation(
+                  memoryMode,
+                  chatHistory,
+                  sleepData,
+                  coachContext,
+                ),
+                responseText,
+              ),
+            ]).then(() => undefined));
+          } catch (streamError) {
+            sendEvent({
+              type: "error",
+              message: streamError instanceof Error
+                ? streamError.message
+                : "The coach stream ended unexpectedly",
+            });
+          } finally {
+            controller.close();
+          }
+        },
+      });
+
+      return new Response(clientStream, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/x-ndjson",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
     }
 
     // ─── NATIVE DAILY COACH (persistent one-per-calendar-day artifact) ─
@@ -780,15 +863,50 @@ Deno.serve(async (req: Request) => {
           /^\d{4}-\d{2}-\d{2}$/.test(coachContext.date)
         ? coachContext.date
         : new Date().toISOString().split("T")[0];
+      const sourceFingerprint = await dailyCoachSourceFingerprint(coachContext);
+      const latestOura = latestOuraSummary(coachContext);
+
+      const { data: todayCheckin, error: checkinError } = await supabase
+        .from("daily_checkins")
+        .select("manual_sleep_score, manual_sleep_submitted_at")
+        .eq("user_id", user.id)
+        .eq("checkin_date", recommendationDate)
+        .maybeSingle();
+      if (checkinError) {
+        return new Response(JSON.stringify({ error: checkinError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const hasWearableSleep = hasWearableSleepForDate(
+        coachContext,
+        recommendationDate,
+      );
+      const hasManualSleep = typeof todayCheckin?.manual_sleep_score ===
+          "number" && Boolean(todayCheckin.manual_sleep_submitted_at);
+      if (!hasWearableSleep && !hasManualSleep) {
+        return new Response(
+          JSON.stringify({
+            status: "awaiting_sleep_data",
+            message:
+              "Sync last night's wearable data or submit a manual sleep score before generating today's coaching.",
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
 
       const { data: existing } = await supabase
         .from("coach_recommendations")
-        .select("pattern, meaning, action, why, generated_at, prompt_version")
+        .select(
+          "pattern, meaning, action, why, generated_at, prompt_version, source_context",
+        )
         .eq("user_id", user.id)
         .eq("recommendation_date", recommendationDate)
         .maybeSingle();
 
-      if (existing?.prompt_version === "native-daily-v3-concise-weekly") {
+      if (isDailyCoachCacheFresh(existing, sourceFingerprint)) {
         return new Response(
           JSON.stringify({
             status: "ok",
@@ -845,10 +963,13 @@ Deno.serve(async (req: Request) => {
           oura_sleep_count: Array.isArray(coachContext?.oura_sleep)
             ? coachContext.oura_sleep.length
             : 0,
+          latest_oura_day: latestOura.day,
+          latest_oura_score: latestOura.score,
+          source_fingerprint: sourceFingerprint,
           memory_count: memories.length,
           memory_provider: memoryProvider.name,
         },
-        prompt_version: "native-daily-v3-concise-weekly",
+        prompt_version: DAILY_COACH_PROMPT_VERSION,
         model: "claude-sonnet-4-6",
         generated_at: generatedAt,
       };

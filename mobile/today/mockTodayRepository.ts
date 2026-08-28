@@ -31,6 +31,9 @@ export const mockTodayRepository: TodayRepository = {
       },
       previousCommitment: null,
       checkin: savedCheckin,
+      sleepData: typeof savedCheckin?.manualSleepScore === 'number'
+        ? { status: 'manual', score: savedCheckin.manualSleepScore }
+        : { status: 'missing', score: null },
     };
 
     return snapshot;
@@ -43,12 +46,16 @@ export const mockTodayRepository: TodayRepository = {
       id: 'mock-checkin',
       checkinDate: localISODate(),
       feeling: draft.feeling,
+      manualSleepScore: draft.manualSleepScore,
       suspectedFactor: draft.suspectedFactor,
       note: draft.note?.trim() || undefined,
       completedAt: new Date().toISOString(),
     };
 
     return savedCheckin;
+  },
+  async saveManualSleepScore(score) {
+    if (savedCheckin) savedCheckin = { ...savedCheckin, manualSleepScore: score };
   },
   async updateCommitmentStatus() {},
 };
