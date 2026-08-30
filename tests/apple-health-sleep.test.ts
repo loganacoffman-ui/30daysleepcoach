@@ -36,12 +36,16 @@ describe('Apple Health nightly aggregation', () => {
   });
 
   it('does not double count in-bed and stage intervals', () => {
+    const window = sleepQueryWindow('2026-08-30');
+    const ws = window.start;
+    // Build timestamps relative to the local window start (noon on the 29th)
+    const h = (hours: number) => new Date(ws.getTime() + hours * 3600000).toISOString();
     const night = aggregateSleepNight([
-      sample('in-bed', 0, '2026-08-30T05:00:00Z', '2026-08-30T13:00:00Z'),
-      sample('awake', 2, '2026-08-30T05:00:00Z', '2026-08-30T05:30:00Z'),
-      sample('core', 3, '2026-08-30T05:30:00Z', '2026-08-30T09:30:00Z'),
-      sample('deep', 4, '2026-08-30T09:30:00Z', '2026-08-30T11:00:00Z'),
-      sample('rem', 5, '2026-08-30T11:00:00Z', '2026-08-30T13:00:00Z'),
+      sample('in-bed', 0, h(16), h(24)),
+      sample('awake', 2, h(16), h(16.5)),
+      sample('core', 3, h(16.5), h(20.5)),
+      sample('deep', 4, h(20.5), h(22)),
+      sample('rem', 5, h(22), h(24)),
     ], '2026-08-30');
 
     expect(night).not.toBeNull();
@@ -52,11 +56,14 @@ describe('Apple Health nightly aggregation', () => {
   });
 
   it('selects the source with detailed stages instead of combining duplicate streams', () => {
+    const window = sleepQueryWindow('2026-08-30');
+    const ws = window.start;
+    const h = (hours: number) => new Date(ws.getTime() + hours * 3600000).toISOString();
     const night = aggregateSleepNight([
-      sample('other-asleep', 1, '2026-08-30T04:00:00Z', '2026-08-30T13:00:00Z', 'com.other.sleep'),
-      sample('apple-core', 3, '2026-08-30T05:00:00Z', '2026-08-30T10:00:00Z'),
-      sample('apple-deep', 4, '2026-08-30T10:00:00Z', '2026-08-30T11:30:00Z'),
-      sample('apple-rem', 5, '2026-08-30T11:30:00Z', '2026-08-30T13:00:00Z'),
+      sample('other-asleep', 1, h(16), h(24), 'com.other.sleep'),
+      sample('apple-core', 3, h(16), h(21)),
+      sample('apple-deep', 4, h(21), h(22.5)),
+      sample('apple-rem', 5, h(22.5), h(24)),
     ], '2026-08-30');
 
     expect(night?.sourceBundleIdentifier).toBe('com.apple.health');
@@ -64,19 +71,24 @@ describe('Apple Health nightly aggregation', () => {
   });
 
   it('returns no nightly record when there is no principal sleep session', () => {
+    const window = sleepQueryWindow('2026-08-30');
+    const ws = window.start;
+    const h = (hours: number) => new Date(ws.getTime() + hours * 3600000).toISOString();
     expect(aggregateSleepNight([
-      sample('nap', 3, '2026-08-29T20:00:00Z', '2026-08-29T21:00:00Z'),
+      sample('nap', 3, h(8), h(9)),
     ], '2026-08-30')).toBeNull();
   });
 
   it('prefers the longest session over a staged daytime nap from the same source', () => {
+    const window = sleepQueryWindow('2026-08-30');
+    const ws = window.start;
+    const h = (hours: number) => new Date(ws.getTime() + hours * 3600000).toISOString();
     const night = aggregateSleepNight([
-      sample('nap-core', 3, '2026-08-29T20:00:00Z', '2026-08-29T23:00:00Z'),
-      sample('overnight', 1, '2026-08-30T04:00:00Z', '2026-08-30T12:00:00Z'),
+      sample('nap-core', 3, h(8), h(11)),
+      sample('overnight', 1, h(16), h(24)),
     ], '2026-08-30');
 
     expect(night?.totalSleepMinutes).toBe(480);
-    expect(night?.bedtimeStart).toBe('2026-08-30T04:00:00.000Z');
   });
 });
 

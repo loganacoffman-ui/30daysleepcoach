@@ -15,6 +15,7 @@ export const isUnavailableSleepSchemaError = (error: unknown) => {
   return (
     (code === '42703' && message.includes('preferred_sleep_source'))
     || code === '42P01'
+    || code === 'PGRST204'
     || code === 'PGRST205'
   );
 };

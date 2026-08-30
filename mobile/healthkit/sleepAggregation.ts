@@ -142,12 +142,18 @@ export function aggregateSleepNight(
   const selected = [...grouped.values()]
     .map(pickPrincipalSession)
     .filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate))
-    .sort((a, b) =>
-      Number(b.stagedMinutes / b.asleepMinutes >= 0.5)
-      - Number(a.stagedMinutes / a.asleepMinutes >= 0.5)
-      || b.asleepMinutes - a.asleepMinutes
-      || b.stagedMinutes - a.stagedMinutes
-      || b.end - a.end,
+    .sort((a, b) => {
+      // When durations differ substantially (>50%), prefer the longer session
+      const ratio = Math.min(a.asleepMinutes, b.asleepMinutes)
+        / Math.max(a.asleepMinutes, b.asleepMinutes);
+      if (ratio < 0.5) return b.asleepMinutes - a.asleepMinutes;
+      // Among comparable sessions, prefer staged detail
+      return Number(b.stagedMinutes / b.asleepMinutes >= 0.5)
+        - Number(a.stagedMinutes / a.asleepMinutes >= 0.5)
+        || b.asleepMinutes - a.asleepMinutes
+        || b.stagedMinutes - a.stagedMinutes
+        || b.end - a.end;
+    },
     )[0];
   if (!selected) return null;
 

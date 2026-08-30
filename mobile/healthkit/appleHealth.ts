@@ -66,7 +66,17 @@ export async function syncAppleHealthForDate(
   if (!await isAppleHealthEnabled(userId)) return { status: 'disabled' };
 
   const night = aggregateSleepNight(await readSleepSamples(sleepDate), sleepDate);
-  if (!night) return { status: 'no_data' };
+  if (!night) {
+    // Remove stale Apple Health row so UI doesn't show outdated scores
+    const { error: delError } = await supabase
+      .from('sleep_nights')
+      .delete()
+      .eq('user_id', userId)
+      .eq('provider', 'apple_health')
+      .eq('sleep_date', sleepDate);
+    if (delError && !isUnavailableSleepSchemaError(delError)) throw delError;
+    return { status: 'no_data' };
+  }
 
   const syncedAt = new Date().toISOString();
   const { error } = await supabase.from('sleep_nights').upsert({

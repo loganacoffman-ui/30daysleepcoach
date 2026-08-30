@@ -296,6 +296,8 @@ function memorySnapshot(
         : [],
       recent_wearable_sleep: Array.isArray(context.wearable_sleep)
         ? context.wearable_sleep.slice(0, 7)
+        : Array.isArray(context.oura_sleep)
+        ? context.oura_sleep.slice(0, 7)
         : [],
     };
   }

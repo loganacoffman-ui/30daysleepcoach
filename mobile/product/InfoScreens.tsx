@@ -203,7 +203,7 @@ export function SettingsScreen({ user, profile, busy, onSignOut, onDeleteAccount
       <Text style={s.cardTitle}>Apple Health</Text>
       <AppleHealthIntegration
         onConnected={()=>setPreferredSource(current=>current??'apple_health')}
-        onDisabled={()=>setPreferredSource(null)}
+        onDisabled={()=>setPreferredSource(current=>current==='apple_health'?null:current)}
         user={user}
       />
     </View>}

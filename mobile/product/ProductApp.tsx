@@ -22,6 +22,7 @@ const tabs:{key:Tab;icon:string;label:string}[]=[{key:'coach',icon:'✦',label:'
 
 export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccount}:{session:Session;profile:SleepProfile;busy:boolean;onSignOut:()=>void;onDeleteAccount:()=>void}){
   const [tab,setTab]=useState<Tab>('coach');
+  const [refreshKey,setRefreshKey]=useState(0);
   const repository=useMemo(()=>createSupabaseTodayRepository(session.user,profile.displayName,profile.primaryConcern),[session.user,profile.displayName,profile.primaryConcern]);
   useEffect(()=>{
     void supabase.from('app_open_days').upsert(
@@ -30,7 +31,7 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
     );
   },[session.user.id]);
   useEffect(()=>{
-    const sync=()=>{void syncAppleHealthForDate(session.user.id).catch(()=>undefined);};
+    const sync=()=>{void syncAppleHealthForDate(session.user.id).then(()=>setRefreshKey(k=>k+1)).catch(()=>undefined);};
     sync();
     const subscription=AppState.addEventListener('change',state=>{if(state==='active')sync();});
     return()=>subscription.remove();
@@ -38,9 +39,9 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
   return (
     <View style={styles.screen}>
       <View style={styles.body}>
-        {tab === 'today' && <TodayScreen profile={profile} repository={repository} user={session.user} />}
+        {tab === 'today' && <TodayScreen key={refreshKey} profile={profile} repository={repository} user={session.user} />}
         {tab === 'progress' && <ProgressScreen user={session.user} />}
-        {tab === 'coach' && <CoachChatScreen profile={profile} user={session.user} />}
+        {tab === 'coach' && <CoachChatScreen key={refreshKey} profile={profile} user={session.user} />}
         {tab === 'settings' && <SettingsScreen busy={busy} onDeleteAccount={onDeleteAccount} onSignOut={onSignOut} profile={profile} user={session.user} />}
       </View>
       <View style={styles.tabs}>
