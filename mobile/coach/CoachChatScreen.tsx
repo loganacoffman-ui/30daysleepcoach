@@ -14,8 +14,9 @@ import type { StyleProp, TextStyle } from "react-native";
 import type { User } from "@supabase/supabase-js";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { colors } from "../design/theme";
+import { colors, layout } from "../design/theme";
 import type { SleepProfile } from "../onboarding/types";
+import { feelingLabel } from "../today/feeling";
 import {
   createCoachConversation,
   loadCoachHomeState,
@@ -30,11 +31,11 @@ const personalizedGreeting = (state: CoachHomeState | null) => {
   if (!state) return "Your coach will connect the dots as your sleep context builds.";
   if (typeof state.sleepScore === "number") {
     const source = state.sleepSource === "manual" ? "self-reported " : "";
-    const energy = typeof state.feeling === "number" ? ` You checked in at ${Math.round(state.feeling)}/100 energy.` : "";
+    const energy = state.morningFeeling ? ` You said you feel ${feelingLabel(state.morningFeeling).toLowerCase()} this morning.` : "";
     return `Last night’s ${source}sleep score was ${Math.round(state.sleepScore)}.${energy}`;
   }
-  if (state.hasCheckedInToday && typeof state.feeling === "number") {
-    return `Your wearable missed last night, but you checked in at ${Math.round(state.feeling)}/100 energy.`;
+  if (state.hasCheckedInToday && state.morningFeeling) {
+    return `Your wearable missed last night, but you said you feel ${feelingLabel(state.morningFeeling).toLowerCase()} this morning.`;
   }
   return "Add last night’s sleep data to unlock today’s personalized context.";
 };
@@ -487,7 +488,7 @@ const styles = StyleSheet.create({
     top: 0,
   },
   ambientViolet: {
-    backgroundColor: "#4b426e",
+    backgroundColor: "#244e67",
     borderRadius: 220,
     height: 440,
     opacity: 0.16,
@@ -588,7 +589,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingBottom: 12,
     paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingTop: layout.safeAreaHeaderPadding,
   },
   input: {
     color: colors.text,

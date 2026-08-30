@@ -3,6 +3,8 @@ import { fetch as expoFetch } from 'expo/fetch';
 
 import type { SleepProfile } from '../onboarding/types';
 import { supabase, supabasePublicKey, supabaseUrl } from '../supabase';
+import type { MorningFeeling } from '../today/feeling';
+import { normalizeMorningFeeling } from '../today/feeling';
 
 export type DailyCoaching = { pattern: string; meaning: string; action: string; why: string; generatedAt: string };
 export type CoachToolCallStatus = 'pending' | 'completed' | 'cancelled' | 'failed' | 'expired';
@@ -37,10 +39,9 @@ export type CoachExperience = {
 };
 export type CoachHomeState = {
   hasCheckedInToday: boolean;
-  feeling: number | null;
+  morningFeeling: MorningFeeling | null;
   sleepScore: number | null;
   previousSleepScore: number | null;
-  averageEnergy: number | null;
   sleepSource: 'wearable' | 'manual' | 'missing';
   suspectedFactor: string | null;
 };
@@ -66,7 +67,7 @@ export const loadCoachHomeState = async (user: User): Promise<CoachHomeState> =>
   const [checkinResult, ouraResult] = await Promise.all([
     supabase
       .from('daily_checkins')
-      .select('checkin_date, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, note')
+      .select('checkin_date, morning_feeling, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, note')
       .eq('user_id', user.id)
       .order('checkin_date', { ascending: false })
       .limit(7),
@@ -77,9 +78,6 @@ export const loadCoachHomeState = async (user: User): Promise<CoachHomeState> =>
   if (checkinResult.error) throw checkinResult.error;
   const checkins = checkinResult.data ?? [];
   const todayCheckin = checkins.find(item => item.checkin_date === localDate()) ?? null;
-  const energyScores = checkins
-    .map(item => item.feeling)
-    .filter((feeling): feeling is number => typeof feeling === 'number');
   const ouraDays = ouraResult.error
     ? []
     : [...(ouraResult.data?.data ?? [])]
@@ -91,14 +89,11 @@ export const loadCoachHomeState = async (user: User): Promise<CoachHomeState> =>
     : null;
   return {
     hasCheckedInToday: Boolean(todayCheckin),
-    feeling: typeof todayCheckin?.feeling === 'number' ? todayCheckin.feeling : null,
+    morningFeeling: normalizeMorningFeeling(todayCheckin?.morning_feeling, todayCheckin?.feeling),
     sleepScore: currentWearable?.score ?? manualScore,
     previousSleepScore: currentWearable
       ? ouraDays.find(item => item.day < currentWearable.day)?.score ?? null
       : ouraDays[0]?.score ?? null,
-    averageEnergy: energyScores.length
-      ? Math.round(energyScores.reduce((sum, feeling) => sum + feeling, 0) / energyScores.length)
-      : null,
     sleepSource: currentWearable ? 'wearable' : manualScore !== null ? 'manual' : 'missing',
     suspectedFactor: typeof todayCheckin?.suspected_factor === 'string'
       ? todayCheckin.suspected_factor
@@ -170,7 +165,7 @@ const mapCoachMessages = (messages: StoredCoachMessage[], toolCalls: StoredCoach
 
 const loadCoachContext = async (user: User, profile: SleepProfile): Promise<CoachContext> => {
   const [checkinsResult, commitmentsResult, ouraResult] = await Promise.all([
-    supabase.from('daily_checkins').select('checkin_date, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, note, completed_at').eq('user_id', user.id).order('checkin_date', { ascending: false }).limit(14),
+    supabase.from('daily_checkins').select('checkin_date, morning_feeling, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, note, completed_at').eq('user_id', user.id).order('checkin_date', { ascending: false }).limit(14),
     supabase.from('behavior_commitments').select('behavior_date, behavior, status').eq('user_id', user.id).order('behavior_date', { ascending: false }).limit(14),
     supabase.functions.invoke<{ data?: Array<{ day: string; score?: number }> }>('oura-proxy', {
       body: { endpoint: 'daily_sleep', start_date: daysAgo(14), end_date: localDate() },
@@ -186,7 +181,10 @@ const loadCoachContext = async (user: User, profile: SleepProfile): Promise<Coac
       typical_wake_time: profile.typicalWakeTime,
       timezone: profile.timezone,
     },
-    subjective_checkins: checkinsResult.data ?? [],
+    subjective_checkins: (checkinsResult.data ?? []).map(({ feeling, morning_feeling, ...checkin }) => ({
+      ...checkin,
+      morning_feeling: normalizeMorningFeeling(morning_feeling, feeling),
+    })),
     experiment_adherence: commitmentsResult.data ?? [],
     oura_sleep: ouraResult.error ? [] : ouraResult.data?.data ?? [],
   };

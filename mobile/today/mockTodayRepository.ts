@@ -45,7 +45,7 @@ export const mockTodayRepository: TodayRepository = {
     savedCheckin = {
       id: 'mock-checkin',
       checkinDate: localISODate(),
-      feeling: draft.feeling,
+      morningFeeling: draft.morningFeeling,
       manualSleepScore: draft.manualSleepScore,
       suspectedFactor: draft.suspectedFactor,
       note: draft.note?.trim() || undefined,
