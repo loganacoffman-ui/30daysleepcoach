@@ -1,0 +1,31 @@
+name: Supabase Edge Function Tests
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/**"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Run Edge Function unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: supabase
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run unit tests
+        run: deno test --allow-env functions/_shared/*_test.ts
