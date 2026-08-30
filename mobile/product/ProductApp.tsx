@@ -31,7 +31,7 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
     );
   },[session.user.id]);
   useEffect(()=>{
-    const sync=()=>{void syncAppleHealthForDate(session.user.id).then(()=>setRefreshKey(k=>k+1)).catch(()=>undefined);};
+    const sync=()=>{void syncAppleHealthForDate(session.user.id).then(r=>{if(r.status==='synced')setRefreshKey(k=>k+1);}).catch(()=>undefined);};
     sync();
     const subscription=AppState.addEventListener('change',state=>{if(state==='active')sync();});
     return()=>subscription.remove();

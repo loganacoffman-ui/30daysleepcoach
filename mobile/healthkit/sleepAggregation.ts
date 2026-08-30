@@ -143,10 +143,12 @@ export function aggregateSleepNight(
     .map(pickPrincipalSession)
     .filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate))
     .sort((a, b) => {
+      const maxAsleep = Math.max(a.asleepMinutes, b.asleepMinutes);
       // When durations differ substantially (>50%), prefer the longer session
-      const ratio = Math.min(a.asleepMinutes, b.asleepMinutes)
-        / Math.max(a.asleepMinutes, b.asleepMinutes);
-      if (ratio < 0.5) return b.asleepMinutes - a.asleepMinutes;
+      if (maxAsleep > 0) {
+        const ratio = Math.min(a.asleepMinutes, b.asleepMinutes) / maxAsleep;
+        if (ratio < 0.5) return b.asleepMinutes - a.asleepMinutes;
+      }
       // Among comparable sessions, prefer staged detail
       return Number(b.stagedMinutes / b.asleepMinutes >= 0.5)
         - Number(a.stagedMinutes / a.asleepMinutes >= 0.5)
