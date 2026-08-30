@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - "mobile/**"
+      - "tests/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/mobile-tests.yml"
 
 permissions:
   contents: read
@@ -25,25 +29,24 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 10.34.5
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: mobile/pnpm-lock.yaml
+          cache-dependency-path: |
+            mobile/pnpm-lock.yaml
+            pnpm-lock.yaml
 
-      - name: Install dependencies
+      - name: Install mobile dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install unit test dependencies
+        working-directory: .
         run: pnpm install --frozen-lockfile
 
       - name: Run unit tests
-        run: |
-          if pnpm pkg get scripts.test | grep -qv '^null$'; then
-            pnpm test
-          elif find . -path './node_modules' -prune -o -type f \( -name '*.test.js' -o -name '*.test.jsx' -o -name '*.test.ts' -o -name '*.test.tsx' -o -name '*.spec.js' -o -name '*.spec.jsx' -o -name '*.spec.ts' -o -name '*.spec.tsx' \) -print -quit | grep -q .; then
-            echo "Mobile test files exist, but no test script is configured." >&2
-            exit 1
-          else
-            echo "No mobile test script is configured; skipping."
-          fi
+        working-directory: .
+        run: pnpm test
