@@ -20,7 +20,7 @@ export type BehaviorCommitment = {
 export type DailyCheckin = {
   id: string;
   checkinDate: string;
-  feeling: number;
+  morningFeeling: MorningFeeling;
   manualSleepScore?: number;
   suspectedFactor?: SuspectedFactorKey;
   note?: string;
@@ -43,7 +43,7 @@ export type TodaySnapshot = {
 };
 
 export type DailyCheckinDraft = {
-  feeling: number;
+  morningFeeling: MorningFeeling;
   manualSleepScore?: number;
   suspectedFactor?: SuspectedFactorKey;
   note?: string;
@@ -55,3 +55,4 @@ export interface TodayRepository {
   saveManualSleepScore(score: number): Promise<void>;
   updateCommitmentStatus(id: string, status: Exclude<CommitmentStatus, 'committed'>): Promise<void>;
 }
+import type { MorningFeeling } from './feeling';

@@ -1,21 +1,26 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   FlatList,
   KeyboardAvoidingView,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import type { StyleProp, TextStyle } from "react-native";
 import type { User } from "@supabase/supabase-js";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { colors } from "../design/theme";
+import { colors, layout } from "../design/theme";
 import type { SleepProfile } from "../onboarding/types";
+import { feelingLabel } from "../today/feeling";
 import {
   createCoachConversation,
   loadCoachHomeState,
@@ -25,6 +30,12 @@ import {
   sendCoachMessage,
 } from "./coachRepository";
 import type { CoachConversationSummary, CoachHomeState, CoachMessage } from "./coachRepository";
+
+const HISTORY_SWIPE_ACTIVATION_DISTANCE = 18;
+const HISTORY_SWIPE_OPEN_DISTANCE = 96;
+const HISTORY_DRAWER_WIDTH_RATIO = 0.82;
+const HISTORY_DRAWER_OPEN_DURATION = 260;
+const HISTORY_DRAWER_CLOSE_DURATION = 200;
 
 const personalizedGreeting = (state: CoachHomeState | null) => {
   if (!state) return "Your coach will connect the dots as your sleep context builds.";
@@ -36,11 +47,11 @@ const personalizedGreeting = (state: CoachHomeState | null) => {
         : state.sleepSource === "oura"
           ? "Oura "
           : "";
-    const energy = typeof state.feeling === "number" ? ` You checked in at ${Math.round(state.feeling)}/100 energy.` : "";
+    const energy = state.morningFeeling ? ` You said you feel ${feelingLabel(state.morningFeeling).toLowerCase()} this morning.` : "";
     return `Last night’s ${source}sleep score was ${Math.round(state.sleepScore)}.${energy}`;
   }
-  if (state.hasCheckedInToday && typeof state.feeling === "number") {
-    return `Your wearable missed last night, but you checked in at ${Math.round(state.feeling)}/100 energy.`;
+  if (state.hasCheckedInToday && state.morningFeeling) {
+    return `Your wearable missed last night, but you said you feel ${feelingLabel(state.morningFeeling).toLowerCase()} this morning.`;
   }
   return "Add last night’s sleep data to unlock today’s personalized context.";
 };
@@ -169,6 +180,7 @@ export default function CoachChatScreen({
   const [conversations, setConversations] = useState<CoachConversationSummary[]>([]);
   const [homeState, setHomeState] = useState<CoachHomeState | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const drawerOpenRef = useRef(false);
   const [revealingMessageId, setRevealingMessageId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -176,11 +188,133 @@ export default function CoachChatScreen({
   const [resolvingToolCallId, setResolvingToolCallId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const listRef = useRef<FlatList<CoachMessage>>(null);
+  const { width: screenWidth } = useWindowDimensions();
+  const drawerWidth = screenWidth * HISTORY_DRAWER_WIDTH_RATIO;
+  const drawerTranslateX = useRef(new Animated.Value(-drawerWidth)).current;
+  const drawerBackdropOpacity = useRef(new Animated.Value(0)).current;
 
-  const refreshHistory = async () => {
+  const refreshHistory = useCallback(async () => {
     const history = await listCoachConversations(user);
     setConversations(history);
-  };
+  }, [user]);
+
+  const animateHistoryOpen = useCallback((duration: number) => {
+    Animated.parallel([
+      Animated.timing(drawerTranslateX, {
+        duration,
+        easing: Easing.out(Easing.cubic),
+        toValue: 0,
+        useNativeDriver: true,
+      }),
+      Animated.timing(drawerBackdropOpacity, {
+        duration,
+        easing: Easing.out(Easing.cubic),
+        toValue: 1,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [
+    drawerBackdropOpacity,
+    drawerTranslateX,
+  ]);
+
+  const animateHistoryClosed = useCallback((duration: number) => {
+    Animated.parallel([
+      Animated.timing(drawerTranslateX, {
+        duration,
+        easing: Easing.in(Easing.cubic),
+        toValue: -drawerWidth,
+        useNativeDriver: true,
+      }),
+      Animated.timing(drawerBackdropOpacity, {
+        duration,
+        easing: Easing.in(Easing.cubic),
+        toValue: 0,
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      if (finished) { drawerOpenRef.current = false; setDrawerOpen(false); }
+    });
+  }, [
+    drawerBackdropOpacity,
+    drawerTranslateX,
+    drawerWidth,
+  ]);
+
+  const openHistory = useCallback(() => {
+    drawerTranslateX.stopAnimation();
+    drawerBackdropOpacity.stopAnimation();
+    drawerTranslateX.setValue(-drawerWidth);
+    drawerBackdropOpacity.setValue(0);
+    drawerOpenRef.current = true;
+    setDrawerOpen(true);
+    void refreshHistory().catch(() => undefined);
+    requestAnimationFrame(() =>
+      animateHistoryOpen(HISTORY_DRAWER_OPEN_DURATION),
+    );
+  }, [
+    animateHistoryOpen,
+    drawerBackdropOpacity,
+    drawerTranslateX,
+    drawerWidth,
+    refreshHistory,
+  ]);
+
+  const closeHistory = useCallback(() => {
+    if (!drawerOpenRef.current) return;
+    animateHistoryClosed(HISTORY_DRAWER_CLOSE_DURATION);
+  }, [animateHistoryClosed]);
+
+  const historySwipeResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponderCapture: (_, gesture) =>
+          !drawerOpenRef.current &&
+          gesture.dx >= HISTORY_SWIPE_ACTIVATION_DISTANCE &&
+          gesture.dx > Math.abs(gesture.dy) * 1.25,
+        onPanResponderGrant: () => {
+          drawerTranslateX.stopAnimation();
+          drawerBackdropOpacity.stopAnimation();
+          drawerTranslateX.setValue(-drawerWidth);
+          drawerBackdropOpacity.setValue(0);
+          drawerOpenRef.current = true;
+          setDrawerOpen(true);
+        },
+        onPanResponderMove: (_, gesture) => {
+          const distance = Math.min(Math.max(gesture.dx, 0), drawerWidth);
+          const progress = distance / drawerWidth;
+          drawerTranslateX.setValue(-drawerWidth + distance);
+          drawerBackdropOpacity.setValue(progress);
+        },
+        onPanResponderRelease: (_, gesture) => {
+          const distance = Math.min(Math.max(gesture.dx, 0), drawerWidth);
+          const progress = distance / drawerWidth;
+          if (gesture.dx >= HISTORY_SWIPE_OPEN_DISTANCE) {
+            const remainingDistance = drawerWidth - distance;
+            const releaseVelocity = Math.max(gesture.vx, 0.4);
+            const completionDuration = Math.min(
+              HISTORY_DRAWER_OPEN_DURATION,
+              Math.max(80, remainingDistance / releaseVelocity),
+            );
+            void refreshHistory().catch(() => undefined);
+            animateHistoryOpen(completionDuration);
+          } else {
+            animateHistoryClosed(
+              Math.max(80, HISTORY_DRAWER_CLOSE_DURATION * progress),
+            );
+          }
+        },
+        onPanResponderTerminate: () => animateHistoryClosed(100),
+      }),
+    [
+      animateHistoryClosed,
+      animateHistoryOpen,
+      drawerBackdropOpacity,
+      drawerTranslateX,
+      drawerWidth,
+      refreshHistory,
+    ],
+  );
 
   useEffect(() => {
     void refreshHistory().catch(() => undefined);
@@ -199,7 +333,7 @@ export default function CoachChatScreen({
     setInput("");
     setError("");
     setRevealingMessageId(null);
-    setDrawerOpen(false);
+    closeHistory();
   };
 
   const openConversation = async (conversation: CoachConversationSummary) => {
@@ -209,7 +343,7 @@ export default function CoachChatScreen({
       const loadedMessages = await loadCoachConversation(user, conversation.id);
       setConversationId(conversation.id);
       setMessages(loadedMessages);
-      setDrawerOpen(false);
+      closeHistory();
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "That conversation could not be loaded.");
     } finally {
@@ -334,77 +468,76 @@ export default function CoachChatScreen({
         keyboardVerticalOffset={8}
         style={styles.keyboard}
       >
-        <View style={styles.header}>
-          <Pressable
-            accessibilityLabel="Open chat history"
-            accessibilityRole="button"
-            onPress={() => {
-              setDrawerOpen(true);
-              void refreshHistory().catch(() => undefined);
-            }}
-            style={styles.historyButton}
-          >
-            <Text style={styles.historyButtonText}>☰</Text>
-          </Pressable>
-          <View>
-            <Text style={styles.eyebrow}>30 DAY SLEEP COACH</Text>
-            <Text style={styles.title}>Coach</Text>
-          </View>
-          <Pressable accessibilityRole="button" onPress={startNewChat} style={styles.newButton}>
-            <Text style={styles.newButtonText}>＋ New chat</Text>
-          </Pressable>
-        </View>
-
-        {!conversationId && messages.length === 0 ? (
-          <View style={styles.newChat}>
-            <Text style={styles.newChatTitle}>What would you like to explore?</Text>
-            <Text style={styles.personalizedNote}>{personalizedGreeting(homeState)}</Text>
-            <View style={styles.suggestions}>
-              {[
-                "How is my sleep trending?",
-                "Today’s coaching",
-                "What’s working?",
-              ].map(suggestion => (
-                <Pressable
-                  accessibilityRole="button"
-                  key={suggestion}
-                  onPress={() => void send(suggestion)}
-                  style={({ pressed }) => [styles.suggestion, pressed && styles.suggestionPressed]}
-                >
-                  <Text style={styles.suggestionText}>{suggestion}</Text>
-                  <Text style={styles.suggestionArrow}>›</Text>
-                </Pressable>
-              ))}
+        <View style={styles.swipeArea} {...historySwipeResponder.panHandlers}>
+          <View style={styles.header}>
+            <Pressable
+              accessibilityLabel="Open chat history"
+              accessibilityRole="button"
+              onPress={openHistory}
+              style={styles.historyButton}
+            >
+              <Text style={styles.historyButtonText}>☰</Text>
+            </Pressable>
+            <View>
+              <Text style={styles.eyebrow}>30 DAY SLEEP COACH</Text>
+              <Text style={styles.title}>Coach</Text>
             </View>
+            <Pressable accessibilityRole="button" onPress={startNewChat} style={styles.newButton}>
+              <Text style={styles.newButtonText}>＋ New chat</Text>
+            </Pressable>
           </View>
-        ) : (
-          <FlatList
-            ListEmptyComponent={
-              busyAction ? (
-                <View style={styles.loading}>
-                  <ActivityIndicator color={colors.accent} />
-                  <Text style={styles.loadingText}>Coach is looking at your context…</Text>
-                </View>
-              ) : null
-            }
-            contentContainerStyle={[
-              styles.messages,
-              messages.length === 0 && styles.emptyMessages,
-            ]}
-            data={messages}
-            keyExtractor={message => message.id}
-            ref={listRef}
-            renderItem={({ item }) => (
-              <Message
-                animate={item.id === revealingMessageId}
-                message={item}
-                onResolveToolCall={(toolCallId, action) => void handleToolCall(toolCallId, action)}
-                resolving={resolvingToolCallId === item.toolCall?.id}
-              />
-            )}
-            showsVerticalScrollIndicator={false}
-          />
-        )}
+
+          {!conversationId && messages.length === 0 ? (
+            <View style={styles.newChat}>
+              <Text style={styles.newChatTitle}>What would you like to explore?</Text>
+              <Text style={styles.personalizedNote}>{personalizedGreeting(homeState)}</Text>
+              <View style={styles.suggestions}>
+                {[
+                  "How is my sleep trending?",
+                  "Today’s coaching",
+                  "What’s working?",
+                ].map(suggestion => (
+                  <Pressable
+                    accessibilityRole="button"
+                    key={suggestion}
+                    onPress={() => void send(suggestion)}
+                    style={({ pressed }) => [styles.suggestion, pressed && styles.suggestionPressed]}
+                  >
+                    <Text style={styles.suggestionText}>{suggestion}</Text>
+                    <Text style={styles.suggestionArrow}>›</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : (
+            <FlatList
+              ListEmptyComponent={
+                busyAction ? (
+                  <View style={styles.loading}>
+                    <ActivityIndicator color={colors.accent} />
+                    <Text style={styles.loadingText}>Coach is looking at your context…</Text>
+                  </View>
+                ) : null
+              }
+              contentContainerStyle={[
+                styles.messages,
+                messages.length === 0 && styles.emptyMessages,
+              ]}
+              data={messages}
+              keyExtractor={message => message.id}
+              ref={listRef}
+              renderItem={({ item }) => (
+                <Message
+                  animate={item.id === revealingMessageId}
+                  message={item}
+                  onResolveToolCall={(toolCallId, action) => void handleToolCall(toolCallId, action)}
+                  resolving={resolvingToolCallId === item.toolCall?.id}
+                />
+              )}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </View>
 
         <View style={styles.composerArea}>
           {!!error && <Text style={styles.error}>{error}</Text>}
@@ -443,15 +576,30 @@ export default function CoachChatScreen({
       </KeyboardAvoidingView>
       {drawerOpen && (
         <View style={styles.drawerLayer}>
-          <Pressable
-            accessibilityLabel="Close chat history"
-            onPress={() => setDrawerOpen(false)}
-            style={styles.drawerBackdrop}
-          />
-          <View style={styles.drawer}>
+          <Animated.View
+            style={[
+              styles.drawerBackdrop,
+              { opacity: drawerBackdropOpacity },
+            ]}
+          >
+            <Pressable
+              accessibilityLabel="Close chat history"
+              onPress={closeHistory}
+              style={StyleSheet.absoluteFill}
+            />
+          </Animated.View>
+          <Animated.View
+            style={[
+              styles.drawer,
+              {
+                transform: [{ translateX: drawerTranslateX }],
+                width: drawerWidth,
+              },
+            ]}
+          >
             <View style={styles.drawerHeader}>
               <Text style={styles.drawerTitle}>Conversations</Text>
-              <Pressable onPress={() => setDrawerOpen(false)}>
+              <Pressable onPress={closeHistory}>
                 <Text style={styles.drawerClose}>×</Text>
               </Pressable>
             </View>
@@ -476,7 +624,7 @@ export default function CoachChatScreen({
                 </Pressable>
               )}
             />
-          </View>
+          </Animated.View>
         </View>
       )}
     </SafeAreaView>
@@ -493,7 +641,7 @@ const styles = StyleSheet.create({
     top: 0,
   },
   ambientViolet: {
-    backgroundColor: "#4b426e",
+    backgroundColor: "#244e67",
     borderRadius: 220,
     height: 440,
     opacity: 0.16,
@@ -594,7 +742,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingBottom: 12,
     paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingTop: layout.safeAreaHeaderPadding,
   },
   input: {
     color: colors.text,
@@ -712,6 +860,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   suggestions: { gap: 8, marginTop: "auto", paddingTop: 48 },
+  swipeArea: { flex: 1 },
   suggestion: {
     alignItems: "center",
     borderBottomColor: colors.border,
@@ -743,7 +892,6 @@ const styles = StyleSheet.create({
     paddingTop: 58,
     position: "absolute",
     top: 0,
-    width: "82%",
   },
   drawerHeader: {
     alignItems: "center",

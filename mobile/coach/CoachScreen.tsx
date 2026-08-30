@@ -14,7 +14,7 @@ import {
 import type { User } from "@supabase/supabase-js";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { colors } from "../design/theme";
+import { colors, layout } from "../design/theme";
 import type { SleepProfile } from "../onboarding/types";
 import { loadCoachExperience, sendCoachMessage } from "./coachRepository";
 import type {
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
     width: 300,
   },
   ambientViolet: {
-    backgroundColor: "#4b426e",
+    backgroundColor: "#244e67",
     borderRadius: 190,
     height: 380,
     opacity: 0.2,
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingBottom: 12,
     paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingTop: layout.safeAreaHeaderPadding,
   },
   input: {
     color: ink,

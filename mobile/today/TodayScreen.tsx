@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  type GestureResponderEvent,
   KeyboardAvoidingView,
+  type LayoutChangeEvent,
   Platform,
   Pressable,
   ScrollView,
@@ -14,9 +16,11 @@ import type { User } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { loadDailyCoaching } from '../coach/coachRepository';
-import { colors } from '../design/theme';
+import { colors, layout } from '../design/theme';
 import type { SleepProfile } from '../onboarding/types';
 import { mockTodayRepository } from './mockTodayRepository';
+import type { MorningFeeling } from './feeling';
+import { feelingOptions } from './feeling';
 import type {
   DailyCheckinDraft,
   SuspectedFactorKey,
@@ -30,32 +34,10 @@ type TodayScreenProps = {
   user?: User;
 };
 
-type FeelingOption = {
-  score: number;
-  icon: string;
-  label: string;
-};
-
 type FactorOption = {
   key: SuspectedFactorKey;
   label: string;
 };
-
-const feelingOptions: FeelingOption[] = [
-  { score: 20, icon: '1', label: 'Drained' },
-  { score: 40, icon: '2', label: 'Tired' },
-  { score: 60, icon: '3', label: 'Okay' },
-  { score: 80, icon: '4', label: 'Good' },
-  { score: 100, icon: '5', label: 'Great' },
-];
-
-const sleepScoreOptions = [
-  { score: 20, label: 'Very poor' },
-  { score: 40, label: 'Poor' },
-  { score: 60, label: 'Fair' },
-  { score: 80, label: 'Good' },
-  { score: 100, label: 'Excellent' },
-] as const;
 
 const factorOptions: FactorOption[] = [
   { key: 'stress', label: 'Stress' },
@@ -76,8 +58,54 @@ const formatLongDate = (date: string) => {
   }).format(parsed);
 };
 
-const feelingLabel = (score: number) =>
-  feelingOptions.find((option) => option.score === score)?.label ?? 'Checked in';
+const clampSleepScore = (score: number) => Math.max(0, Math.min(100, Math.round(score)));
+
+const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
+  disabled?: boolean;
+  onChange?: (score: number) => void;
+  source?: 'Apple Health' | 'Oura' | 'Manual';
+  value: number | null;
+}) => {
+  const [trackWidth, setTrackWidth] = useState(0);
+  const displayValue = value ?? 50;
+  const updateFromTouch = (event: GestureResponderEvent) => {
+    if (disabled || !onChange || trackWidth <= 0) return;
+    onChange(clampSleepScore((event.nativeEvent.locationX / trackWidth) * 100));
+  };
+  const adjust = (amount: number) => onChange?.(clampSleepScore((value ?? 50) + amount));
+
+  return (
+    <View style={styles.sleepScoreControl}>
+      <View style={styles.sleepScoreHeading}>
+        <View>
+          <Text style={styles.sleepScoreLabel}>SLEEP SCORE</Text>
+          {source && <Text style={styles.sleepScoreSource}>{source}</Text>}
+        </View>
+        <Text style={styles.sleepScoreValue}>{value ?? '—'}</Text>
+      </View>
+      <View
+        accessible
+        accessibilityActions={disabled ? undefined : [{ name: 'increment' }, { name: 'decrement' }]}
+        accessibilityLabel="Sleep score"
+        accessibilityRole="adjustable"
+        accessibilityValue={{ min: 0, max: 100, now: value ?? undefined, text: value === null ? 'Not selected' : `${value} out of 100` }}
+        onAccessibilityAction={(event) => adjust(event.nativeEvent.actionName === 'increment' ? 1 : -1)}
+        onLayout={(event: LayoutChangeEvent) => setTrackWidth(event.nativeEvent.layout.width)}
+        onMoveShouldSetResponder={() => !disabled}
+        onResponderGrant={updateFromTouch}
+        onResponderMove={updateFromTouch}
+        onStartShouldSetResponder={() => !disabled}
+        style={styles.sleepScoreTrackTouch}
+      >
+        <View style={styles.sleepScoreTrack}>
+          <View style={[styles.sleepScoreTrackFill, { width: `${displayValue}%` }]} />
+          <View style={[styles.sleepScoreThumb, { left: `${displayValue}%` }, value === null && styles.sleepScoreThumbUnset]} />
+        </View>
+      </View>
+      {!disabled && <View style={styles.sleepScoreScale}><Text style={styles.sleepScoreScaleText}>0</Text><Text style={styles.sleepScoreScaleText}>100</Text></View>}
+    </View>
+  );
+};
 
 const timeGreeting = () => {
   const hour = new Date().getHours();
@@ -130,7 +158,7 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
   const [saving, setSaving] = useState(false);
   const [adherenceSaving, setAdherenceSaving] = useState(false);
   const [error, setError] = useState('');
-  const [feeling, setFeeling] = useState<number | null>(null);
+  const [morningFeeling, setMorningFeeling] = useState<MorningFeeling | null>(null);
   const [manualSleepFallback, setManualSleepFallback] = useState(false);
   const [manualSleepScore, setManualSleepScore] = useState<number | null>(null);
   const [manualSleepSaving, setManualSleepSaving] = useState(false);
@@ -181,14 +209,14 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
 
   const sleepContextReady = snapshot?.sleepData.status !== 'missing' ||
     (manualSleepFallback && manualSleepScore !== null);
-  const canSubmit = feeling !== null && sleepContextReady && !saving;
+  const canSubmit = morningFeeling !== null && sleepContextReady && !saving;
   const selectedFeeling = useMemo(
-    () => feelingOptions.find((option) => option.score === feeling),
-    [feeling],
+    () => feelingOptions.find((option) => option.value === morningFeeling),
+    [morningFeeling],
   );
 
   const submitCheckin = async () => {
-    if (feeling === null || !snapshot) {
+    if (morningFeeling === null || !snapshot) {
       return;
     }
 
@@ -196,7 +224,7 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
     setError('');
 
     const draft: DailyCheckinDraft = {
-      feeling,
+      morningFeeling,
       manualSleepScore: snapshot.sleepData.status === 'missing'
         ? manualSleepScore ?? undefined
         : undefined,
@@ -322,33 +350,8 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
             {manualSleepFallback && (
               <View style={styles.manualSleepArea}>
                 <Text style={styles.prompt}>How would you score last night's sleep?</Text>
-                <Text style={styles.promptHint}>Your best estimate is enough.</Text>
-                <View style={styles.feelingRow}>
-                  {sleepScoreOptions.map(option => {
-                    const selected = manualSleepScore === option.score;
-                    return (
-                      <Pressable
-                        accessibilityLabel={`${option.label} sleep, ${option.score} out of 100`}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected }}
-                        key={option.score}
-                        onPress={() => setManualSleepScore(option.score)}
-                        style={({ pressed }) => [
-                          styles.feelingButton,
-                          selected && styles.feelingButtonSelected,
-                          pressed && styles.pressed,
-                        ]}
-                      >
-                        <Text style={[styles.feelingNumber, selected && styles.feelingNumberSelected]}>
-                          {option.score}
-                        </Text>
-                        <Text style={[styles.feelingText, selected && styles.feelingTextSelected]}>
-                          {option.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                <Text style={styles.promptHint}>Slide to your best estimate from 0–100.</Text>
+                <SleepScoreSlider onChange={setManualSleepScore} value={manualSleepScore} />
                 {snapshot.checkin && (
                   <Pressable
                     disabled={manualSleepScore === null || manualSleepSaving}
@@ -370,14 +373,13 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
 
         {snapshot.sleepData.status !== 'missing' && (
           <View style={styles.dailyReport}>
-            <View style={styles.sleepDataReadyRow}>
-              <View style={styles.statusDot} />
-              <Text style={styles.sleepDataReadyText}>
-                {snapshot.sleepData.status === 'wearable'
-                  ? `${snapshot.sleepData.source === 'apple_health' ? 'Sleep Coach score from Apple Health' : 'Oura sleep score'} saved${typeof snapshot.sleepData.score === 'number' ? ` · ${snapshot.sleepData.score}` : ''}`
-                  : `Manual sleep score saved · ${snapshot.sleepData.score}`}
-              </Text>
-            </View>
+            <SleepScoreSlider
+              disabled
+              source={snapshot.sleepData.status === 'wearable'
+                ? snapshot.sleepData.source === 'apple_health' ? 'Apple Health' : 'Oura'
+                : 'Manual'}
+              value={snapshot.sleepData.score ?? null}
+            />
             {snapshot.checkin && (
               <View style={styles.checkinCompleteRow}>
                 <Text style={styles.checkinCompleteMark}>✓</Text>
@@ -451,23 +453,20 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
 
             <View style={styles.feelingRow}>
               {feelingOptions.map((option) => {
-                const selected = feeling === option.score;
+                const selected = morningFeeling === option.value;
                 return (
                   <Pressable
-                    accessibilityLabel={`${option.label}, ${option.icon} out of 5`}
+                    accessibilityLabel={`Feeling ${option.label.toLowerCase()}`}
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
-                    key={option.score}
-                    onPress={() => setFeeling(option.score)}
+                    key={option.value}
+                    onPress={() => setMorningFeeling(option.value)}
                     style={({ pressed }) => [
                       styles.feelingButton,
                       selected && styles.feelingButtonSelected,
                       pressed && styles.pressed,
                     ]}
                   >
-                    <Text style={[styles.feelingNumber, selected && styles.feelingNumberSelected]}>
-                      {option.icon}
-                    </Text>
                     <Text style={[styles.feelingText, selected && styles.feelingTextSelected]}>
                       {option.label}
                     </Text>
@@ -476,7 +475,7 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
               })}
             </View>
 
-            {feeling !== null && (
+            {morningFeeling !== null && (
               <>
                 <Text style={styles.prompt}>What affected last night most?</Text>
                 <Text style={styles.promptHint}>Optional—choose the closest answer.</Text>
@@ -555,7 +554,7 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: 48,
     paddingHorizontal: 20,
-    paddingTop: 64,
+    paddingTop: layout.screenTopPadding,
   },
   header: {
     alignItems: 'flex-start',
@@ -821,9 +820,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     flex: 1,
-    minHeight: 72,
-    paddingHorizontal: 2,
-    paddingVertical: 10,
+    justifyContent: 'center',
+    minHeight: 54,
+    paddingHorizontal: 4,
+    paddingVertical: 9,
   },
   feelingButtonSelected: {
     backgroundColor: colors.accent,
@@ -841,10 +841,79 @@ const styles = StyleSheet.create({
     color: colors.textSubtle,
     fontSize: 10,
     fontWeight: '700',
-    marginTop: 6,
+    textAlign: 'center',
   },
   feelingTextSelected: {
     color: colors.ink,
+  },
+  sleepScoreControl: {
+    marginTop: 18,
+  },
+  sleepScoreHeading: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  sleepScoreLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  sleepScoreSource: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 3,
+  },
+  sleepScoreValue: {
+    color: colors.text,
+    fontSize: 32,
+    fontWeight: '800',
+  },
+  sleepScoreTrackTouch: {
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  sleepScoreTrack: {
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: 4,
+    height: 6,
+    position: 'relative',
+  },
+  sleepScoreTrackFill: {
+    backgroundColor: colors.accent,
+    borderRadius: 4,
+    height: 6,
+  },
+  sleepScoreThumb: {
+    backgroundColor: colors.accent,
+    borderColor: colors.canvas,
+    borderRadius: 12,
+    borderWidth: 3,
+    height: 24,
+    marginLeft: -12,
+    marginTop: -12,
+    position: 'absolute',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    top: '50%',
+    width: 24,
+  },
+  sleepScoreThumbUnset: {
+    opacity: 0.45,
+  },
+  sleepScoreScale: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: -4,
+  },
+  sleepScoreScaleText: {
+    color: colors.textSubtle,
+    fontSize: 10,
+    fontWeight: '700',
   },
   prompt: {
     color: colors.text,

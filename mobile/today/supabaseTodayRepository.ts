@@ -10,6 +10,7 @@ import {
   loadPreferredSleepSource,
 } from '../sleep/sourcePreference';
 import { supabase } from '../supabase';
+import { normalizeMorningFeeling } from './feeling';
 import type { DailyCheckinDraft, TodayRepository } from './types';
 
 const localDate = () => {
@@ -36,7 +37,7 @@ export const createSupabaseTodayRepository = (user: User, greetingName: string |
     );
     if (appOpenResult.error) throw appOpenResult.error;
     const [checkinResult, commitmentResult, historyResult, ouraResult, openDaysResult, appleHealthResult, preferredSleepSource] = await Promise.all([
-      supabase.from('daily_checkins').select('id, checkin_date, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, note, completed_at').eq('user_id', user.id).eq('checkin_date', date).maybeSingle(),
+      supabase.from('daily_checkins').select('id, checkin_date, morning_feeling, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, note, completed_at').eq('user_id', user.id).eq('checkin_date', date).maybeSingle(),
       supabase.from('behavior_commitments').select('id, behavior_date, behavior, status').eq('user_id', user.id).eq('behavior_date', date).maybeSingle(),
       supabase.from('behavior_commitments').select('id, behavior_date, behavior, status').eq('user_id', user.id).lt('behavior_date', date).order('behavior_date', { ascending: false }).limit(7),
       supabase.functions.invoke<{ data?: OuraSleepDay[] }>('oura-proxy', {
@@ -96,7 +97,7 @@ export const createSupabaseTodayRepository = (user: User, greetingName: string |
       dayNumber: Math.max(openDaysResult.count ?? 1, 1),
       greetingName,
       coachingMessage: decisionMessage(selected.decision),
-      checkin: checkin ? { id:checkin.id, checkinDate:checkin.checkin_date, feeling:checkin.feeling, manualSleepScore:manualScore ?? undefined, suspectedFactor:checkin.suspected_factor || undefined, note:checkin.note || undefined, completedAt:checkin.completed_at } : null,
+      checkin: checkin ? { id:checkin.id, checkinDate:checkin.checkin_date, morningFeeling:normalizeMorningFeeling(checkin.morning_feeling, checkin.feeling) ?? 'okay', manualSleepScore:manualScore ?? undefined, suspectedFactor:checkin.suspected_factor || undefined, note:checkin.note || undefined, completedAt:checkin.completed_at } : null,
       sleepData: wearable
         ? { status: 'wearable', score: wearable.score, source: wearable.source }
         : typeof manualScore === 'number' && checkin?.manual_sleep_submitted_at
@@ -109,9 +110,9 @@ export const createSupabaseTodayRepository = (user: User, greetingName: string |
   async saveCheckin(draft: DailyCheckinDraft) {
     const date=localDate(); const completedAt=new Date().toISOString();
     const manualSleep = typeof draft.manualSleepScore === 'number';
-    const {data,error}=await supabase.from('daily_checkins').upsert({user_id:user.id,checkin_date:date,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC',feeling:draft.feeling,manual_sleep_score:manualSleep?draft.manualSleepScore:null,manual_sleep_submitted_at:manualSleep?completedAt:null,suspected_factor:draft.suspectedFactor||null,note:draft.note?.trim()||null,completed_at:completedAt,updated_at:completedAt},{onConflict:'user_id,checkin_date'}).select('id, checkin_date, feeling, manual_sleep_score, suspected_factor, note, completed_at').single();
+    const {data,error}=await supabase.from('daily_checkins').upsert({user_id:user.id,checkin_date:date,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC',morning_feeling:draft.morningFeeling,manual_sleep_score:manualSleep?draft.manualSleepScore:null,manual_sleep_submitted_at:manualSleep?completedAt:null,suspected_factor:draft.suspectedFactor||null,note:draft.note?.trim()||null,completed_at:completedAt,updated_at:completedAt},{onConflict:'user_id,checkin_date'}).select('id, checkin_date, morning_feeling, manual_sleep_score, suspected_factor, note, completed_at').single();
     if(error) throw error;
-    return {id:data.id,checkinDate:data.checkin_date,feeling:data.feeling,manualSleepScore:data.manual_sleep_score??undefined,suspectedFactor:data.suspected_factor||undefined,note:data.note||undefined,completedAt:data.completed_at};
+    return {id:data.id,checkinDate:data.checkin_date,morningFeeling:data.morning_feeling,manualSleepScore:data.manual_sleep_score??undefined,suspectedFactor:data.suspected_factor||undefined,note:data.note||undefined,completedAt:data.completed_at};
   },
   async saveManualSleepScore(score) {
     const date = localDate();

@@ -3,15 +3,15 @@ export const colors = {
   canvas: '#09090d',
   surface: '#17161d',
   surfaceRaised: '#201e28',
-  surfaceAccent: '#282437',
+  surfaceAccent: '#172936',
   surfaceMuted: '#111116',
   surfaceSuccess: '#152522',
   border: '#2b2932',
   borderStrong: '#3a3743',
-  borderSelected: '#7e73d9',
-  accent: '#bdb5ff',
-  accentStrong: '#9285ed',
-  accentSoft: '#d7d1ff',
+  borderSelected: '#5b9fc7',
+  accent: '#a8daf2',
+  accentStrong: '#78bfe5',
+  accentSoft: '#d4effc',
   text: '#f7f5f2',
   textMuted: '#b8b4be',
   textSubtle: '#85818d',
@@ -24,6 +24,11 @@ export const colors = {
   dangerSurface: '#41282e',
   warningSurface: '#383126',
   shadow: '#000000',
+} as const;
+
+export const layout = {
+  screenTopPadding: 76,
+  safeAreaHeaderPadding: 26,
 } as const;
 
 export const radii = {
