@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   FlatList,
   KeyboardAvoidingView,
   PanResponder,
@@ -9,6 +11,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import type { StyleProp, TextStyle } from "react-native";
@@ -29,6 +32,9 @@ import type { CoachConversationSummary, CoachHomeState, CoachMessage } from "./c
 
 const HISTORY_SWIPE_ACTIVATION_DISTANCE = 18;
 const HISTORY_SWIPE_OPEN_DISTANCE = 96;
+const HISTORY_DRAWER_WIDTH_RATIO = 0.82;
+const HISTORY_DRAWER_OPEN_DURATION = 260;
+const HISTORY_DRAWER_CLOSE_DURATION = 200;
 
 const personalizedGreeting = (state: CoachHomeState | null) => {
   if (!state) return "Your coach will connect the dots as your sleep context builds.";
@@ -174,16 +180,81 @@ export default function CoachChatScreen({
   const [resolvingToolCallId, setResolvingToolCallId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const listRef = useRef<FlatList<CoachMessage>>(null);
+  const { width: screenWidth } = useWindowDimensions();
+  const drawerWidth = screenWidth * HISTORY_DRAWER_WIDTH_RATIO;
+  const drawerTranslateX = useRef(new Animated.Value(-drawerWidth)).current;
+  const drawerBackdropOpacity = useRef(new Animated.Value(0)).current;
 
   const refreshHistory = useCallback(async () => {
     const history = await listCoachConversations(user);
     setConversations(history);
   }, [user]);
 
+  const animateHistoryOpen = useCallback((duration: number) => {
+    Animated.parallel([
+      Animated.timing(drawerTranslateX, {
+        duration,
+        easing: Easing.out(Easing.cubic),
+        toValue: 0,
+        useNativeDriver: true,
+      }),
+      Animated.timing(drawerBackdropOpacity, {
+        duration,
+        easing: Easing.out(Easing.cubic),
+        toValue: 1,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [
+    drawerBackdropOpacity,
+    drawerTranslateX,
+  ]);
+
+  const animateHistoryClosed = useCallback((duration: number) => {
+    Animated.parallel([
+      Animated.timing(drawerTranslateX, {
+        duration,
+        easing: Easing.in(Easing.cubic),
+        toValue: -drawerWidth,
+        useNativeDriver: true,
+      }),
+      Animated.timing(drawerBackdropOpacity, {
+        duration,
+        easing: Easing.in(Easing.cubic),
+        toValue: 0,
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      if (finished) setDrawerOpen(false);
+    });
+  }, [
+    drawerBackdropOpacity,
+    drawerTranslateX,
+    drawerWidth,
+  ]);
+
   const openHistory = useCallback(() => {
+    drawerTranslateX.stopAnimation();
+    drawerBackdropOpacity.stopAnimation();
+    drawerTranslateX.setValue(-drawerWidth);
+    drawerBackdropOpacity.setValue(0);
     setDrawerOpen(true);
     void refreshHistory().catch(() => undefined);
-  }, [refreshHistory]);
+    requestAnimationFrame(() =>
+      animateHistoryOpen(HISTORY_DRAWER_OPEN_DURATION),
+    );
+  }, [
+    animateHistoryOpen,
+    drawerBackdropOpacity,
+    drawerTranslateX,
+    drawerWidth,
+    refreshHistory,
+  ]);
+
+  const closeHistory = useCallback(() => {
+    if (!drawerOpen) return;
+    animateHistoryClosed(HISTORY_DRAWER_CLOSE_DURATION);
+  }, [animateHistoryClosed, drawerOpen]);
 
   const historySwipeResponder = useMemo(
     () =>
@@ -192,11 +263,48 @@ export default function CoachChatScreen({
           !drawerOpen &&
           gesture.dx >= HISTORY_SWIPE_ACTIVATION_DISTANCE &&
           gesture.dx > Math.abs(gesture.dy) * 1.25,
-        onPanResponderRelease: (_, gesture) => {
-          if (gesture.dx >= HISTORY_SWIPE_OPEN_DISTANCE) openHistory();
+        onPanResponderGrant: () => {
+          drawerTranslateX.stopAnimation();
+          drawerBackdropOpacity.stopAnimation();
+          drawerTranslateX.setValue(-drawerWidth);
+          drawerBackdropOpacity.setValue(0);
+          setDrawerOpen(true);
         },
+        onPanResponderMove: (_, gesture) => {
+          const distance = Math.min(Math.max(gesture.dx, 0), drawerWidth);
+          const progress = distance / drawerWidth;
+          drawerTranslateX.setValue(-drawerWidth + distance);
+          drawerBackdropOpacity.setValue(progress);
+        },
+        onPanResponderRelease: (_, gesture) => {
+          const distance = Math.min(Math.max(gesture.dx, 0), drawerWidth);
+          const progress = distance / drawerWidth;
+          if (gesture.dx >= HISTORY_SWIPE_OPEN_DISTANCE) {
+            const remainingDistance = drawerWidth - distance;
+            const releaseVelocity = Math.max(gesture.vx, 0.4);
+            const completionDuration = Math.min(
+              HISTORY_DRAWER_OPEN_DURATION,
+              Math.max(80, remainingDistance / releaseVelocity),
+            );
+            void refreshHistory().catch(() => undefined);
+            animateHistoryOpen(completionDuration);
+          } else {
+            animateHistoryClosed(
+              Math.max(80, HISTORY_DRAWER_CLOSE_DURATION * progress),
+            );
+          }
+        },
+        onPanResponderTerminate: () => animateHistoryClosed(100),
       }),
-    [drawerOpen, openHistory],
+    [
+      animateHistoryClosed,
+      animateHistoryOpen,
+      drawerBackdropOpacity,
+      drawerOpen,
+      drawerTranslateX,
+      drawerWidth,
+      refreshHistory,
+    ],
   );
 
   useEffect(() => {
@@ -216,7 +324,7 @@ export default function CoachChatScreen({
     setInput("");
     setError("");
     setRevealingMessageId(null);
-    setDrawerOpen(false);
+    closeHistory();
   };
 
   const openConversation = async (conversation: CoachConversationSummary) => {
@@ -226,7 +334,7 @@ export default function CoachChatScreen({
       const loadedMessages = await loadCoachConversation(user, conversation.id);
       setConversationId(conversation.id);
       setMessages(loadedMessages);
-      setDrawerOpen(false);
+      closeHistory();
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "That conversation could not be loaded.");
     } finally {
@@ -459,15 +567,30 @@ export default function CoachChatScreen({
       </KeyboardAvoidingView>
       {drawerOpen && (
         <View style={styles.drawerLayer}>
-          <Pressable
-            accessibilityLabel="Close chat history"
-            onPress={() => setDrawerOpen(false)}
-            style={styles.drawerBackdrop}
-          />
-          <View style={styles.drawer}>
+          <Animated.View
+            style={[
+              styles.drawerBackdrop,
+              { opacity: drawerBackdropOpacity },
+            ]}
+          >
+            <Pressable
+              accessibilityLabel="Close chat history"
+              onPress={closeHistory}
+              style={StyleSheet.absoluteFill}
+            />
+          </Animated.View>
+          <Animated.View
+            style={[
+              styles.drawer,
+              {
+                transform: [{ translateX: drawerTranslateX }],
+                width: drawerWidth,
+              },
+            ]}
+          >
             <View style={styles.drawerHeader}>
               <Text style={styles.drawerTitle}>Conversations</Text>
-              <Pressable onPress={() => setDrawerOpen(false)}>
+              <Pressable onPress={closeHistory}>
                 <Text style={styles.drawerClose}>×</Text>
               </Pressable>
             </View>
@@ -492,7 +615,7 @@ export default function CoachChatScreen({
                 </Pressable>
               )}
             />
-          </View>
+          </Animated.View>
         </View>
       )}
     </SafeAreaView>
@@ -760,7 +883,6 @@ const styles = StyleSheet.create({
     paddingTop: 58,
     position: "absolute",
     top: 0,
-    width: "82%",
   },
   drawerHeader: {
     alignItems: "center",
