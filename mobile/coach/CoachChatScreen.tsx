@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -25,6 +26,9 @@ import {
   sendCoachMessage,
 } from "./coachRepository";
 import type { CoachConversationSummary, CoachHomeState, CoachMessage } from "./coachRepository";
+
+const HISTORY_SWIPE_ACTIVATION_DISTANCE = 18;
+const HISTORY_SWIPE_OPEN_DISTANCE = 96;
 
 const personalizedGreeting = (state: CoachHomeState | null) => {
   if (!state) return "Your coach will connect the dots as your sleep context builds.";
@@ -171,10 +175,29 @@ export default function CoachChatScreen({
   const [error, setError] = useState("");
   const listRef = useRef<FlatList<CoachMessage>>(null);
 
-  const refreshHistory = async () => {
+  const refreshHistory = useCallback(async () => {
     const history = await listCoachConversations(user);
     setConversations(history);
-  };
+  }, [user]);
+
+  const openHistory = useCallback(() => {
+    setDrawerOpen(true);
+    void refreshHistory().catch(() => undefined);
+  }, [refreshHistory]);
+
+  const historySwipeResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponderCapture: (_, gesture) =>
+          !drawerOpen &&
+          gesture.dx >= HISTORY_SWIPE_ACTIVATION_DISTANCE &&
+          gesture.dx > Math.abs(gesture.dy) * 1.25,
+        onPanResponderRelease: (_, gesture) => {
+          if (gesture.dx >= HISTORY_SWIPE_OPEN_DISTANCE) openHistory();
+        },
+      }),
+    [drawerOpen, openHistory],
+  );
 
   useEffect(() => {
     void refreshHistory().catch(() => undefined);
@@ -328,77 +351,76 @@ export default function CoachChatScreen({
         keyboardVerticalOffset={8}
         style={styles.keyboard}
       >
-        <View style={styles.header}>
-          <Pressable
-            accessibilityLabel="Open chat history"
-            accessibilityRole="button"
-            onPress={() => {
-              setDrawerOpen(true);
-              void refreshHistory().catch(() => undefined);
-            }}
-            style={styles.historyButton}
-          >
-            <Text style={styles.historyButtonText}>☰</Text>
-          </Pressable>
-          <View>
-            <Text style={styles.eyebrow}>30 DAY SLEEP COACH</Text>
-            <Text style={styles.title}>Coach</Text>
-          </View>
-          <Pressable accessibilityRole="button" onPress={startNewChat} style={styles.newButton}>
-            <Text style={styles.newButtonText}>＋ New chat</Text>
-          </Pressable>
-        </View>
-
-        {!conversationId && messages.length === 0 ? (
-          <View style={styles.newChat}>
-            <Text style={styles.newChatTitle}>What would you like to explore?</Text>
-            <Text style={styles.personalizedNote}>{personalizedGreeting(homeState)}</Text>
-            <View style={styles.suggestions}>
-              {[
-                "How is my sleep trending?",
-                "Today’s coaching",
-                "What’s working?",
-              ].map(suggestion => (
-                <Pressable
-                  accessibilityRole="button"
-                  key={suggestion}
-                  onPress={() => void send(suggestion)}
-                  style={({ pressed }) => [styles.suggestion, pressed && styles.suggestionPressed]}
-                >
-                  <Text style={styles.suggestionText}>{suggestion}</Text>
-                  <Text style={styles.suggestionArrow}>›</Text>
-                </Pressable>
-              ))}
+        <View style={styles.swipeArea} {...historySwipeResponder.panHandlers}>
+          <View style={styles.header}>
+            <Pressable
+              accessibilityLabel="Open chat history"
+              accessibilityRole="button"
+              onPress={openHistory}
+              style={styles.historyButton}
+            >
+              <Text style={styles.historyButtonText}>☰</Text>
+            </Pressable>
+            <View>
+              <Text style={styles.eyebrow}>30 DAY SLEEP COACH</Text>
+              <Text style={styles.title}>Coach</Text>
             </View>
+            <Pressable accessibilityRole="button" onPress={startNewChat} style={styles.newButton}>
+              <Text style={styles.newButtonText}>＋ New chat</Text>
+            </Pressable>
           </View>
-        ) : (
-          <FlatList
-            ListEmptyComponent={
-              busyAction ? (
-                <View style={styles.loading}>
-                  <ActivityIndicator color={colors.accent} />
-                  <Text style={styles.loadingText}>Coach is looking at your context…</Text>
-                </View>
-              ) : null
-            }
-            contentContainerStyle={[
-              styles.messages,
-              messages.length === 0 && styles.emptyMessages,
-            ]}
-            data={messages}
-            keyExtractor={message => message.id}
-            ref={listRef}
-            renderItem={({ item }) => (
-              <Message
-                animate={item.id === revealingMessageId}
-                message={item}
-                onResolveToolCall={(toolCallId, action) => void handleToolCall(toolCallId, action)}
-                resolving={resolvingToolCallId === item.toolCall?.id}
-              />
-            )}
-            showsVerticalScrollIndicator={false}
-          />
-        )}
+
+          {!conversationId && messages.length === 0 ? (
+            <View style={styles.newChat}>
+              <Text style={styles.newChatTitle}>What would you like to explore?</Text>
+              <Text style={styles.personalizedNote}>{personalizedGreeting(homeState)}</Text>
+              <View style={styles.suggestions}>
+                {[
+                  "How is my sleep trending?",
+                  "Today’s coaching",
+                  "What’s working?",
+                ].map(suggestion => (
+                  <Pressable
+                    accessibilityRole="button"
+                    key={suggestion}
+                    onPress={() => void send(suggestion)}
+                    style={({ pressed }) => [styles.suggestion, pressed && styles.suggestionPressed]}
+                  >
+                    <Text style={styles.suggestionText}>{suggestion}</Text>
+                    <Text style={styles.suggestionArrow}>›</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : (
+            <FlatList
+              ListEmptyComponent={
+                busyAction ? (
+                  <View style={styles.loading}>
+                    <ActivityIndicator color={colors.accent} />
+                    <Text style={styles.loadingText}>Coach is looking at your context…</Text>
+                  </View>
+                ) : null
+              }
+              contentContainerStyle={[
+                styles.messages,
+                messages.length === 0 && styles.emptyMessages,
+              ]}
+              data={messages}
+              keyExtractor={message => message.id}
+              ref={listRef}
+              renderItem={({ item }) => (
+                <Message
+                  animate={item.id === revealingMessageId}
+                  message={item}
+                  onResolveToolCall={(toolCallId, action) => void handleToolCall(toolCallId, action)}
+                  resolving={resolvingToolCallId === item.toolCall?.id}
+                />
+              )}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </View>
 
         <View style={styles.composerArea}>
           {!!error && <Text style={styles.error}>{error}</Text>}
@@ -706,6 +728,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   suggestions: { gap: 8, marginTop: "auto", paddingTop: 48 },
+  swipeArea: { flex: 1 },
   suggestion: {
     alignItems: "center",
     borderBottomColor: colors.border,
