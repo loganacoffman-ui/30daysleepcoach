@@ -6,6 +6,7 @@ import {
   LayoutChangeEvent,
   Linking,
   PanResponder,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,11 +18,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
 
 import { colors } from './design/theme';
+import AppleHealthIntegration from './healthkit/AppleHealthIntegration';
 import {
   cancelDailyCheckInReminder,
   scheduleDailyCheckInReminder,
 } from './notifications';
 import type { PrimaryConcern } from './onboarding/types';
+import OuraIntegration from './oura/OuraIntegration';
 import { supabase } from './supabase';
 
 const INTAKE_VERSION = 1;
@@ -30,7 +33,7 @@ const TIMELINE_DURATION_MINUTES = 16 * 60;
 const MINIMUM_SLEEP_WINDOW_MINUTES = 4 * 60;
 const SNAP_MINUTES = 15;
 
-type Step = 'intro' | 'concern' | 'window' | 'followup' | 'results' | 'reminder';
+type Step = 'intro' | 'concern' | 'window' | 'followup' | 'results' | 'wearable' | 'reminder';
 type ConcernKey = PrimaryConcern;
 
 type IntakeAnswers = {
@@ -110,6 +113,7 @@ const validSteps = new Set<Step>([
   'window',
   'followup',
   'results',
+  'wearable',
   'reminder',
 ]);
 
@@ -936,14 +940,51 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
           </Text>
           <PrimaryButton
             busy={saving}
-            label="Set my daily check-in"
+            label="Connect my sleep data"
             onPress={() =>
               void saveAndAdvance(
                 { ...answers, first_experiment: firstExperiment },
-                'reminder',
+                'wearable',
               )
             }
           />
+        </View>
+      );
+    }
+
+    if (step === 'wearable') {
+      return (
+        <View>
+          <QuestionHeader
+            eyebrow="Optional"
+            title="Connect your sleep data"
+            subtitle="Your coach can learn from sleep trends automatically. You can also skip this and check in manually."
+          />
+          {Platform.OS === 'ios' && (
+            <View style={styles.integrationCard}>
+              <Text style={styles.integrationEyebrow}>APPLE WATCH OR IPHONE</Text>
+              <Text style={styles.integrationTitle}>Apple Health</Text>
+              <AppleHealthIntegration user={session.user} />
+            </View>
+          )}
+          <View style={styles.integrationCard}>
+            <Text style={styles.integrationEyebrow}>WEARABLE</Text>
+            <Text style={styles.integrationTitle}>Oura Ring</Text>
+            <OuraIntegration />
+          </View>
+          <PrimaryButton
+            busy={saving}
+            label="Continue to reminders"
+            onPress={() => void saveAndAdvance(answers, 'reminder')}
+          />
+          <Pressable
+            accessibilityRole="button"
+            disabled={saving}
+            onPress={() => void saveAndAdvance(answers, 'reminder')}
+            style={({ pressed }) => [styles.skipButton, pressed && styles.pressed]}
+          >
+            <Text style={styles.skipButtonText}>Skip for now</Text>
+          </Pressable>
         </View>
       );
     }
@@ -1426,6 +1467,27 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 26,
   },
+  integrationCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 22,
+    borderWidth: 1,
+    marginBottom: 14,
+    padding: 20,
+  },
+  integrationEyebrow: {
+    color: colors.accentSoft,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginBottom: 7,
+  },
+  integrationTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 14,
+  },
   hypothesisText: {
     color: colors.textSubtle,
     fontSize: 13,
@@ -1479,6 +1541,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     textAlign: 'center',
+  },
+  skipButton: {
+    alignItems: 'center',
+    minHeight: 48,
+    padding: 14,
+  },
+  skipButtonText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    fontWeight: '700',
   },
   errorText: {
     color: colors.danger,
