@@ -173,6 +173,7 @@ export default function CoachChatScreen({
   const [conversations, setConversations] = useState<CoachConversationSummary[]>([]);
   const [homeState, setHomeState] = useState<CoachHomeState | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const drawerOpenRef = useRef(false);
   const [revealingMessageId, setRevealingMessageId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -225,7 +226,7 @@ export default function CoachChatScreen({
         useNativeDriver: true,
       }),
     ]).start(({ finished }) => {
-      if (finished) setDrawerOpen(false);
+      if (finished) { drawerOpenRef.current = false; setDrawerOpen(false); }
     });
   }, [
     drawerBackdropOpacity,
@@ -238,6 +239,7 @@ export default function CoachChatScreen({
     drawerBackdropOpacity.stopAnimation();
     drawerTranslateX.setValue(-drawerWidth);
     drawerBackdropOpacity.setValue(0);
+    drawerOpenRef.current = true;
     setDrawerOpen(true);
     void refreshHistory().catch(() => undefined);
     requestAnimationFrame(() =>
@@ -252,15 +254,15 @@ export default function CoachChatScreen({
   ]);
 
   const closeHistory = useCallback(() => {
-    if (!drawerOpen) return;
+    if (!drawerOpenRef.current) return;
     animateHistoryClosed(HISTORY_DRAWER_CLOSE_DURATION);
-  }, [animateHistoryClosed, drawerOpen]);
+  }, [animateHistoryClosed]);
 
   const historySwipeResponder = useMemo(
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponderCapture: (_, gesture) =>
-          !drawerOpen &&
+          !drawerOpenRef.current &&
           gesture.dx >= HISTORY_SWIPE_ACTIVATION_DISTANCE &&
           gesture.dx > Math.abs(gesture.dy) * 1.25,
         onPanResponderGrant: () => {
@@ -268,6 +270,7 @@ export default function CoachChatScreen({
           drawerBackdropOpacity.stopAnimation();
           drawerTranslateX.setValue(-drawerWidth);
           drawerBackdropOpacity.setValue(0);
+          drawerOpenRef.current = true;
           setDrawerOpen(true);
         },
         onPanResponderMove: (_, gesture) => {
@@ -300,7 +303,6 @@ export default function CoachChatScreen({
       animateHistoryClosed,
       animateHistoryOpen,
       drawerBackdropOpacity,
-      drawerOpen,
       drawerTranslateX,
       drawerWidth,
       refreshHistory,
