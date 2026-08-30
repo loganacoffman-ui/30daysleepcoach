@@ -41,7 +41,7 @@ jobs:
         run: |
           if pnpm pkg get scripts.test | grep -qv '^null$'; then
             pnpm test
-          elif find . -type f \( -name '*.test.js' -o -name '*.test.jsx' -o -name '*.test.ts' -o -name '*.test.tsx' -o -name '*.spec.js' -o -name '*.spec.jsx' -o -name '*.spec.ts' -o -name '*.spec.tsx' \) -print -quit | grep -q .; then
+          elif find . -path './node_modules' -prune -o -type f \( -name '*.test.js' -o -name '*.test.jsx' -o -name '*.test.ts' -o -name '*.test.tsx' -o -name '*.spec.js' -o -name '*.spec.jsx' -o -name '*.spec.ts' -o -name '*.spec.tsx' \) -print -quit | grep -q .; then
             echo "Mobile test files exist, but no test script is configured." >&2
             exit 1
           else
