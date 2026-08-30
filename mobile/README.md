@@ -174,6 +174,31 @@ The callback returns to the active app variant at `thirtydaysleepcoach://oura/ca
 
 Oura API applications are limited to ten users by default. Request Oura approval before inviting a larger production audience.
 
+## Apple Health sleep sync
+
+Apple Health sync is available only in the iOS app. In Settings, a user can grant
+read-only access to HealthKit sleep analysis, refresh the current night, choose
+Apple Health or Oura as their preferred source, and disable sync. Disabling sync
+removes imported Apple Health rows from Supabase without changing data in the
+Health app.
+
+HealthKit does not expose Apple's proprietary Sleep Score. The app calculates and
+labels its own 0–100 **Sleep Coach score** from sleep duration, efficiency, REM
+share, and deep-sleep share. Normalized metrics are stored in `sleep_nights`; raw
+HealthKit payloads are not uploaded.
+
+The HealthKit bridge is a native dependency and does not work in Expo Go. After
+installing this change, create a fresh development build:
+
+```bash
+pnpm dlx eas-cli@latest build --profile development --platform ios
+```
+
+HealthKit sleep data must be tested on a physical iPhone with sleep data in the
+Health app. EAS must enable the HealthKit capability for each iOS App ID
+(`com.30daysleepcoach.app`, `.dev`, and `.preview`) when provisioning the build.
+Android does not render or call the Apple Health integration.
+
 ## Create a production iOS build
 
 The App Store build uses the `production` profile in `eas.json` and the

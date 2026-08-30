@@ -38,6 +38,7 @@ export type TodaySnapshot = {
   sleepData: {
     status: 'wearable' | 'manual' | 'missing';
     score: number | null;
+    source: 'apple_health' | 'oura' | 'manual' | null;
   };
 };
 

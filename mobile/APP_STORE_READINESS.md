@@ -19,6 +19,7 @@ Complete these steps after the Apple Developer Program membership becomes active
 4. Create the App Store Connect record using the same bundle identifier.
 5. Run an EAS development build. EAS should synchronize the Apple sign-in entitlement from `ios.usesAppleSignIn`.
 6. Test Apple sign-in on a physical iPhone. Confirm first sign-in stores the provided name and subsequent sign-ins succeed when Apple returns no name.
+7. Enable the **HealthKit** capability for the production, development, and preview App IDs. Rebuild each native binary after the capability and provisioning profiles update.
 
 Native-only Apple sign-in uses Apple's identity token with `supabase.auth.signInWithIdToken`. It does not require the web OAuth Services ID or six-month client-secret rotation unless web Apple OAuth is added later.
 
@@ -39,7 +40,7 @@ Production deployment was refreshed on August 23, 2026. All repository migration
 Confirm the final production build and vendor configuration before submitting these answers.
 
 - Contact information: email and optional name for authentication/account management.
-- Health & fitness: sleep, recovery, HRV, stress, energy, mood, and related check-in information supplied by the user or imported from Oura.
+- Health & fitness: sleep stages and normalized sleep metrics imported with permission from Apple Health, app-derived Sleep Coach scores, Oura sleep/recovery data, stress, energy, mood, and related check-in information.
 - User content: journal notes, coaching messages, voice transcripts, and optional voice recordings while transcription is in progress.
 - Identifiers: Supabase user ID and provider authentication identifiers.
 - Diagnostics: limited server/device diagnostic and security information needed to operate the service.
@@ -59,6 +60,8 @@ Confirm the final production build and vendor configuration before submitting th
 - [ ] A failed deletion request leaves the user signed in and shows a recoverable message.
 - [ ] Oura authorization returns to `thirtydaysleepcoach://oura/callback`.
 - [ ] Oura status, latest sleep-score refresh, token refresh, and disconnect work on a physical iPhone.
+- [ ] Apple Health permission copy clearly requests sleep-stage read access only.
+- [ ] Apple Health sync is absent on Android and unavailable-device states remain readable.
 
 ## Physical-device and TestFlight checks
 
@@ -73,6 +76,9 @@ Record the device model, iOS version, app version, build number, tester, date, a
 - [ ] Deleted credentials cannot sign in unless a new account is created.
 - [ ] App icon, display name, launch behavior, and deep links are correct.
 - [ ] Core check-in/coaching flow succeeds on Wi-Fi and cellular.
+- [ ] Apple Health grant, denial, no-data, current-night refresh, preferred-source fallback, and revoked-permission paths work on a physical iPhone.
+- [ ] Apple Health-derived values are labeled “Sleep Coach score” and never represented as Apple Sleep Score.
+- [ ] Disabling Apple Health removes imported `sleep_nights` rows without changing Health app data.
 - [ ] Offline and server-error states remain readable and recoverable.
 - [ ] Internal TestFlight tester can install and launch the processed build.
 

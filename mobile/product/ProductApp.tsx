@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import { StatusBar } from 'expo-status-bar';
 
 import { colors } from '../design/theme';
+import { syncAppleHealthForDate } from '../healthkit/appleHealth';
 import type { SleepProfile } from '../onboarding/types';
 import TodayScreen from '../today/TodayScreen';
 import { createSupabaseTodayRepository } from '../today/supabaseTodayRepository';
@@ -27,6 +28,12 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
       {user_id:session.user.id,opened_date:localDate()},
       {onConflict:'user_id,opened_date',ignoreDuplicates:true},
     );
+  },[session.user.id]);
+  useEffect(()=>{
+    const sync=()=>{void syncAppleHealthForDate(session.user.id).catch(()=>undefined);};
+    sync();
+    const subscription=AppState.addEventListener('change',state=>{if(state==='active')sync();});
+    return()=>subscription.remove();
   },[session.user.id]);
   return (
     <View style={styles.screen}>

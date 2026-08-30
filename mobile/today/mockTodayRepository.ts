@@ -32,8 +32,8 @@ export const mockTodayRepository: TodayRepository = {
       previousCommitment: null,
       checkin: savedCheckin,
       sleepData: typeof savedCheckin?.manualSleepScore === 'number'
-        ? { status: 'manual', score: savedCheckin.manualSleepScore }
-        : { status: 'missing', score: null },
+        ? { status: 'manual', score: savedCheckin.manualSleepScore, source: 'manual' }
+        : { status: 'missing', score: null, source: null },
     };
 
     return snapshot;

@@ -210,7 +210,7 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
         ...snapshot,
         checkin,
         sleepData: typeof draft.manualSleepScore === 'number'
-          ? { status: 'manual', score: draft.manualSleepScore }
+          ? { status: 'manual', score: draft.manualSleepScore, source: 'manual' }
           : snapshot.sleepData,
       });
     } catch (saveError) {
@@ -374,7 +374,7 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
               <View style={styles.statusDot} />
               <Text style={styles.sleepDataReadyText}>
                 {snapshot.sleepData.status === 'wearable'
-                  ? `Wearable sleep score saved${typeof snapshot.sleepData.score === 'number' ? ` · ${snapshot.sleepData.score}` : ''}`
+                  ? `${snapshot.sleepData.source === 'apple_health' ? 'Sleep Coach score from Apple Health' : 'Oura sleep score'} saved${typeof snapshot.sleepData.score === 'number' ? ` · ${snapshot.sleepData.score}` : ''}`
                   : `Manual sleep score saved · ${snapshot.sleepData.score}`}
               </Text>
             </View>

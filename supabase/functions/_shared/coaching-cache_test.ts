@@ -6,14 +6,14 @@ import {
   DAILY_COACH_PROMPT_VERSION,
   dailyCoachSourceFingerprint,
   isDailyCoachCacheFresh,
-  latestOuraSummary,
+  latestWearableSummary,
   hasWearableSleepForDate,
 } from "./coaching-cache.ts";
 
 Deno.test("wearable readiness requires a scored row for the requested day", () => {
   const context = {
-    oura_sleep: [
-      { day: "2026-08-27", score: 88 },
+    wearable_sleep: [
+      { day: "2026-08-27", score: 88, source: "apple_health" },
       { day: "2026-08-28" },
     ],
   };
@@ -27,12 +27,12 @@ const context = {
   profile: { primary_concern: "unrefreshed" },
   subjective_checkins: [{ checkin_date: "2026-08-27", feeling: 72 }],
   experiment_adherence: [{ behavior_date: "2026-08-26", status: "completed" }],
-  oura_sleep: [{ day: "2026-08-26", score: 79 }],
+  wearable_sleep: [{ day: "2026-08-26", score: 79, source: "oura" }],
 };
 
 Deno.test("daily coach fingerprint is stable across object key order", async () => {
   const reordered = {
-    oura_sleep: [{ score: 79, day: "2026-08-26" }],
+    wearable_sleep: [{ source: "oura", score: 79, day: "2026-08-26" }],
     experiment_adherence: [{
       status: "completed",
       behavior_date: "2026-08-26",
@@ -47,17 +47,17 @@ Deno.test("daily coach fingerprint is stable across object key order", async () 
   );
 });
 
-Deno.test("new or corrected Oura data invalidates daily coaching", async () => {
+Deno.test("new or corrected wearable data invalidates daily coaching", async () => {
   const original = await dailyCoachSourceFingerprint(context);
   const corrected = await dailyCoachSourceFingerprint({
     ...context,
-    oura_sleep: [{ day: "2026-08-26", score: 88 }],
+    wearable_sleep: [{ day: "2026-08-26", score: 88, source: "apple_health" }],
   });
   const newer = await dailyCoachSourceFingerprint({
     ...context,
-    oura_sleep: [
-      { day: "2026-08-27", score: 88 },
-      { day: "2026-08-26", score: 79 },
+    wearable_sleep: [
+      { day: "2026-08-27", score: 88, source: "apple_health" },
+      { day: "2026-08-26", score: 79, source: "oura" },
     ],
   });
   assertNotEquals(original, corrected);
@@ -89,14 +89,14 @@ Deno.test("cache hits only for the current prompt and unchanged source", async (
   );
 });
 
-Deno.test("latest Oura summary selects the newest available day", () => {
+Deno.test("latest wearable summary selects the newest available day", () => {
   assertEquals(
-    latestOuraSummary({
-      oura_sleep: [
-        { day: "2026-08-25", score: 79 },
-        { day: "2026-08-26", score: 88 },
+    latestWearableSummary({
+      wearable_sleep: [
+        { day: "2026-08-25", score: 79, source: "oura" },
+        { day: "2026-08-26", score: 88, source: "apple_health" },
       ],
     }),
-    { day: "2026-08-26", score: 88 },
+    { day: "2026-08-26", score: 88, source: "apple_health" },
   );
 });

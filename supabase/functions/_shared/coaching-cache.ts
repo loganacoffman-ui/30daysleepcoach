@@ -1,4 +1,4 @@
-export const DAILY_COACH_PROMPT_VERSION = "native-daily-v4-source-aware";
+export const DAILY_COACH_PROMPT_VERSION = "native-daily-v5-healthkit";
 
 type JsonObject = Record<string, unknown>;
 
@@ -29,7 +29,11 @@ export function dailyCoachSourceSnapshot(coachContext: unknown): JsonObject {
     experiment_adherence: Array.isArray(context.experiment_adherence)
       ? context.experiment_adherence
       : [],
-    oura_sleep: Array.isArray(context.oura_sleep) ? context.oura_sleep : [],
+    wearable_sleep: Array.isArray(context.wearable_sleep)
+      ? context.wearable_sleep
+      : Array.isArray(context.oura_sleep)
+      ? context.oura_sleep
+      : [],
   };
 }
 
@@ -47,14 +51,19 @@ export async function dailyCoachSourceFingerprint(
   return `sha256:${hex}`;
 }
 
-export function latestOuraSummary(coachContext: unknown): {
+export function latestWearableSummary(coachContext: unknown): {
   day: string | null;
   score: number | null;
+  source: string | null;
 } {
   const context = coachContext && typeof coachContext === "object"
     ? coachContext as JsonObject
     : {};
-  const rows = Array.isArray(context.oura_sleep) ? context.oura_sleep : [];
+  const rows = Array.isArray(context.wearable_sleep)
+    ? context.wearable_sleep
+    : Array.isArray(context.oura_sleep)
+    ? context.oura_sleep
+    : [];
   const latest = rows
     .filter((row): row is JsonObject =>
       Boolean(
@@ -66,6 +75,7 @@ export function latestOuraSummary(coachContext: unknown): {
   return {
     day: typeof latest?.day === "string" ? latest.day : null,
     score: typeof latest?.score === "number" ? latest.score : null,
+    source: typeof latest?.source === "string" ? latest.source : null,
   };
 }
 
@@ -76,7 +86,11 @@ export function hasWearableSleepForDate(
   const context = coachContext && typeof coachContext === "object"
     ? coachContext as JsonObject
     : {};
-  const rows = Array.isArray(context.oura_sleep) ? context.oura_sleep : [];
+  const rows = Array.isArray(context.wearable_sleep)
+    ? context.wearable_sleep
+    : Array.isArray(context.oura_sleep)
+    ? context.oura_sleep
+    : [];
   return rows.some((row) => {
     if (!row || typeof row !== "object") return false;
     const sleep = row as JsonObject;

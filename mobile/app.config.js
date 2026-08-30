@@ -61,6 +61,15 @@ module.exports = {
       'expo-web-browser',
       'expo-apple-authentication',
       [
+        '@kingstinct/react-native-healthkit',
+        {
+          background: false,
+          NSHealthShareUsageDescription:
+            '30 Day Sleep Coach reads your sleep stages to calculate your Sleep Coach score and personalize coaching.',
+          NSHealthUpdateUsageDescription: false,
+        },
+      ],
+      [
         'expo-notifications',
         {
           defaultChannel: 'daily-check-in',

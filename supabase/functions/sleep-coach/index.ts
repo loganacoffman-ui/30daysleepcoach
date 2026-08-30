@@ -22,6 +22,11 @@ import {
   type Memory,
   type MemoryMessage,
 } from "../_shared/memory.ts";
+import {
+  DAILY_COACH_PROMPT_VERSION,
+  dailyCoachSourceFingerprint,
+  isDailyCoachCacheFresh,
+} from "../_shared/coaching-cache.ts";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
@@ -289,8 +294,8 @@ function memorySnapshot(
       recent_experiment_adherence: Array.isArray(context.experiment_adherence)
         ? context.experiment_adherence.slice(0, 7)
         : [],
-      recent_oura_sleep: Array.isArray(context.oura_sleep)
-        ? context.oura_sleep.slice(0, 7)
+      recent_wearable_sleep: Array.isArray(context.wearable_sleep)
+        ? context.wearable_sleep.slice(0, 7)
         : [],
     };
   }
@@ -1304,15 +1309,16 @@ Deno.serve(async (req: Request) => {
           /^\d{4}-\d{2}-\d{2}$/.test(coachContext.date)
         ? coachContext.date
         : new Date().toISOString().split("T")[0];
+      const sourceFingerprint = await dailyCoachSourceFingerprint(coachContext);
 
       const { data: existing } = await supabase
         .from("coach_recommendations")
-        .select("pattern, meaning, action, why, generated_at, prompt_version")
+        .select("pattern, meaning, action, why, generated_at, prompt_version, source_context")
         .eq("user_id", user.id)
         .eq("recommendation_date", recommendationDate)
         .maybeSingle();
 
-      if (existing?.prompt_version === "native-daily-v3-concise-weekly") {
+      if (isDailyCoachCacheFresh(existing, sourceFingerprint)) {
         return new Response(
           JSON.stringify({
             status: "ok",
@@ -1333,7 +1339,7 @@ Deno.serve(async (req: Request) => {
         buildMemoryQuery(memoryMode, messages, sleepData, coachContext),
       );
       const userMessage =
-        `Generate today's four-section coaching recommendation from this combined context. Subjective check-ins and notes describe how the user felt and what they think affected sleep. Experiment adherence shows what they actually tried. Oura sleep is the quantitative layer when connected. Use relevant long-term memory to follow up on earlier goals, experiments, and outcomes. Be honest when data is sparse; do not invent measurements. Always return all four required sections.\n\n${
+        `Generate today's four-section coaching recommendation from this combined context. Subjective check-ins and notes describe how the user felt and what they think affected sleep. Experiment adherence shows what they actually tried. Wearable sleep is the quantitative layer when Apple Health or Oura is connected; the source field identifies whether a score is app-derived or provider-owned. Use relevant long-term memory to follow up on earlier goals, experiments, and outcomes. Be honest when data is sparse; do not invent measurements. Always return all four required sections.\n\n${
           JSON.stringify(coachContext, null, 2)
         }`;
       let rawText = await callAnthropicNonStreaming(userMessage, memories);
@@ -1366,13 +1372,14 @@ Deno.serve(async (req: Request) => {
           adherence_count: Array.isArray(coachContext?.experiment_adherence)
             ? coachContext.experiment_adherence.length
             : 0,
-          oura_sleep_count: Array.isArray(coachContext?.oura_sleep)
-            ? coachContext.oura_sleep.length
+          wearable_sleep_count: Array.isArray(coachContext?.wearable_sleep)
+            ? coachContext.wearable_sleep.length
             : 0,
+          source_fingerprint: sourceFingerprint,
           memory_count: memories.length,
           memory_provider: memoryProvider.name,
         },
-        prompt_version: "native-daily-v3-concise-weekly",
+        prompt_version: DAILY_COACH_PROMPT_VERSION,
         model: "claude-sonnet-4-6",
         generated_at: generatedAt,
       };

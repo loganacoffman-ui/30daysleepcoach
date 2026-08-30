@@ -150,7 +150,7 @@ export default function CoachScreen({
         "What are we learning about my sleep?",
         "What should I focus on tonight?",
       ];
-    if (experience.hasOuraData)
+    if (experience.hasWearableData)
       return [
         "What does my data indicate?",
         "Why did my sleep change?",
@@ -161,7 +161,7 @@ export default function CoachScreen({
       "What patterns are emerging?",
       "What should I focus on tonight?",
     ];
-  }, [experience?.hasCheckedInToday, experience?.hasOuraData]);
+  }, [experience?.hasCheckedInToday, experience?.hasWearableData]);
 
   const send = async (suggested?: string) => {
     const content = (suggested ?? input).trim();

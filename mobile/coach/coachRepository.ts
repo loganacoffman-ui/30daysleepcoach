@@ -1,7 +1,14 @@
 import type { User } from '@supabase/supabase-js';
 import { fetch as expoFetch } from 'expo/fetch';
 
+import { syncAppleHealthForDate } from '../healthkit/appleHealth';
 import type { SleepProfile } from '../onboarding/types';
+import {
+  isUnavailableSleepSchemaError,
+  loadPreferredSleepSource,
+} from '../sleep/sourcePreference';
+import { resolveWearableSleepHistory } from '../sleep/sourceSelection';
+import type { WearableSleep } from '../sleep/sourceSelection';
 import { supabase, supabasePublicKey, supabaseUrl } from '../supabase';
 
 export type DailyCoaching = { pattern: string; meaning: string; action: string; why: string; generatedAt: string };
@@ -33,7 +40,7 @@ export type CoachExperience = {
   messages: CoachMessage[];
   dailyCoaching: DailyCoaching | null;
   hasCheckedInToday: boolean;
-  hasOuraData: boolean;
+  hasWearableData: boolean;
 };
 export type CoachHomeState = {
   hasCheckedInToday: boolean;
@@ -41,7 +48,7 @@ export type CoachHomeState = {
   sleepScore: number | null;
   previousSleepScore: number | null;
   averageEnergy: number | null;
-  sleepSource: 'wearable' | 'manual' | 'missing';
+  sleepSource: 'apple_health' | 'oura' | 'manual' | 'missing';
   suspectedFactor: string | null;
 };
 
@@ -50,7 +57,7 @@ type CoachContext = {
   profile: { primary_concern: string; typical_bedtime: string; typical_wake_time: string; timezone: string };
   subjective_checkins: unknown[];
   experiment_adherence: unknown[];
-  oura_sleep: Array<{ day: string; score?: number }>;
+  wearable_sleep: WearableSleep[];
 };
 
 export const localDate = (date = new Date()) =>
@@ -62,17 +69,56 @@ const daysAgo = (count: number) => {
   return localDate(date);
 };
 
+const loadWearableSleep = async (user: User, dayCount: number): Promise<WearableSleep[]> => {
+  await syncAppleHealthForDate(user.id).catch(() => undefined);
+  const [appleResult, preferredSleepSource, ouraResult] = await Promise.all([
+    supabase
+      .from('sleep_nights')
+      .select('sleep_date, sleep_score, score_version, total_sleep_minutes')
+      .eq('user_id', user.id)
+      .eq('provider', 'apple_health')
+      .gte('sleep_date', daysAgo(dayCount))
+      .order('sleep_date', { ascending: false }),
+    loadPreferredSleepSource(user.id),
+    supabase.functions.invoke<{ data?: Array<{ day: string; score?: number }> }>('oura-proxy', {
+      body: { endpoint: 'daily_sleep', start_date: daysAgo(dayCount), end_date: localDate() },
+    }),
+  ]);
+  if (appleResult.error && !isUnavailableSleepSchemaError(appleResult.error)) {
+    throw appleResult.error;
+  }
+
+  const rows: WearableSleep[] = (appleResult.data ?? [])
+    .filter(row => typeof row.sleep_score === 'number')
+    .map(row => ({
+      day: row.sleep_date,
+      score: row.sleep_score as number,
+      source: 'apple_health',
+      scoreVersion: row.score_version,
+      totalSleepMinutes: row.total_sleep_minutes,
+    }));
+  if (!ouraResult.error) {
+    for (const row of ouraResult.data?.data ?? []) {
+      if (typeof row.day === 'string' && typeof row.score === 'number') {
+        rows.push({ day: row.day, score: row.score, source: 'oura' });
+      }
+    }
+  }
+  return resolveWearableSleepHistory(
+    rows,
+    preferredSleepSource,
+  );
+};
+
 export const loadCoachHomeState = async (user: User): Promise<CoachHomeState> => {
-  const [checkinResult, ouraResult] = await Promise.all([
+  const [checkinResult, wearableSleep] = await Promise.all([
     supabase
       .from('daily_checkins')
       .select('checkin_date, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, note')
       .eq('user_id', user.id)
       .order('checkin_date', { ascending: false })
       .limit(7),
-    supabase.functions.invoke<{ data?: Array<{ day: string; score?: number }> }>('oura-proxy', {
-      body: { endpoint: 'daily_sleep', start_date: daysAgo(7), end_date: localDate() },
-    }),
+    loadWearableSleep(user, 7),
   ]);
   if (checkinResult.error) throw checkinResult.error;
   const checkins = checkinResult.data ?? [];
@@ -80,12 +126,7 @@ export const loadCoachHomeState = async (user: User): Promise<CoachHomeState> =>
   const energyScores = checkins
     .map(item => item.feeling)
     .filter((feeling): feeling is number => typeof feeling === 'number');
-  const ouraDays = ouraResult.error
-    ? []
-    : [...(ouraResult.data?.data ?? [])]
-      .filter(item => typeof item.score === 'number' && typeof item.day === 'string')
-      .sort((a, b) => b.day.localeCompare(a.day));
-  const currentWearable = ouraDays.find(item => item.day === localDate()) ?? null;
+  const currentWearable = wearableSleep.find(item => item.day === localDate()) ?? null;
   const manualScore = typeof todayCheckin?.manual_sleep_score === 'number' && todayCheckin.manual_sleep_submitted_at
     ? todayCheckin.manual_sleep_score
     : null;
@@ -94,12 +135,12 @@ export const loadCoachHomeState = async (user: User): Promise<CoachHomeState> =>
     feeling: typeof todayCheckin?.feeling === 'number' ? todayCheckin.feeling : null,
     sleepScore: currentWearable?.score ?? manualScore,
     previousSleepScore: currentWearable
-      ? ouraDays.find(item => item.day < currentWearable.day)?.score ?? null
-      : ouraDays[0]?.score ?? null,
+      ? wearableSleep.find(item => item.day < currentWearable.day)?.score ?? null
+      : wearableSleep[0]?.score ?? null,
     averageEnergy: energyScores.length
       ? Math.round(energyScores.reduce((sum, feeling) => sum + feeling, 0) / energyScores.length)
       : null,
-    sleepSource: currentWearable ? 'wearable' : manualScore !== null ? 'manual' : 'missing',
+    sleepSource: currentWearable?.source ?? (manualScore !== null ? 'manual' : 'missing'),
     suspectedFactor: typeof todayCheckin?.suspected_factor === 'string'
       ? todayCheckin.suspected_factor
       : null,
@@ -169,12 +210,10 @@ const mapCoachMessages = (messages: StoredCoachMessage[], toolCalls: StoredCoach
 };
 
 const loadCoachContext = async (user: User, profile: SleepProfile): Promise<CoachContext> => {
-  const [checkinsResult, commitmentsResult, ouraResult] = await Promise.all([
+  const [checkinsResult, commitmentsResult, wearableSleep] = await Promise.all([
     supabase.from('daily_checkins').select('checkin_date, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, note, completed_at').eq('user_id', user.id).order('checkin_date', { ascending: false }).limit(14),
     supabase.from('behavior_commitments').select('behavior_date, behavior, status').eq('user_id', user.id).order('behavior_date', { ascending: false }).limit(14),
-    supabase.functions.invoke<{ data?: Array<{ day: string; score?: number }> }>('oura-proxy', {
-      body: { endpoint: 'daily_sleep', start_date: daysAgo(14), end_date: localDate() },
-    }),
+    loadWearableSleep(user, 14),
   ]);
   if (checkinsResult.error) throw checkinsResult.error;
   if (commitmentsResult.error) throw commitmentsResult.error;
@@ -188,7 +227,7 @@ const loadCoachContext = async (user: User, profile: SleepProfile): Promise<Coac
     },
     subjective_checkins: checkinsResult.data ?? [],
     experiment_adherence: commitmentsResult.data ?? [],
-    oura_sleep: ouraResult.error ? [] : ouraResult.data?.data ?? [],
+    wearable_sleep: wearableSleep,
   };
 };
 
@@ -284,7 +323,7 @@ export const loadCoachExperience = async (user: User, profile: SleepProfile): Pr
     messages: (messagesResult.data ?? []).map(message => ({ id: message.id, role: message.role as CoachMessage['role'], content: message.content, createdAt: message.created_at })),
     dailyCoaching,
     hasCheckedInToday: context.subjective_checkins.some(checkin => typeof checkin === 'object' && checkin !== null && 'checkin_date' in checkin && checkin.checkin_date === localDate()),
-    hasOuraData: context.oura_sleep.length > 0,
+    hasWearableData: context.wearable_sleep.length > 0,
   };
 };
 
