@@ -25,3 +25,6 @@ verify_jwt = false
 
 [functions.elevenlabs-transcribe]
 verify_jwt = false
+
+[functions.send-push-notifications]
+verify_jwt = false

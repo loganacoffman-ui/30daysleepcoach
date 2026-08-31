@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import { StatusBar } from 'expo-status-bar';
+import * as Notifications from 'expo-notifications';
 
 import { colors } from '../design/theme';
 import { syncAppleHealthForDate } from '../healthkit/appleHealth';
@@ -30,6 +31,14 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
       {onConflict:'user_id,opened_date',ignoreDuplicates:true},
     );
   },[session.user.id]);
+  useEffect(()=>{
+    const openNotification=(response:Notifications.NotificationResponse|null)=>{
+      if(response?.notification.request.content.data?.destination==='today')setTab('today');
+    };
+    void Notifications.getLastNotificationResponseAsync().then(openNotification);
+    const subscription=Notifications.addNotificationResponseReceivedListener(openNotification);
+    return()=>subscription.remove();
+  },[]);
   useEffect(()=>{
     const sync=()=>{void syncAppleHealthForDate(session.user.id).then(r=>{if(r.status==='synced')setRefreshKey(k=>k+1);}).catch(()=>undefined);};
     sync();
