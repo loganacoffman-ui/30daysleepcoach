@@ -19,7 +19,7 @@ Complete these steps after the Apple Developer Program membership becomes active
 4. Create the App Store Connect record using the same bundle identifier.
 5. Run an EAS development build. EAS should synchronize the Apple sign-in entitlement from `ios.usesAppleSignIn`.
 6. Test Apple sign-in on a physical iPhone. Confirm first sign-in stores the provided name and subsequent sign-ins succeed when Apple returns no name.
-7. Enable the **HealthKit** capability for the production, development, and preview App IDs. Rebuild each native binary after the capability and provisioning profiles update.
+7. Enable the **HealthKit** capability for the production and development App IDs. Rebuild each native binary after the capability and provisioning profiles update.
 
 Native-only Apple sign-in uses Apple's identity token with `supabase.auth.signInWithIdToken`. It does not require the web OAuth Services ID or six-month client-secret rotation unless web Apple OAuth is added later.
 

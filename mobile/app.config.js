@@ -6,12 +6,6 @@ const variants = {
     iosBundleIdentifier: 'com.30daysleepcoach.app.dev',
     androidPackage: 'com.thirtydaysleepcoach.app.dev',
   },
-  preview: {
-    name: 'Sleep Coach Preview',
-    scheme: 'thirtydaysleepcoach-preview',
-    iosBundleIdentifier: 'com.30daysleepcoach.app.preview',
-    androidPackage: 'com.thirtydaysleepcoach.app.preview',
-  },
   production: {
     name: '30 Day Sleep Coach',
     scheme: 'thirtydaysleepcoach',
@@ -19,7 +13,13 @@ const variants = {
     androidPackage: 'com.thirtydaysleepcoach.app',
   },
 };
-const variant = variants[appVariant] ?? variants.production;
+const variant = variants[appVariant];
+
+if (!variant) {
+  throw new Error(
+    `Unsupported APP_VARIANT "${appVariant}". Use "development" or "production".`,
+  );
+}
 
 module.exports = {
   expo: {

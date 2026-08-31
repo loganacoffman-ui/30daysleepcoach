@@ -5,8 +5,6 @@ additional_redirect_urls = [
   "thirtydaysleepcoach://**",
   "thirtydaysleepcoach-dev://auth/callback",
   "thirtydaysleepcoach-dev://**",
-  "thirtydaysleepcoach-preview://auth/callback",
-  "thirtydaysleepcoach-preview://**",
 ]
 
 [auth.mfa.totp]

@@ -11,16 +11,6 @@
         "APP_VARIANT": "development"
       }
     },
-    "preview": {
-      "distribution": "internal",
-      "env": {
-        "APP_VARIANT": "preview"
-      }
-    },
-    "testflight-preview": {
-      "extends": "production",
-      "environment": "preview"
-    },
     "production": {
       "autoIncrement": true
     }

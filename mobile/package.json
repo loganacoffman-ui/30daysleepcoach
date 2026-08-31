@@ -29,7 +29,6 @@
   },
   "scripts": {
     "start": "APP_VARIANT=development expo start --dev-client",
-    "start:preview": "APP_VARIANT=preview expo start --dev-client",
     "start:clear": "APP_VARIANT=development expo start --dev-client --clear",
     "start:tunnel": "APP_VARIANT=development expo start --dev-client --clear --tunnel",
     "android": "APP_VARIANT=development expo start --dev-client --android",

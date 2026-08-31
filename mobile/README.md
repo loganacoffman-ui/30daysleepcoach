@@ -84,7 +84,7 @@ pnpm dlx eas-cli@latest build --profile development --platform android
 ```
 
 The plugin adds Apple's push-notification entitlement. On the first iOS build,
-let EAS enable Push Notifications for the production and preview App IDs and
+let EAS enable Push Notifications for the production and development App IDs and
 generate or reuse an Apple Push Notifications key when prompted. The local
 reminder does not send through APNs, but matching the entitlement and provisioning
 profile keeps the signed binary correctly configured. Android does not need
@@ -137,13 +137,11 @@ Google sign-in also needs this one-time dashboard setup:
    ```text
    thirtydaysleepcoach://**
    thirtydaysleepcoach-dev://**
-   thirtydaysleepcoach-preview://**
    ```
 
-The three iOS variants install independently:
+The two iOS variants install independently:
 
 - `development`: **Sleep Coach Dev** (`com.30daysleepcoach.app.dev`) connects to Metro.
-- `preview`: **Sleep Coach Preview** (`com.30daysleepcoach.app.preview`) is a standalone internal build.
 - `production`: **30 Day Sleep Coach** (`com.30daysleepcoach.app`) is used for TestFlight and App Store releases.
 
 Use a development build when testing native Google sign-in so the app's custom URL scheme is installed:
@@ -170,7 +168,7 @@ The native Settings screen uses the server-side Oura OAuth flow. The production 
 https://qfnouotdhfltgvjhfbld.supabase.co/functions/v1/oura-oauth-callback
 ```
 
-The callback returns to the active app variant at `thirtydaysleepcoach://oura/callback`, `thirtydaysleepcoach-dev://oura/callback`, or `thirtydaysleepcoach-preview://oura/callback`. Oura access and refresh tokens are stored only in the protected `oura_connections` server table. The mobile app requests the `daily` and `heartrate` scopes and accesses data through `oura-proxy`.
+The callback returns to the active app variant at `thirtydaysleepcoach://oura/callback` or `thirtydaysleepcoach-dev://oura/callback`. Oura access and refresh tokens are stored only in the protected `oura_connections` server table. The mobile app requests the `daily` and `heartrate` scopes and accesses data through `oura-proxy`.
 
 Oura API applications are limited to ten users by default. Request Oura approval before inviting a larger production audience.
 
@@ -196,7 +194,7 @@ pnpm dlx eas-cli@latest build --profile development --platform ios
 
 HealthKit sleep data must be tested on a physical iPhone with sleep data in the
 Health app. EAS must enable the HealthKit capability for each iOS App ID
-(`com.30daysleepcoach.app`, `.dev`, and `.preview`) when provisioning the build.
+(`com.30daysleepcoach.app` and `.dev`) when provisioning the build.
 Android does not render or call the Apple Health integration.
 
 ## Create a production iOS build
