@@ -66,7 +66,8 @@ module.exports = {
           background: false,
           NSHealthShareUsageDescription:
             '30 Day Sleep Coach reads your sleep stages to calculate your Sleep Coach score and personalize coaching.',
-          NSHealthUpdateUsageDescription: false,
+          NSHealthUpdateUsageDescription:
+            '30 Day Sleep Coach does not currently write health data. This permission description is included because the Apple Health integration supports HealthKit APIs that may save health data.',
         },
       ],
       [
