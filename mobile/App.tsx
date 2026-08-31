@@ -1,6 +1,7 @@
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
+import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useState } from 'react';
@@ -21,7 +22,7 @@ import {
 import type { Session } from '@supabase/supabase-js';
 
 import { colors } from './design/theme';
-import { clearDailyCheckInReminder } from './notifications';
+import { clearDailyCheckInReminder, syncRemotePushRegistration } from './notifications';
 import { Onboarding } from './Onboarding';
 import { supabase } from './supabase';
 import { loadSleepProfile } from './onboarding/profileRepository';
@@ -213,6 +214,16 @@ function AppContent() {
     return () => { mounted = false; };
   }, [session?.user.id]);
 
+  useEffect(() => {
+    if (!session || Platform.OS === 'web') return;
+
+    void syncRemotePushRegistration().catch(() => undefined);
+    const tokenSubscription = Notifications.addPushTokenListener(() => {
+      void syncRemotePushRegistration().catch(() => undefined);
+    });
+    return () => tokenSubscription.remove();
+  }, [session?.user.id]);
+
   const runAuthAction = async (action: () => Promise<void>) => {
     setBusy(true);
     setMessage('');
@@ -377,6 +388,7 @@ function AppContent() {
 
   const signOut = () =>
     runAuthAction(async () => {
+      await clearDailyCheckInReminder();
       const { error } = await supabase.auth.signOut();
 
       if (error) {
