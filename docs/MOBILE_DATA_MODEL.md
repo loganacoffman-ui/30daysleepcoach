@@ -40,6 +40,7 @@ quiz changes require an `intake_version` increment and backward-compatible reade
 | `auth.users` | Supabase Auth session | Supabase Auth session | Verifies the caller JWT |
 | `sleep_profiles` | Read/write the signed-in user's profile | No current product dependency | No direct write requirement |
 | `daily_checkins` | Read/write the signed-in user's check-ins | No current product dependency | May read only with the caller's JWT |
+| `sleep_nights` | Read/write normalized Apple Health sleep metrics | No current product dependency | May read only with the caller's JWT |
 | `behavior_commitments` | Read/write the signed-in user's experiment | Existing web behavior remains supported | May read only with the caller's JWT |
 | `coach_recommendations` | Requests and reads the daily artifact | No current product dependency | `sleep-coach` creates or returns the caller's artifact |
 | `entries` | No dependency | Legacy web read/write | Legacy input only; not canonical |
@@ -62,6 +63,7 @@ One current onboarding/profile record per user.
 | `typical_bedtime` | time | Optional |
 | `typical_wake_time` | time | Optional |
 | `timezone` | text | IANA timezone |
+| `preferred_sleep_source` | text | Optional `apple_health` or `oura`; the other source remains a fallback |
 | `safety_flags` | jsonb | Reserved flexible, non-diagnostic flags; not part of PR #22 intake |
 | `intake_answers` | jsonb | Versioned raw onboarding answers |
 | `intake_version` | integer | Starts at 1 |
@@ -89,9 +91,9 @@ One subjective morning ritual per user and local calendar day.
 
 Previous-behavior adherence remains on `behavior_commitments`; the check-in updates that existing record rather than copying status into two tables.
 
-### Planned: `sleep_nights`
+### `sleep_nights`
 
-This table defines the intended normalized wearable-history shape, but it is **not part of the currently deployed contract**. The current app reads Oura data through `oura-proxy`. Create `sleep_nights` in a new additive migration only when product work requires persistent objective history; do not make onboarding or a subjective check-in depend on it.
+The native iOS app reads sleep stages from HealthKit, derives a versioned Sleep Coach score on-device, and stores normalized metrics here. Apple does not expose its proprietary Sleep Score through HealthKit. Oura remains an on-demand provider through `oura-proxy`; the app resolves one preferred wearable score per day and falls back to the other connected source.
 
 One normalized objective sleep record per user, provider, and sleep date.
 
@@ -100,16 +102,23 @@ One normalized objective sleep record per user, provider, and sleep date.
 | `id` | uuid PK | |
 | `user_id` | uuid | |
 | `sleep_date` | date | Night assigned by provider/local convention |
-| `provider` | text | Initially `oura` |
+| `provider` | text | `apple_health` or `oura` |
 | `sleep_score` | smallint | Optional |
-| `readiness_score` | smallint | Optional |
-| `average_hrv_ms` | numeric | Optional |
+| `score_version` | text | App scoring version; populated for Apple Health-derived scores |
+| `score_components` | jsonb | Normalized component values, not raw HealthKit data |
 | `bedtime_start` | timestamptz | Optional |
 | `bedtime_end` | timestamptz | Optional |
 | `total_sleep_minutes` | integer | Optional |
 | `awake_minutes` | integer | Optional |
-| `provider_record_id` | text | Optional provider identity |
-| `raw_payload` | jsonb | Optional diagnostic/source payload |
+| `in_bed_minutes` | integer | Optional |
+| `rem_minutes` | integer | Optional |
+| `deep_minutes` | integer | Optional |
+| `core_minutes` | integer | Optional |
+| `sleep_efficiency` | numeric | Optional value from 0–1 |
+| `source_name` | text | HealthKit source display name |
+| `source_bundle_id` | text | HealthKit source bundle identifier |
+| `provider_record_id` | text | Stable source sample identity |
+| `timezone` | text | IANA timezone used for the waking-date assignment |
 | `synced_at` | timestamptz | |
 | `created_at` | timestamptz | |
 | `updated_at` | timestamptz | |
@@ -176,7 +185,7 @@ The initial mobile launch does not require migrating the small legacy dataset. C
 2. `daily_checkins`: implemented for the native daily loop.
 3. `behavior_commitments`: retained as the shared experiment/adherence record.
 4. `coach_recommendations`: implemented for persistent daily coaching.
-5. `sleep_nights`: defer until persistent wearable history is required.
+5. `sleep_nights`: implemented for normalized Apple Health sync.
 6. Legacy `entries` import: defer until canonical mobile writes are proven and preserving the small web dataset is worth the migration effort.
 
 This sequencing avoids speculative tables while preventing each screen from inventing its own storage contract.

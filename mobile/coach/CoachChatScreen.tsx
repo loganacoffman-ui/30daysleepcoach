@@ -40,7 +40,13 @@ const HISTORY_DRAWER_CLOSE_DURATION = 200;
 const personalizedGreeting = (state: CoachHomeState | null) => {
   if (!state) return "Your coach will connect the dots as your sleep context builds.";
   if (typeof state.sleepScore === "number") {
-    const source = state.sleepSource === "manual" ? "self-reported " : "";
+    const source = state.sleepSource === "manual"
+      ? "self-reported "
+      : state.sleepSource === "apple_health"
+        ? "Apple Health-derived "
+        : state.sleepSource === "oura"
+          ? "Oura "
+          : "";
     const energy = state.morningFeeling ? ` You said you feel ${feelingLabel(state.morningFeeling).toLowerCase()} this morning.` : "";
     return `Last night’s ${source}sleep score was ${Math.round(state.sleepScore)}.${energy}`;
   }

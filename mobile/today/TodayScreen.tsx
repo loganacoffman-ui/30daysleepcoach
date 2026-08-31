@@ -63,7 +63,7 @@ const clampSleepScore = (score: number) => Math.max(0, Math.min(100, Math.round(
 const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
   disabled?: boolean;
   onChange?: (score: number) => void;
-  source?: 'Oura' | 'Manual';
+  source?: 'Apple Health' | 'Oura' | 'Manual';
   value: number | null;
 }) => {
   const [trackWidth, setTrackWidth] = useState(0);
@@ -238,7 +238,7 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
         ...snapshot,
         checkin,
         sleepData: typeof draft.manualSleepScore === 'number'
-          ? { status: 'manual', score: draft.manualSleepScore }
+          ? { status: 'manual', score: draft.manualSleepScore, source: 'manual' }
           : snapshot.sleepData,
       });
     } catch (saveError) {
@@ -375,7 +375,9 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
           <View style={styles.dailyReport}>
             <SleepScoreSlider
               disabled
-              source={snapshot.sleepData.status === 'wearable' ? 'Oura' : 'Manual'}
+              source={snapshot.sleepData.status === 'wearable'
+                ? snapshot.sleepData.source === 'apple_health' ? 'Apple Health' : 'Oura'
+                : 'Manual'}
               value={snapshot.sleepData.score ?? null}
             />
             {snapshot.checkin && (

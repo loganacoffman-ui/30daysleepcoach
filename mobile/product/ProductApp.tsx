@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import { StatusBar } from 'expo-status-bar';
 
 import { colors } from '../design/theme';
+import { syncAppleHealthForDate } from '../healthkit/appleHealth';
 import type { SleepProfile } from '../onboarding/types';
 import TodayScreen from '../today/TodayScreen';
 import { createSupabaseTodayRepository } from '../today/supabaseTodayRepository';
@@ -21,6 +22,7 @@ const tabs:{key:Tab;icon:string;label:string}[]=[{key:'coach',icon:'✦',label:'
 
 export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccount}:{session:Session;profile:SleepProfile;busy:boolean;onSignOut:()=>void;onDeleteAccount:()=>void}){
   const [tab,setTab]=useState<Tab>('coach');
+  const [refreshKey,setRefreshKey]=useState(0);
   const repository=useMemo(()=>createSupabaseTodayRepository(session.user,profile.displayName,profile.primaryConcern),[session.user,profile.displayName,profile.primaryConcern]);
   useEffect(()=>{
     void supabase.from('app_open_days').upsert(
@@ -28,12 +30,18 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
       {onConflict:'user_id,opened_date',ignoreDuplicates:true},
     );
   },[session.user.id]);
+  useEffect(()=>{
+    const sync=()=>{void syncAppleHealthForDate(session.user.id).then(r=>{if(r.status==='synced')setRefreshKey(k=>k+1);}).catch(()=>undefined);};
+    sync();
+    const subscription=AppState.addEventListener('change',state=>{if(state==='active')sync();});
+    return()=>subscription.remove();
+  },[session.user.id]);
   return (
     <View style={styles.screen}>
       <View style={styles.body}>
-        {tab === 'today' && <TodayScreen profile={profile} repository={repository} user={session.user} />}
+        {tab === 'today' && <TodayScreen key={refreshKey} profile={profile} repository={repository} user={session.user} />}
         {tab === 'progress' && <ProgressScreen user={session.user} />}
-        {tab === 'coach' && <CoachChatScreen profile={profile} user={session.user} />}
+        {tab === 'coach' && <CoachChatScreen key={refreshKey} profile={profile} user={session.user} />}
         {tab === 'settings' && <SettingsScreen busy={busy} onDeleteAccount={onDeleteAccount} onSignOut={onSignOut} profile={profile} user={session.user} />}
       </View>
       <View style={styles.tabs}>

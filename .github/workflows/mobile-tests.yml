@@ -1,0 +1,52 @@
+name: Mobile Tests
+
+on:
+  pull_request:
+    paths:
+      - "mobile/**"
+      - "tests/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/mobile-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Run mobile unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            mobile/pnpm-lock.yaml
+            pnpm-lock.yaml
+
+      - name: Install mobile dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install unit test dependencies
+        working-directory: .
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests
+        working-directory: .
+        run: pnpm test
