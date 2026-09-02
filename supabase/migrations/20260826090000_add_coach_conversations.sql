@@ -8,7 +8,6 @@ create table if not exists public.coach_conversations (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
 create table if not exists public.coach_messages (
   id uuid primary key default gen_random_uuid(),
   conversation_id uuid not null references public.coach_conversations(id) on delete cascade,
@@ -20,10 +19,8 @@ create table if not exists public.coach_messages (
   created_at timestamptz not null default now(),
   unique (user_id, client_request_id)
 );
-
 alter table public.coach_conversations enable row level security;
 alter table public.coach_messages enable row level security;
-
 create policy "Users can read their coach conversations"
   on public.coach_conversations for select to authenticated
   using (auth.uid() = user_id);
@@ -36,7 +33,6 @@ create policy "Users can update their coach conversations"
 create policy "Users can delete their coach conversations"
   on public.coach_conversations for delete to authenticated
   using (auth.uid() = user_id);
-
 create policy "Users can read their coach messages"
   on public.coach_messages for select to authenticated
   using (auth.uid() = user_id);
@@ -53,12 +49,10 @@ create policy "Users can create messages in their coach conversations"
 create policy "Users can delete their coach messages"
   on public.coach_messages for delete to authenticated
   using (auth.uid() = user_id);
-
 revoke all on public.coach_conversations from anon;
 revoke all on public.coach_messages from anon;
 grant select, insert, update, delete on public.coach_conversations to authenticated;
 grant select, insert, delete on public.coach_messages to authenticated;
-
 create index if not exists coach_conversations_user_updated_idx
   on public.coach_conversations (user_id, updated_at desc);
 create index if not exists coach_messages_conversation_created_idx

@@ -30,10 +30,8 @@ set
   )),
   updated_at = now()
 where primary_concern in ('staying_asleep', 'waking_tired', 'schedule');
-
 alter table public.sleep_profiles
   drop constraint if exists sleep_profiles_primary_concern_check;
-
 alter table public.sleep_profiles
   add constraint sleep_profiles_primary_concern_check
   check (
@@ -46,9 +44,7 @@ alter table public.sleep_profiles
       'irregular_schedule'
     )
   );
-
 comment on column public.sleep_profiles.primary_concern is
   'Canonical PR #22 concern key: falling_asleep, night_waking, early_waking, unrefreshed, or irregular_schedule.';
-
 comment on column public.sleep_profiles.intake_answers is
   'Versioned PR #22 onboarding payload, including progress, follow-up, first experiment, and reminder time.';

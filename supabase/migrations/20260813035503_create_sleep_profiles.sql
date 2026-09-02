@@ -12,37 +12,30 @@ create table public.sleep_profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
 alter table public.sleep_profiles enable row level security;
-
 create policy "Users can read their sleep profile"
   on public.sleep_profiles
   for select
   to authenticated
   using ((select auth.uid()) = user_id);
-
 create policy "Users can create their sleep profile"
   on public.sleep_profiles
   for insert
   to authenticated
   with check ((select auth.uid()) = user_id);
-
 create policy "Users can update their sleep profile"
   on public.sleep_profiles
   for update
   to authenticated
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
-
 create policy "Users can delete their sleep profile"
   on public.sleep_profiles
   for delete
   to authenticated
   using ((select auth.uid()) = user_id);
-
 grant select, insert, update, delete on public.sleep_profiles to authenticated;
 revoke all on public.sleep_profiles from anon;
-
 create function public.set_sleep_profiles_updated_at()
 returns trigger
 language plpgsql
@@ -53,14 +46,11 @@ begin
   return new;
 end;
 $$;
-
 revoke all on function public.set_sleep_profiles_updated_at() from public, anon, authenticated;
-
 create trigger set_sleep_profiles_updated_at
 before update on public.sleep_profiles
 for each row
 execute function public.set_sleep_profiles_updated_at();
-
 create function public.complete_sleep_onboarding(
   p_user_id uuid,
   p_primary_concern text,
@@ -130,7 +120,6 @@ begin
     onboarding_completed_at = excluded.onboarding_completed_at;
 end;
 $$;
-
 revoke all on function public.complete_sleep_onboarding(
   uuid,
   text,
@@ -141,7 +130,6 @@ revoke all on function public.complete_sleep_onboarding(
   date,
   text
 ) from public, anon;
-
 grant execute on function public.complete_sleep_onboarding(
   uuid,
   text,
