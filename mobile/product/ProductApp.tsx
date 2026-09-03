@@ -52,7 +52,7 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
   return (
     <View style={styles.screen}>
       <View style={styles.body}>
-        {tab === 'progress' && <ProgressScreen user={session.user} />}
+        {tab === 'progress' && <ProgressScreen profile={profile} user={session.user} />}
         {tab === 'coach' && <CoachChatScreen dailyViewRequest={dailyViewRequest} key={refreshKey} profile={profile} repository={repository} user={session.user} />}
         {tab === 'settings' && <SettingsScreen busy={busy} onDeleteAccount={onDeleteAccount} onSignOut={onSignOut} profile={profile} user={session.user} />}
       </View>

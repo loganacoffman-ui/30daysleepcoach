@@ -589,6 +589,15 @@ async function callAnthropicNonStreaming(
   userMessage: string,
   memories: Memory[],
 ): Promise<string | null> {
+  return callAnthropicText(RECOMMENDATION_SYSTEM_PROMPT, userMessage, memories, 800);
+}
+
+async function callAnthropicText(
+  system: string,
+  userMessage: string,
+  memories: Memory[],
+  maxTokens = 500,
+): Promise<string | null> {
   const res = await fetch(ANTHROPIC_URL, {
     method: "POST",
     headers: {
@@ -598,8 +607,8 @@ async function callAnthropicNonStreaming(
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
-      max_tokens: 800,
-      system: RECOMMENDATION_SYSTEM_PROMPT + formatMemoryContext(memories),
+      max_tokens: maxTokens,
+      system: system + formatMemoryContext(memories),
       messages: [{ role: "user", content: userMessage }],
       stream: false,
     }),
@@ -1343,6 +1352,31 @@ Deno.serve(async (req: Request) => {
           "Cache-Control": "no-cache",
           "Connection": "keep-alive",
         },
+      });
+    }
+
+    // ─── EVOLVING SLEEP PROFILE (scores + journals + experiments + memory) ─
+    if (mode === "sleep_profile") {
+      const memories = await recallCoachMemory(
+        user.id,
+        buildMemoryQuery(memoryMode, messages, sleepData, coachContext),
+      );
+      const profilePrompt = `You are Luna, a concise behavioral sleep coach. Build an evolving picture of this specific user from the structured context and relevant long-term memory. Synthesize quantitative sleep scores and trends with qualitative check-in notes, suspected factors, preferences, experiment adherence, and outcomes. State only patterns supported by the supplied evidence. Treat causes as hypotheses, distinguish what seems helpful from what is still being learned, and never diagnose. Write 2-4 short conversational sentences in plain text, under 90 words. No headings, bullets, Markdown, generic sleep advice, calendar dates, or nightly data recap. If evidence is sparse, say what is beginning to emerge without inventing a pattern.`;
+      const generated = await callAnthropicText(
+        profilePrompt,
+        `Create the user's current evolving sleep profile from this context:\n\n${JSON.stringify(coachContext, null, 2)}`,
+        memories,
+        350,
+      );
+      const summary = generated ? plainCoachText(generated) : "";
+      if (!summary) {
+        return new Response(JSON.stringify({ status: "generation_failed" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ status: "ok", summary }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
