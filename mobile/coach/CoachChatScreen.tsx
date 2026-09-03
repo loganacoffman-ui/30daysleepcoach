@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import type { StyleProp, TextStyle } from "react-native";
 import type { User } from "@supabase/supabase-js";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors, layout } from "../design/theme";
@@ -38,6 +39,12 @@ const HISTORY_SWIPE_OPEN_DISTANCE = 96;
 const HISTORY_DRAWER_WIDTH_RATIO = 0.82;
 const HISTORY_DRAWER_OPEN_DURATION = 260;
 const HISTORY_DRAWER_CLOSE_DURATION = 200;
+const activeConversationKey = (userId: string) => `sleep-coach:active-conversation:${userId}`;
+const thinkingSteps = [
+  "Reviewing your recent sleep…",
+  "Comparing your experiments…",
+  "Connecting your check-in notes…",
+];
 
 const personalizedGreeting = (state: CoachHomeState | null) => {
   if (!state) return "Your coach will connect the dots as your sleep context builds.";
@@ -102,11 +109,13 @@ const Message = ({
   message,
   onResolveToolCall,
   resolving,
+  thinkingStep,
 }: {
   animate: boolean;
   message: CoachMessage;
   onResolveToolCall: (toolCallId: string, action: "confirm" | "cancel") => void;
   resolving: boolean;
+  thinkingStep: string;
 }) => {
   const isUser = message.role === "user";
   const toolCall = message.toolCall;
@@ -119,7 +128,7 @@ const Message = ({
       <View style={[styles.message, isUser ? styles.userMessage : styles.coachMessage]}>
         {!isUser && <Text style={styles.coachLabel}>COACH</Text>}
         {!isUser && message.pending && !message.content ? (
-          <ActivityIndicator color={colors.accent} size="small" />
+          <View style={styles.thinking}><ActivityIndicator color={colors.accent} size="small" /><Text style={styles.thinkingText}>{thinkingStep}</Text></View>
         ) : (
           <StreamingText
             animate={animate && !isUser}
@@ -193,6 +202,7 @@ export default function CoachChatScreen({
   const [busyAction, setBusyAction] = useState(false);
   const [resolvingToolCallId, setResolvingToolCallId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [thinkingIndex, setThinkingIndex] = useState(0);
   const [dailyViewOpen, setDailyViewOpen] = useState(false);
   const listRef = useRef<FlatList<CoachMessage>>(null);
   const { width: screenWidth } = useWindowDimensions();
@@ -324,9 +334,28 @@ export default function CoachChatScreen({
   );
 
   useEffect(() => {
+    let active = true;
     void refreshHistory().catch(() => undefined);
     void loadCoachHomeState(user).then(setHomeState).catch(() => setHomeState(null));
+    void AsyncStorage.getItem(activeConversationKey(user.id)).then(async storedId => {
+      if (!storedId || !active) return;
+      try {
+        const loadedMessages = await loadCoachConversation(user, storedId);
+        if (!active) return;
+        setConversationId(storedId);
+        setMessages(loadedMessages);
+      } catch {
+        await AsyncStorage.removeItem(activeConversationKey(user.id));
+      }
+    });
+    return () => { active = false; };
   }, [user.id]);
+
+  useEffect(() => {
+    if (!sending) { setThinkingIndex(0); return; }
+    const timer = setInterval(() => setThinkingIndex(index => (index + 1) % thinkingSteps.length), 1100);
+    return () => clearInterval(timer);
+  }, [sending]);
 
   useEffect(() => {
     if (dailyViewRequest) setDailyViewOpen(true);
@@ -335,6 +364,7 @@ export default function CoachChatScreen({
   const beginConversation = async (firstMessage: string) => {
     const id = await createCoachConversation(user, firstMessage);
     setConversationId(id);
+    await AsyncStorage.setItem(activeConversationKey(user.id), id);
     return id;
   };
 
@@ -346,6 +376,7 @@ export default function CoachChatScreen({
     setError("");
     setRevealingMessageId(null);
     closeHistory();
+    void AsyncStorage.removeItem(activeConversationKey(user.id));
   };
 
   const openConversation = async (conversation: CoachConversationSummary) => {
@@ -356,6 +387,7 @@ export default function CoachChatScreen({
       const loadedMessages = await loadCoachConversation(user, conversation.id);
       setConversationId(conversation.id);
       setMessages(loadedMessages);
+      await AsyncStorage.setItem(activeConversationKey(user.id), conversation.id);
       closeHistory();
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "That conversation could not be loaded.");
@@ -560,6 +592,7 @@ export default function CoachChatScreen({
                   message={item}
                   onResolveToolCall={(toolCallId, action) => void handleToolCall(toolCallId, action)}
                   resolving={resolvingToolCallId === item.toolCall?.id}
+                  thinkingStep={thinkingSteps[thinkingIndex]}
                 />
               )}
               showsVerticalScrollIndicator={false}
@@ -855,6 +888,8 @@ const styles = StyleSheet.create({
   },
   loading: { alignItems: "center", flex: 1, gap: 12, justifyContent: "center" },
   loadingText: { color: colors.textSubtle, fontSize: 13 },
+  thinking: { alignItems: "center", flexDirection: "row", gap: 9 },
+  thinkingText: { color: colors.textSubtle, fontSize: 12 },
   message: { maxWidth: "84%" },
   messageRow: { alignItems: "flex-start", flexDirection: "row", marginBottom: 18 },
   messages: { paddingBottom: 20, paddingHorizontal: 18, paddingTop: 12 },

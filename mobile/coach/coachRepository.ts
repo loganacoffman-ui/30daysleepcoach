@@ -310,6 +310,16 @@ export const loadDailyCoaching = async (user: User, profile: SleepProfile, conte
   };
 };
 
+export const loadSleepProfileSummary = async (user: User, profile: SleepProfile): Promise<string> => {
+  const { data, error } = await supabase.functions.invoke<{ status?: string; summary?: string }>('sleep-coach', {
+    body: { mode: 'sleep_profile', coachContext: await loadCoachContext(user, profile) },
+  });
+  if (error || data?.status !== 'ok' || !data.summary?.trim()) {
+    throw error ?? new Error('Your sleep profile could not be refreshed.');
+  }
+  return data.summary.trim();
+};
+
 export const loadCoachExperience = async (user: User, profile: SleepProfile): Promise<CoachExperience> => {
   const [conversationId, context] = await Promise.all([ensureConversation(user), loadCoachContext(user, profile)]);
   const messagesResult = await supabase.from('coach_messages').select('id, role, content, created_at').eq('conversation_id', conversationId).order('created_at', { ascending: true }).limit(100);

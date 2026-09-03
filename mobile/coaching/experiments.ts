@@ -46,7 +46,7 @@ const followUps: Record<PrimaryConcern, StarterExperiment[]> = {
   ],
   night_waking: [
     { behavior:'If you wake tonight, keep the clock out of view.', why:'Clock-checking can turn a normal awakening into a stressful calculation.', coachingNote:'Turn the display away before bed so you do not need willpower overnight.' },
-    { behavior:'Keep your bedroom cool, dark, and quiet tonight.', why:'A stable sleep environment reduces avoidable signals that can interrupt sleep.', coachingNote:'Change only what is easy—temperature, an eye mask, or steady background sound.' },
+    { behavior:'If an overnight waking becomes frustrating, move to a dim room and read until you feel sleepy again.', why:'Changing context can interrupt the cycle of lying awake and trying to force sleep.', coachingNote:'Set out a paper book and dim light before bed so the option is easy if you need it.' },
   ],
   unrefreshed: [
     { behavior:'Pair tomorrow’s morning light with a five-minute walk.', why:'Light plus gentle movement reinforces the daytime signal and supports alertness.', coachingNote:'This is not a workout. An easy walk is enough.' },

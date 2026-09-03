@@ -1,4 +1,4 @@
-export const DAILY_COACH_PROMPT_VERSION = "native-daily-v5-healthkit";
+export const DAILY_COACH_PROMPT_VERSION = "native-daily-v6-experiment-loop";
 
 type JsonObject = Record<string, unknown>;
 

@@ -27,12 +27,39 @@ import {
   dailyCoachSourceFingerprint,
   isDailyCoachCacheFresh,
 } from "../_shared/coaching-cache.ts";
+import { chooseDailyExperiment } from "../_shared/experimentCycle.ts";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const memoryProvider = createMemoryProvider(Deno.env.get("MEM0_API_KEY"));
+
+async function syncDailyExperimentCommitment(
+  supabase: SupabaseClient,
+  userId: string,
+  behaviorDate: string,
+  behavior: string,
+  current: { id: string; behavior: string; status: string } | null,
+  updatedAt: string,
+): Promise<string | null> {
+  if (current?.behavior === behavior && current.status === "committed") return null;
+  const write = current
+    ? supabase.from("behavior_commitments").update({
+      behavior,
+      status: "committed",
+      updated_at: updatedAt,
+    }).eq("id", current.id).eq("user_id", userId)
+    : supabase.from("behavior_commitments").insert({
+      user_id: userId,
+      behavior_date: behaviorDate,
+      behavior,
+      status: "committed",
+      updated_at: updatedAt,
+    });
+  const { error } = await write;
+  return error?.message ?? null;
+}
 
 const MEMORY_SYSTEM_GUIDANCE = `LONG-TERM MEMORY:
 - Relevant long-term memories may be supplied in a clearly marked block. Use them to maintain continuity across sessions, remember the user's goals and preferences, compare current sleep activity with prior patterns, and follow up on past experiments or coaching actions.
@@ -114,6 +141,20 @@ Exactly one short sentence with one specific, small behavioral action. It must b
 One optional short sentence connecting the action to the weekly pattern.
 
 The four headers must use the exact bold syntax shown so the app can parse them. The text beneath them must be plain text with no Markdown. Keep the whole response under 85 words. Tight beats comprehensive.
+
+## Personal experiment protocol
+
+Tonight's action is not a generic sleep tip. It is the proposed behavior in a personal, three-night experiment.
+
+- Read experiment_adherence before choosing the action. Use behavior, status, and recency to understand what has already been tried.
+- Prefer one measurable action with a clear cue, duration, or threshold. The user should know exactly what counts as completing it.
+- Tie the action to the strongest recent signal in the user's wearable data, check-ins, journal context, schedule, or stated obstacle.
+- If the current behavior has fewer than three completed or partial nights, normally return that exact behavior again so its effect can be evaluated.
+- If the user skipped it or described it as impractical, propose a smaller or more feasible alternative.
+- After a three-night run, choose a meaningfully different experiment unless the data provides a specific reason to continue.
+- Never recommend "keep your bedroom cool, dark, and quiet" as the experiment. Treat basic sleep hygiene as background, not differentiated coaching.
+- Do not repeat an experiment that already produced no clear benefit unless you explain what is changing in the test.
+- Why this, now must state the personal signal behind the choice, not a generic benefit of sleep hygiene.
 
 ## Nervous system protocol — your knowledge base
 
@@ -548,6 +589,15 @@ async function callAnthropicNonStreaming(
   userMessage: string,
   memories: Memory[],
 ): Promise<string | null> {
+  return callAnthropicText(RECOMMENDATION_SYSTEM_PROMPT, userMessage, memories, 800);
+}
+
+async function callAnthropicText(
+  system: string,
+  userMessage: string,
+  memories: Memory[],
+  maxTokens = 500,
+): Promise<string | null> {
   const res = await fetch(ANTHROPIC_URL, {
     method: "POST",
     headers: {
@@ -557,8 +607,8 @@ async function callAnthropicNonStreaming(
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
-      max_tokens: 800,
-      system: RECOMMENDATION_SYSTEM_PROMPT + formatMemoryContext(memories),
+      max_tokens: maxTokens,
+      system: system + formatMemoryContext(memories),
       messages: [{ role: "user", content: userMessage }],
       stream: false,
     }),
@@ -1305,6 +1355,31 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // ─── EVOLVING SLEEP PROFILE (scores + journals + experiments + memory) ─
+    if (mode === "sleep_profile") {
+      const memories = await recallCoachMemory(
+        user.id,
+        buildMemoryQuery(memoryMode, messages, sleepData, coachContext),
+      );
+      const profilePrompt = `You are a concise behavioral sleep coach. Build an evolving picture of this specific user from the structured context and relevant long-term memory. Synthesize quantitative sleep scores and trends with qualitative check-in notes, suspected factors, preferences, experiment adherence, and outcomes. State only patterns supported by the supplied evidence. Treat causes as hypotheses, distinguish what seems helpful from what is still being learned, and never diagnose. Write 2-4 short conversational sentences in plain text, under 90 words. No headings, bullets, Markdown, generic sleep advice, calendar dates, or nightly data recap. If evidence is sparse, say what is beginning to emerge without inventing a pattern.`;
+      const generated = await callAnthropicText(
+        profilePrompt,
+        `Create the user's current evolving sleep profile from this context:\n\n${JSON.stringify(coachContext, null, 2)}`,
+        memories,
+        350,
+      );
+      const summary = generated ? plainCoachText(generated) : "";
+      if (!summary) {
+        return new Response(JSON.stringify({ status: "generation_failed" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ status: "ok", summary }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ─── NATIVE DAILY COACH (persistent one-per-calendar-day artifact) ─
     if (mode === "daily_coach") {
       const recommendationDate = typeof coachContext?.date === "string" &&
@@ -1312,6 +1387,20 @@ Deno.serve(async (req: Request) => {
         ? coachContext.date
         : new Date().toISOString().split("T")[0];
       const sourceFingerprint = await dailyCoachSourceFingerprint(coachContext);
+      const experimentHistory = Array.isArray(coachContext?.experiment_adherence)
+        ? coachContext.experiment_adherence.filter((item: unknown) => {
+          if (!item || typeof item !== "object") return false;
+          const date = (item as Record<string, unknown>).behavior_date;
+          return typeof date === "string" && date < recommendationDate;
+        })
+        : [];
+      const { data: currentCommitment, error: currentCommitmentError } = await supabase
+        .from("behavior_commitments")
+        .select("id, behavior, status")
+        .eq("user_id", user.id)
+        .eq("behavior_date", recommendationDate)
+        .maybeSingle();
+      if (currentCommitmentError) throw currentCommitmentError;
 
       const { data: existing } = await supabase
         .from("coach_recommendations")
@@ -1321,6 +1410,20 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
 
       if (isDailyCoachCacheFresh(existing, sourceFingerprint)) {
+        const commitmentError = await syncDailyExperimentCommitment(
+          supabase,
+          user.id,
+          recommendationDate,
+          existing!.action,
+          currentCommitment,
+          new Date().toISOString(),
+        );
+        if (commitmentError) {
+          return new Response(JSON.stringify({ error: commitmentError }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
         return new Response(
           JSON.stringify({
             status: "ok",
@@ -1357,6 +1460,17 @@ Deno.serve(async (req: Request) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      const experiment = chooseDailyExperiment({
+        currentBehavior: currentCommitment?.status === "committed"
+          ? currentCommitment.behavior
+          : null,
+        history: experimentHistory,
+        proposedBehavior: sections.action,
+        proposedWhy: sections.why,
+      });
+      sections.action = experiment.behavior;
+      sections.why = experiment.why;
 
       const generatedAt = new Date().toISOString();
       const record = {
@@ -1402,6 +1516,21 @@ Deno.serve(async (req: Request) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           },
         );
+      }
+
+      const commitmentError = await syncDailyExperimentCommitment(
+        supabase,
+        user.id,
+        recommendationDate,
+        experiment.behavior,
+        currentCommitment,
+        generatedAt,
+      );
+      if (commitmentError) {
+        return new Response(JSON.stringify({ error: commitmentError }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       runInBackground(persistCoachMemory(
