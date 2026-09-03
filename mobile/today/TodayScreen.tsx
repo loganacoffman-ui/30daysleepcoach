@@ -216,8 +216,11 @@ export default function TodayScreen({ embedded = false, profile, repository = mo
     }
     let active = true;
     void loadDailyCoaching(user, profile)
-      .then(coaching => {
-        if (active) setDailyCoaching(coaching);
+      .then(async coaching => {
+        if (!active) return;
+        setDailyCoaching(coaching);
+        const refreshed = await repository.loadToday();
+        if (active) setSnapshot(refreshed);
       })
       .catch(() => {
         if (active) setDailyCoaching(null);
@@ -454,11 +457,21 @@ export default function TodayScreen({ embedded = false, profile, repository = mo
           <View style={styles.commitmentCard}>
             <View style={styles.commitmentTopRow}>
               <Text style={styles.commitmentEyebrow}>TODAY’S EXPERIMENT</Text>
-              <View style={styles.statusPill}><View style={styles.statusDot} /><Text style={styles.statusText}>TONIGHT</Text></View>
+              <View style={styles.statusPill}>
+                <View style={styles.statusDot} />
+                <Text style={styles.statusText}>
+                  NIGHT {snapshot.commitment.runDay ?? 1} OF {snapshot.commitment.runLength ?? 3}
+                </Text>
+              </View>
             </View>
             <Text style={styles.commitmentTitle}>{snapshot.commitment.behavior}</Text>
-            {!!snapshot.commitment.why && <Text style={styles.commitmentWhy}>{snapshot.commitment.why}</Text>}
-            <View style={styles.coachNote}><Text style={styles.coachMark}>✦</Text><Text style={styles.coachNoteText}>Your one behavior to commit to tonight.</Text></View>
+            {!!snapshot.commitment.why && (
+              <>
+                <Text style={styles.commitmentWhyLabel}>WHY THIS, NOW</Text>
+                <Text style={styles.commitmentWhy}>{snapshot.commitment.why}</Text>
+              </>
+            )}
+            <View style={styles.coachNote}><Text style={styles.coachMark}>✦</Text><Text style={styles.coachNoteText}>Keep the behavior steady; your check-ins help Coach learn whether it actually moves your sleep.</Text></View>
           </View>
         )}
 
@@ -1095,6 +1108,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     marginTop: 12,
+  },
+  commitmentWhyLabel: {
+    color: colors.accent,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginTop: 18,
   },
   coachNote: {
     alignItems: 'center',

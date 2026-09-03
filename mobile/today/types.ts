@@ -15,6 +15,8 @@ export type BehaviorCommitment = {
   behavior: string;
   why?: string;
   status: CommitmentStatus;
+  runDay?: number;
+  runLength?: number;
 };
 
 export type DailyCheckin = {
