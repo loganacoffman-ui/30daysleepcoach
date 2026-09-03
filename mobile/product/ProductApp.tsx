@@ -9,7 +9,8 @@ import { syncAppleHealthForDate } from '../healthkit/appleHealth';
 import type { SleepProfile } from '../onboarding/types';
 import { createSupabaseTodayRepository } from '../today/supabaseTodayRepository';
 import CoachChatScreen from '../coach/CoachChatScreen';
-import { ProgressScreen, SettingsScreen } from './InfoScreens';
+import { SettingsScreen } from './InfoScreens';
+import ProgressScreen from '../progress/ProgressScreen';
 import { supabase } from '../supabase';
 
 const localDate = () => {
