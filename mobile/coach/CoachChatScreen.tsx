@@ -20,7 +20,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors, layout } from "../design/theme";
 import type { SleepProfile } from "../onboarding/types";
+import TodayScreen from "../today/TodayScreen";
 import { feelingLabel } from "../today/feeling";
+import type { TodayRepository } from "../today/types";
 import {
   createCoachConversation,
   loadCoachHomeState,
@@ -169,11 +171,15 @@ const Message = ({
 };
 
 export default function CoachChatScreen({
+  dailyViewRequest,
   user,
   profile,
+  repository,
 }: {
+  dailyViewRequest?: number;
   user: User;
   profile: SleepProfile;
+  repository: TodayRepository;
 }) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<CoachMessage[]>([]);
@@ -187,6 +193,7 @@ export default function CoachChatScreen({
   const [busyAction, setBusyAction] = useState(false);
   const [resolvingToolCallId, setResolvingToolCallId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [dailyViewOpen, setDailyViewOpen] = useState(false);
   const listRef = useRef<FlatList<CoachMessage>>(null);
   const { width: screenWidth } = useWindowDimensions();
   const drawerWidth = screenWidth * HISTORY_DRAWER_WIDTH_RATIO;
@@ -321,6 +328,10 @@ export default function CoachChatScreen({
     void loadCoachHomeState(user).then(setHomeState).catch(() => setHomeState(null));
   }, [user.id]);
 
+  useEffect(() => {
+    if (dailyViewRequest) setDailyViewOpen(true);
+  }, [dailyViewRequest]);
+
   const beginConversation = async (firstMessage: string) => {
     const id = await createCoachConversation(user, firstMessage);
     setConversationId(id);
@@ -328,6 +339,7 @@ export default function CoachChatScreen({
   };
 
   const startNewChat = () => {
+    setDailyViewOpen(false);
     setConversationId(null);
     setMessages([]);
     setInput("");
@@ -337,6 +349,7 @@ export default function CoachChatScreen({
   };
 
   const openConversation = async (conversation: CoachConversationSummary) => {
+    setDailyViewOpen(false);
     setBusyAction(true);
     setError("");
     try {
@@ -358,6 +371,7 @@ export default function CoachChatScreen({
   const send = async (suggested?: string) => {
     const content = (suggested ?? input).trim();
     if (!content || sending || busyAction) return;
+    setDailyViewOpen(false);
 
     const optimistic: CoachMessage = {
       id: `pending-${Date.now()}`,
@@ -482,15 +496,29 @@ export default function CoachChatScreen({
               <Text style={styles.eyebrow}>30 DAY SLEEP COACH</Text>
               <Text style={styles.title}>Coach</Text>
             </View>
-            <Pressable accessibilityRole="button" onPress={startNewChat} style={styles.newButton}>
-              <Text style={styles.newButtonText}>＋ New chat</Text>
+            <Pressable accessibilityRole="button" onPress={() => {
+              if (dailyViewOpen) {
+                setDailyViewOpen(false);
+                void loadCoachHomeState(user).then(setHomeState).catch(() => undefined);
+              } else setDailyViewOpen(true);
+            }} style={styles.newButton}>
+              <Text style={styles.newButtonText}>{dailyViewOpen ? "← Chat" : "Your day"}</Text>
             </Pressable>
           </View>
 
-          {!conversationId && messages.length === 0 ? (
+          {dailyViewOpen ? (
+            <TodayScreen embedded profile={profile} repository={repository} user={user} />
+          ) : !conversationId && messages.length === 0 ? (
             <View style={styles.newChat}>
               <Text style={styles.newChatTitle}>What would you like to explore?</Text>
               <Text style={styles.personalizedNote}>{personalizedGreeting(homeState)}</Text>
+              <Pressable accessibilityRole="button" onPress={() => setDailyViewOpen(true)} style={({ pressed }) => [styles.dailyEntry, pressed && styles.suggestionPressed]}>
+                <View style={styles.dailyEntryCopy}>
+                  <Text style={styles.dailyEntryEyebrow}>YOUR DAY</Text>
+                  <Text style={styles.dailyEntryTitle}>{homeState?.hasCheckedInToday ? "View today’s coaching" : "Complete today’s check-in"}</Text>
+                </View>
+                <Text style={styles.dailyEntryArrow}>›</Text>
+              </Pressable>
               <View style={styles.suggestions}>
                 {[
                   "How is my sleep trending?",
@@ -859,6 +887,22 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginTop: 12,
   },
+  dailyEntry: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.borderSelected,
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: "row",
+    marginTop: 22,
+    minHeight: 76,
+    paddingHorizontal: 17,
+    paddingVertical: 14,
+  },
+  dailyEntryCopy: { flex: 1 },
+  dailyEntryEyebrow: { color: colors.accent, fontSize: 10, fontWeight: "800", letterSpacing: 1.3 },
+  dailyEntryTitle: { color: colors.text, fontSize: 16, fontWeight: "800", marginTop: 5 },
+  dailyEntryArrow: { color: colors.accent, fontSize: 28, marginLeft: 12 },
   suggestions: { gap: 8, marginTop: "auto", paddingTop: 48 },
   swipeArea: { flex: 1 },
   suggestion: {

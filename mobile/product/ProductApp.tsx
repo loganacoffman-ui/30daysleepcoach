@@ -7,7 +7,6 @@ import * as Notifications from 'expo-notifications';
 import { colors } from '../design/theme';
 import { syncAppleHealthForDate } from '../healthkit/appleHealth';
 import type { SleepProfile } from '../onboarding/types';
-import TodayScreen from '../today/TodayScreen';
 import { createSupabaseTodayRepository } from '../today/supabaseTodayRepository';
 import CoachChatScreen from '../coach/CoachChatScreen';
 import { ProgressScreen, SettingsScreen } from './InfoScreens';
@@ -18,12 +17,13 @@ const localDate = () => {
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 };
 
-type Tab='today'|'progress'|'coach'|'settings';
-const tabs:{key:Tab;icon:string;label:string}[]=[{key:'coach',icon:'✦',label:'Coach'},{key:'today',icon:'☾',label:'Today'},{key:'progress',icon:'↗',label:'Progress'},{key:'settings',icon:'○',label:'Settings'}];
+type Tab='progress'|'coach'|'settings';
+const tabs:{key:Tab;icon:string;label:string}[]=[{key:'coach',icon:'✦',label:'Coach'},{key:'progress',icon:'↗',label:'Progress'},{key:'settings',icon:'○',label:'Settings'}];
 
 export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccount}:{session:Session;profile:SleepProfile;busy:boolean;onSignOut:()=>void;onDeleteAccount:()=>void}){
   const [tab,setTab]=useState<Tab>('coach');
   const [refreshKey,setRefreshKey]=useState(0);
+  const [dailyViewRequest,setDailyViewRequest]=useState(0);
   const repository=useMemo(()=>createSupabaseTodayRepository(session.user,profile.displayName,profile.primaryConcern),[session.user,profile.displayName,profile.primaryConcern]);
   useEffect(()=>{
     void supabase.from('app_open_days').upsert(
@@ -33,7 +33,10 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
   },[session.user.id]);
   useEffect(()=>{
     const openNotification=(response:Notifications.NotificationResponse|null)=>{
-      if(response?.notification.request.content.data?.destination==='today')setTab('today');
+      if(response?.notification.request.content.data?.destination==='today'){
+        setTab('coach');
+        setDailyViewRequest(value=>value+1);
+      }
     };
     void Notifications.getLastNotificationResponseAsync().then(openNotification);
     const subscription=Notifications.addNotificationResponseReceivedListener(openNotification);
@@ -48,9 +51,8 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
   return (
     <View style={styles.screen}>
       <View style={styles.body}>
-        {tab === 'today' && <TodayScreen key={refreshKey} profile={profile} repository={repository} user={session.user} />}
         {tab === 'progress' && <ProgressScreen user={session.user} />}
-        {tab === 'coach' && <CoachChatScreen key={refreshKey} profile={profile} user={session.user} />}
+        {tab === 'coach' && <CoachChatScreen dailyViewRequest={dailyViewRequest} key={refreshKey} profile={profile} repository={repository} user={session.user} />}
         {tab === 'settings' && <SettingsScreen busy={busy} onDeleteAccount={onDeleteAccount} onSignOut={onSignOut} profile={profile} user={session.user} />}
       </View>
       <View style={styles.tabs}>

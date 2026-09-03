@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   type GestureResponderEvent,
@@ -29,6 +29,7 @@ import type {
 } from './types';
 
 type TodayScreenProps = {
+  embedded?: boolean;
   repository?: TodayRepository;
   profile?: SleepProfile;
   user?: User;
@@ -67,10 +68,24 @@ const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
   value: number | null;
 }) => {
   const [trackWidth, setTrackWidth] = useState(0);
+  const trackLeft = useRef(0);
+  const trackRef = useRef<View>(null);
   const displayValue = value ?? 50;
-  const updateFromTouch = (event: GestureResponderEvent) => {
+  const updateFromPageX = (pageX: number) => {
     if (disabled || !onChange || trackWidth <= 0) return;
-    onChange(clampSleepScore((event.nativeEvent.locationX / trackWidth) * 100));
+    onChange(clampSleepScore(((pageX - trackLeft.current) / trackWidth) * 100));
+  };
+  const measureTrack = (pageX?: number) => {
+    trackRef.current?.measureInWindow((x, _y, width) => {
+      trackLeft.current = x;
+      if (width > 0) setTrackWidth(width);
+      if (pageX !== undefined && width > 0 && onChange && !disabled) {
+        onChange(clampSleepScore(((pageX - x) / width) * 100));
+      }
+    });
+  };
+  const beginDrag = (event: GestureResponderEvent) => {
+    measureTrack(event.nativeEvent.pageX);
   };
   const adjust = (amount: number) => onChange?.(clampSleepScore((value ?? 50) + amount));
 
@@ -84,16 +99,21 @@ const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
         <Text style={styles.sleepScoreValue}>{value ?? '—'}</Text>
       </View>
       <View
+        ref={trackRef}
         accessible
         accessibilityActions={disabled ? undefined : [{ name: 'increment' }, { name: 'decrement' }]}
         accessibilityLabel="Sleep score"
         accessibilityRole="adjustable"
         accessibilityValue={{ min: 0, max: 100, now: value ?? undefined, text: value === null ? 'Not selected' : `${value} out of 100` }}
         onAccessibilityAction={(event) => adjust(event.nativeEvent.actionName === 'increment' ? 1 : -1)}
-        onLayout={(event: LayoutChangeEvent) => setTrackWidth(event.nativeEvent.layout.width)}
+        onLayout={(event: LayoutChangeEvent) => {
+          setTrackWidth(event.nativeEvent.layout.width);
+          measureTrack();
+        }}
         onMoveShouldSetResponder={() => !disabled}
-        onResponderGrant={updateFromTouch}
-        onResponderMove={updateFromTouch}
+        onResponderGrant={beginDrag}
+        onResponderMove={(event) => updateFromPageX(event.nativeEvent.pageX)}
+        onResponderTerminationRequest={() => false}
         onStartShouldSetResponder={() => !disabled}
         style={styles.sleepScoreTrackTouch}
       >
@@ -152,7 +172,7 @@ const DailyReport = ({ action, cacheKey, meaning, pattern }: {
   return <Text style={styles.dailyReportText}>{visible}</Text>;
 };
 
-export default function TodayScreen({ profile, repository = mockTodayRepository, user }: TodayScreenProps) {
+export default function TodayScreen({ embedded = false, profile, repository = mockTodayRepository, user }: TodayScreenProps) {
   const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -309,11 +329,11 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
       style={styles.screen}
     >
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, embedded && styles.embeddedContent]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
+        {!embedded && <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>TODAY</Text>
             <Text style={styles.title}>
@@ -327,7 +347,34 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
             <Text style={styles.dayBadgeNumber}>{snapshot.dayNumber}</Text>
             <Text style={styles.dayBadgeLabel}>DAY</Text>
           </View>
-        </View>
+        </View>}
+
+        {embedded && (
+          <View style={styles.embeddedHeading}>
+            <View>
+              <Text style={styles.eyebrow}>YOUR DAY</Text>
+              <Text style={styles.date}>{formatLongDate(snapshot.date)}</Text>
+            </View>
+            <View style={styles.dayBadge}>
+              <Text style={styles.dayBadgeNumber}>{snapshot.dayNumber}</Text>
+              <Text style={styles.dayBadgeLabel}>DAY</Text>
+            </View>
+          </View>
+        )}
+
+        {snapshot.dayNumber <= 7 && (
+          <View style={styles.planProgress}>
+            <View style={styles.planProgressHeader}>
+              <Text style={styles.planProgressTitle}>YOUR 7-DAY START</Text>
+              <Text style={styles.planProgressCount}>{snapshot.dayNumber} of 7</Text>
+            </View>
+            <View style={styles.planDots}>
+              {Array.from({ length: 7 }, (_, index) => (
+                <View key={index} style={[styles.planDot, index < snapshot.dayNumber && styles.planDotActive]} />
+              ))}
+            </View>
+          </View>
+        )}
 
         {snapshot.sleepData.status === 'missing' && (
           <View style={styles.sleepDataCard}>
@@ -403,17 +450,15 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
           </View>
         )}
 
-        {snapshot.dayNumber < 7 && (
-          <View style={styles.planProgress}>
-            <View style={styles.planProgressHeader}>
-              <Text style={styles.planProgressTitle}>YOUR 7-DAY START</Text>
-              <Text style={styles.planProgressCount}>{snapshot.dayNumber} of 7</Text>
+        {snapshot.commitment && (
+          <View style={styles.commitmentCard}>
+            <View style={styles.commitmentTopRow}>
+              <Text style={styles.commitmentEyebrow}>TODAY’S EXPERIMENT</Text>
+              <View style={styles.statusPill}><View style={styles.statusDot} /><Text style={styles.statusText}>TONIGHT</Text></View>
             </View>
-            <View style={styles.planDots}>
-              {Array.from({ length: 7 }, (_, index) => (
-                <View key={index} style={[styles.planDot, index < snapshot.dayNumber && styles.planDotActive]} />
-              ))}
-            </View>
+            <Text style={styles.commitmentTitle}>{snapshot.commitment.behavior}</Text>
+            {!!snapshot.commitment.why && <Text style={styles.commitmentWhy}>{snapshot.commitment.why}</Text>}
+            <View style={styles.coachNote}><Text style={styles.coachMark}>✦</Text><Text style={styles.coachNoteText}>Your one behavior to commit to tonight.</Text></View>
           </View>
         )}
 
@@ -467,7 +512,7 @@ export default function TodayScreen({ profile, repository = mockTodayRepository,
                       pressed && styles.pressed,
                     ]}
                   >
-                    <Text style={[styles.feelingText, selected && styles.feelingTextSelected]}>
+                    <Text adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={1} style={[styles.feelingText, selected && styles.feelingTextSelected]}>
                       {option.label}
                     </Text>
                   </Pressable>
@@ -556,6 +601,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: layout.screenTopPadding,
   },
+  embeddedContent: { paddingTop: 8 },
+  embeddedHeading: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
   header: {
     alignItems: 'flex-start',
     flexDirection: 'row',
@@ -810,7 +857,7 @@ const styles = StyleSheet.create({
   },
   feelingRow: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 4,
     justifyContent: 'space-between',
   },
   feelingButton: {
@@ -822,7 +869,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     minHeight: 54,
-    paddingHorizontal: 4,
+    minWidth: 0,
+    paddingHorizontal: 2,
     paddingVertical: 9,
   },
   feelingButtonSelected: {
@@ -995,13 +1043,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   commitmentCard: {
-    backgroundColor: colors.surfaceMuted,
-    borderColor: colors.border,
-    borderRadius: 26,
+    backgroundColor: colors.surface,
+    borderColor: colors.borderSelected,
+    borderRadius: 22,
     borderWidth: 1,
-    marginTop: 16,
+    marginBottom: 18,
     overflow: 'hidden',
-    padding: 22,
+    padding: 20,
   },
   commitmentTopRow: {
     alignItems: 'center',
@@ -1017,7 +1065,7 @@ const styles = StyleSheet.create({
   },
   statusPill: {
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceAccent,
     borderRadius: 14,
     flexDirection: 'row',
     gap: 6,
