@@ -126,7 +126,7 @@ const Message = ({
   return (
     <View style={[styles.messageRow, isUser && styles.userMessageRow]}>
       <View style={[styles.message, isUser ? styles.userMessage : styles.coachMessage]}>
-        {!isUser && <Text style={styles.coachLabel}>LUNA</Text>}
+        {!isUser && <Text style={styles.coachLabel}>COACH</Text>}
         {!isUser && message.pending && !message.content ? (
           <View style={styles.thinking}><ActivityIndicator color={colors.accent} size="small" /><Text style={styles.thinkingText}>{thinkingStep}</Text></View>
         ) : (
@@ -525,8 +525,8 @@ export default function CoachChatScreen({
               <Text style={styles.historyButtonText}>☰</Text>
             </Pressable>
             <View>
-              <Text style={styles.eyebrow}>YOUR SLEEP COACH</Text>
-              <Text style={styles.title}>Luna</Text>
+              <Text style={styles.eyebrow}>30 DAY SLEEP COACH</Text>
+              <Text style={styles.title}>Coach</Text>
             </View>
             <Pressable accessibilityRole="button" onPress={() => {
               if (dailyViewOpen) {
