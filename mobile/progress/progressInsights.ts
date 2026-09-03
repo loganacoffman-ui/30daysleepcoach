@@ -34,10 +34,12 @@ export function mergeSleepPoints(checkins: ProgressCheckin[], wearable: SleepPoi
 
 export function rollingDeltas(points: SleepPoint[]) {
   return points.map((point, index) => {
+    if (index === 0) return { ...point, baseline: null, comparison: null, delta: null };
     const prior = points.slice(Math.max(0, index - 7), index);
-    if (prior.length < 2) return { ...point, baseline: null, delta: null };
-    const baseline = prior.reduce((sum, item) => sum + item.score, 0) / prior.length;
-    return { ...point, baseline, delta: Math.round(point.score - baseline) };
+    const hasSevenNightBaseline = prior.length === 7;
+    const comparisonPoints = hasSevenNightBaseline ? prior : [points[index - 1]];
+    const baseline = comparisonPoints.reduce((sum, item) => sum + item.score, 0) / comparisonPoints.length;
+    return { ...point, baseline, comparison: hasSevenNightBaseline ? '7-night baseline' as const : 'previous night' as const, delta: Math.round(point.score - baseline) };
   });
 }
 

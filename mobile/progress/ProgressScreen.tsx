@@ -24,7 +24,6 @@ export default function ProgressScreen({ profile, user }: { profile: SleepProfil
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [ledgerOpen, setLedgerOpen] = useState(true);
-  const [workingOpen, setWorkingOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [aiProfile, setAiProfile] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -68,6 +67,20 @@ export default function ProgressScreen({ profile, user }: { profile: SleepProfil
   const earliestDate = checkins.length ? [...checkins].sort((a, b) => a.checkin_date.localeCompare(b.checkin_date))[0].checkin_date : localDate();
   const journeyDates = Array.from({ length: 30 }, (_, index) => addDays(earliestDate, index));
   const completedCount = journeyDates.filter(date => completedDates.has(date)).length;
+  const signalObservation = (date: string, positive: boolean) => {
+    const checkin = checkins.find(row => row.checkin_date === date);
+    const factor = factorLabel(checkin?.suspected_factor ?? null);
+    if (factor) return `${factor} may have contributed.`;
+    const note = checkin?.note?.trim().replace(/\s+/g, ' ');
+    if (note) {
+      const detail = note.split(/[.!?]/)[0].slice(0, 92).replace(/^i\s+/i, '').replace(/^I\s+/, '');
+      return `You mentioned ${detail.charAt(0).toLowerCase()}${detail.slice(1)}, which may have contributed.`;
+    }
+    const priorDate = addDays(date, -1);
+    const experiment = commitments.find(item => item.behavior_date === priorDate && (item.status === 'completed' || item.status === 'partial'));
+    if (experiment) return `You ${experiment.status === 'completed' ? 'completed' : 'partly completed'} “${experiment.behavior},” which may have ${positive ? 'helped' : 'affected the result differently than expected'}.`;
+    return 'Your coach is watching your check-ins and experiments for a repeatable explanation.';
+  };
 
   return <ScrollView contentContainerStyle={styles.content}>
     <Text style={styles.eyebrow}>PROGRESS</Text><Text style={styles.title}>What we’re learning</Text><Text style={styles.subtitle}>Your signals become more useful as patterns repeat.</Text>
@@ -92,9 +105,7 @@ export default function ProgressScreen({ profile, user }: { profile: SleepProfil
         </View>
       </Section>
 
-      <Section title="SLEEP SIGNALS" subtitle="Changes versus your prior 7-night baseline" open={ledgerOpen} onPress={() => setLedgerOpen(value => !value)}>{ledger.length ? ledger.map(item => { const checkin = checkins.find(row => row.checkin_date === item.date); const factor = factorLabel(checkin?.suspected_factor ?? null); const positive = item.delta! >= 0; return <View key={item.date} style={styles.ledgerRow}><Text style={[styles.delta, positive ? styles.positive : styles.negative]}>{positive ? '+' : '−'}{Math.abs(item.delta!)}</Text><View style={styles.ledgerCopy}><Text style={styles.ledgerTitle}>{positive ? 'Above' : 'Below'} your recent baseline</Text><Text style={styles.ledgerNote}>{factor ? `${factor} may have contributed.` : 'Your coach is watching for a repeatable pattern.'}</Text><Text style={styles.ledgerDate}>{dateLabel(item.date)}</Text></View></View>; }) : <Text style={styles.empty}>A few more sleep scores will unlock your signal ledger.</Text>}</Section>
-
-      <Section title="WHAT’S WORKING" subtitle="Experiments with evidence, not generic advice" open={workingOpen} onPress={() => setWorkingOpen(value => !value)}>{experiments.length ? experiments.map(item => <View key={item.behavior} style={styles.experiment}><View style={styles.experimentHeader}><Text style={styles.experimentTitle}>{item.behavior}</Text><Text style={[styles.verdict, item.verdict === 'Likely helpful' && styles.helpful]}>{item.verdict}</Text></View><Text style={styles.experimentMeta}>{item.completed} completed of {item.attempts} · {item.averageDelta === null ? 'Outcome still forming' : `${item.averageDelta >= 0 ? '+' : '−'}${Math.abs(item.averageDelta)} average score change`}</Text></View>) : <Text style={styles.empty}>Your tested behaviors will appear here.</Text>}</Section>
+      <Section title="SLEEP SIGNALS" subtitle="What changed—and what may be moving the needle" open={ledgerOpen} onPress={() => setLedgerOpen(value => !value)}>{ledger.length ? ledger.map(item => { const positive = item.delta! >= 0; return <View key={item.date} style={styles.ledgerRow}><Text style={[styles.delta, positive ? styles.positive : styles.negative]}>{positive ? '+' : '−'}{Math.abs(item.delta!)}</Text><View style={styles.ledgerCopy}><Text style={styles.ledgerTitle}>Your sleep trended {positive ? 'up' : 'down'} last night</Text><Text style={styles.ledgerNote}>{signalObservation(item.date, positive)}</Text><Text style={styles.ledgerDate}>{dateLabel(item.date)} · vs {item.comparison}</Text></View></View>; }) : <Text style={styles.empty}>{points.length === 1 ? 'Day 1 establishes your starting point. Your first signal will appear after the next sleep score.' : 'Add two sleep scores to begin your signal ledger.'}</Text>}</Section>
     </>}
     {!!error && <Text style={styles.error}>{error}</Text>}
   </ScrollView>;

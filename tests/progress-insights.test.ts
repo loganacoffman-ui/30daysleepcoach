@@ -13,14 +13,24 @@ describe('progress intelligence', () => {
     ]);
   });
 
-  it('calculates score movement only after a meaningful baseline exists', () => {
+  it('uses the previous night until a seven-night baseline exists', () => {
     const result = rollingDeltas([
       { date: '2026-09-01', score: 70, source: 'manual' },
       { date: '2026-09-02', score: 80, source: 'manual' },
       { date: '2026-09-03', score: 84, source: 'manual' },
     ]);
-    expect(result[1].delta).toBeNull();
-    expect(result[2].delta).toBe(9);
+    expect(result[0].delta).toBeNull();
+    expect(result[1]).toMatchObject({ delta: 10, comparison: 'previous night' });
+    expect(result[2]).toMatchObject({ delta: 4, comparison: 'previous night' });
+  });
+
+  it('uses the rolling seven-night average after seven prior scores', () => {
+    const result = rollingDeltas([70, 72, 74, 76, 78, 80, 82, 84].map((score, index) => ({
+      date: `2026-09-${String(index + 1).padStart(2, '0')}`,
+      score,
+      source: 'manual' as const,
+    })));
+    expect(result[7]).toMatchObject({ delta: 8, comparison: '7-night baseline' });
   });
 
   it('keeps experiments in learning until repeated outcomes exist', () => {
