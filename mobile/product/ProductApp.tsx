@@ -63,4 +63,4 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
     </View>
   );
 }
-const styles=StyleSheet.create({screen:{backgroundColor:colors.canvas,flex:1},body:{flex:1},tabs:{backgroundColor:colors.surfaceMuted,borderTopColor:colors.border,borderTopWidth:1,flexDirection:'row',paddingBottom:20,paddingTop:9},tab:{alignItems:'center',flex:1},icon:{color:colors.textFaint,fontSize:19,fontWeight:'800'},label:{color:colors.textSubtle,fontSize:10,fontWeight:'700',marginTop:3},selected:{color:colors.accent}});
+const styles=StyleSheet.create({screen:{backgroundColor:colors.canvas,flex:1},body:{flex:1},tabs:{backgroundColor:colors.surfaceMuted,borderTopColor:colors.border,borderTopWidth:1,flexDirection:'row',paddingBottom:20,paddingTop:9},tab:{alignItems:'center',flex:1},icon:{color:colors.textFaint,fontSize:19,fontWeight:'800',height:22,lineHeight:22,textAlign:'center'},label:{color:colors.textSubtle,fontSize:10,fontWeight:'700',lineHeight:12,marginTop:3},selected:{color:colors.accent}});
