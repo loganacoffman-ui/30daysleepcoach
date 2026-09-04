@@ -54,6 +54,17 @@ export function feelingTrend(checkins: ProgressCheckin[]) {
   return { current, direction: change > 0.35 ? 'up' as const : change < -0.35 ? 'down' as const : 'steady' as const };
 }
 
+export function weeklyFeeling(checkins: ProgressCheckin[]) {
+  const categories: MorningFeeling[] = ['exhausted', 'tired', 'okay', 'rested', 'great'];
+  const recent = checkins
+    .filter(row => row.morningFeeling)
+    .sort((a, b) => a.checkin_date.localeCompare(b.checkin_date))
+    .slice(-7);
+  if (!recent.length) return { feeling: null, count: 0 };
+  const average = recent.reduce((sum, row) => sum + categories.indexOf(row.morningFeeling!), 0) / recent.length;
+  return { feeling: categories[Math.round(average)], count: recent.length };
+}
+
 export type ExperimentInsight = {
   behavior: string;
   attempts: number;

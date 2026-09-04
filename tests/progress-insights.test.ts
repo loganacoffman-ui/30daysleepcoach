@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { experimentInsights, feelingTrend, mergeSleepPoints, rollingDeltas } from '../mobile/progress/progressInsights';
+import { experimentInsights, feelingTrend, mergeSleepPoints, rollingDeltas, weeklyFeeling } from '../mobile/progress/progressInsights';
 
 describe('progress intelligence', () => {
   it('prefers wearable scores and falls back to manual scores', () => {
@@ -56,5 +56,14 @@ describe('progress intelligence', () => {
       { checkin_date: '2026-09-04', manual_sleep_score: null, morningFeeling: 'great', note: null, suspected_factor: null },
     ]);
     expect(result).toEqual({ current: 'great', direction: 'up' });
+  });
+
+  it('summarizes the week rather than returning only the latest feeling', () => {
+    const result = weeklyFeeling([
+      { checkin_date: '2026-09-01', manual_sleep_score: null, morningFeeling: 'tired', note: null, suspected_factor: null },
+      { checkin_date: '2026-09-02', manual_sleep_score: null, morningFeeling: 'okay', note: null, suspected_factor: null },
+      { checkin_date: '2026-09-03', manual_sleep_score: null, morningFeeling: 'great', note: null, suspected_factor: null },
+    ]);
+    expect(result).toEqual({ feeling: 'okay', count: 3 });
   });
 });
