@@ -9,7 +9,7 @@ import { loadPreferredSleepSource } from '../sleep/sourcePreference';
 import { resolveWearableSleepHistory } from '../sleep/sourceSelection';
 import { supabase } from '../supabase';
 import { feelingLabel, normalizeMorningFeeling } from '../today/feeling';
-import { addDays, experimentInsights, feelingTrend, mergeSleepPoints, rollingDeltas, sleepProfileSummary } from './progressInsights';
+import { addDays, experimentInsights, feelingTrend, mergeSleepPoints, rollingDeltas, sleepProfileSummary, weeklyFeeling } from './progressInsights';
 import type { ProgressCheckin, ProgressCommitment, SleepPoint } from './progressInsights';
 
 const daysAgo = (count: number) => { const date = new Date(); date.setDate(date.getDate() - count); return localDate(date); };
@@ -23,7 +23,9 @@ export default function ProgressScreen({ profile, user }: { profile: SleepProfil
   const [wearable, setWearable] = useState<SleepPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [ledgerOpen, setLedgerOpen] = useState(true);
+  const [feelingOpen, setFeelingOpen] = useState(false);
+  const [sleepScoreOpen, setSleepScoreOpen] = useState(false);
+  const [ledgerOpen, setLedgerOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [aiProfile, setAiProfile] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -60,6 +62,7 @@ export default function ProgressScreen({ profile, user }: { profile: SleepProfil
   const deltas = useMemo(() => rollingDeltas(points), [points]);
   const experiments = useMemo(() => experimentInsights(commitments, points), [commitments, points]);
   const energy = useMemo(() => feelingTrend(checkins), [checkins]);
+  const weekFeeling = useMemo(() => weeklyFeeling(checkins), [checkins]);
   const recent = points.slice(-7);
   const min = Math.min(...recent.map(point => point.score), 50); const max = Math.max(...recent.map(point => point.score), 100);
   const ledger = deltas.filter(item => item.delta !== null).slice(-14).reverse();
@@ -85,17 +88,21 @@ export default function ProgressScreen({ profile, user }: { profile: SleepProfil
   return <ScrollView contentContainerStyle={styles.content}>
     <Text style={styles.eyebrow}>PROGRESS</Text><Text style={styles.title}>What we’re learning</Text><Text style={styles.subtitle}>Your signals become more useful as patterns repeat.</Text>
     {loading ? <ActivityIndicator color={colors.accent} style={styles.loader}/> : <>
-      <View style={styles.energyCard}><Text style={styles.cardEyebrow}>HOW YOU’VE BEEN FEELING</Text><Text style={styles.energy}>{energy.current ? feelingLabel(energy.current) : 'Learning'}</Text><Text style={styles.energyTrend}>{energy.direction === 'up' ? '↗ Trending better' : energy.direction === 'down' ? '↘ Trending lower' : '→ Holding steady'} over the past week</Text></View>
-
       <View style={styles.journeyCard}>
         <View style={styles.cardHeader}><View><Text style={styles.cardEyebrow}>YOUR 30-DAY JOURNEY</Text><Text style={styles.cardTitle}>Small steps, adding up</Text></View><Text style={styles.average}>{completedCount} of 30</Text></View>
         <View style={styles.journeyGrid}>{journeyDates.map((date, index) => <View accessibilityLabel={`Day ${index + 1}${completedDates.has(date) ? ', check-in complete' : ', no check-in'}`} key={date} style={[styles.journeySquare, completedDates.has(date) && styles.journeySquareComplete, date > localDate() && styles.journeySquareFuture]}/>)}</View>
       </View>
 
-      <View style={styles.card}><View style={styles.cardHeader}><View><Text style={styles.cardEyebrow}>SLEEP SCORE</Text><Text style={styles.cardTitle}>Past 7 days</Text></View><Text style={styles.average}>{recent.length ? Math.round(recent.reduce((sum, p) => sum + p.score, 0) / recent.length) : '—'} avg</Text></View>
-        <View style={styles.chart}>{recent.length ? recent.map(point => <View key={point.date} style={styles.chartColumn}><View style={[styles.bar, { height: 18 + ((point.score - min) / Math.max(1, max - min)) * 72 }, point.source === 'manual' && styles.manualBar]}/><Text style={styles.chartScore}>{Math.round(point.score)}</Text><Text style={styles.chartDate}>{dateLabel(point.date).split(' ')[1]}</Text></View>) : <Text style={styles.empty}>Sleep scores will create your trend line.</Text>}</View>
-        <View style={styles.legend}><View style={styles.legendDot}/><Text style={styles.legendText}>Wearable</Text><View style={[styles.legendDot, styles.manualDot]}/><Text style={styles.legendText}>Manual</Text></View>
-      </View>
+      <Section title="HOW YOU’VE BEEN FEELING THIS WEEK" subtitle="Your seven-day energy pattern" open={feelingOpen} onPress={() => setFeelingOpen(value => !value)}>
+        <View style={styles.sectionBody}><Text style={styles.energy}>{weekFeeling.feeling ? feelingLabel(weekFeeling.feeling) : 'Still learning'}</Text><Text style={styles.energyTrend}>{weekFeeling.count ? `Based on ${weekFeeling.count} check-in${weekFeeling.count === 1 ? '' : 's'} · ` : ''}{energy.direction === 'up' ? 'trending better' : energy.direction === 'down' ? 'trending lower' : 'holding steady'}</Text></View>
+      </Section>
+
+      <Section title="SLEEP SCORE" subtitle="Past 7 days" open={sleepScoreOpen} onPress={() => setSleepScoreOpen(value => !value)}>
+        <View style={styles.sectionBody}><View style={styles.scoreSummary}><Text style={styles.cardTitle}>Seven-night trend</Text><Text style={styles.average}>{recent.length ? Math.round(recent.reduce((sum, p) => sum + p.score, 0) / recent.length) : '—'} avg</Text></View>
+          <View style={styles.chart}>{recent.length ? recent.map(point => <View key={point.date} style={styles.chartColumn}><View style={[styles.bar, { height: 18 + ((point.score - min) / Math.max(1, max - min)) * 72 }, point.source === 'manual' && styles.manualBar]}/><Text style={styles.chartScore}>{Math.round(point.score)}</Text><Text style={styles.chartDate}>{dateLabel(point.date).split(' ')[1]}</Text></View>) : <Text style={styles.empty}>Sleep scores will create your trend line.</Text>}</View>
+          <View style={styles.legend}><View style={styles.legendDot}/><Text style={styles.legendText}>Wearable</Text><View style={[styles.legendDot, styles.manualDot]}/><Text style={styles.legendText}>Manual</Text></View>
+        </View>
+      </Section>
 
       <Section title="YOUR SLEEP PROFILE" subtitle="A picture of you, built day by day" open={profileOpen} onPress={() => { const next = !profileOpen; setProfileOpen(next); if (next) void refreshProfile(); }}>
         <View style={styles.profileBody}>
@@ -116,7 +123,7 @@ function Section({children,onPress,open,subtitle,title}:{children:React.ReactNod
 const amber = '#e0ae67';
 const styles = StyleSheet.create({
   content:{paddingBottom:48,paddingHorizontal:22,paddingTop:layout.screenTopPadding},eyebrow:{color:colors.accent,fontSize:11,fontWeight:'800',letterSpacing:1.6},title:{color:colors.text,fontSize:32,fontWeight:'800',letterSpacing:-.8,marginTop:10},subtitle:{color:colors.textMuted,fontSize:15,lineHeight:22,marginBottom:24,marginTop:9},loader:{marginTop:50},
-  card:{backgroundColor:colors.surface,borderColor:colors.border,borderRadius:22,borderWidth:1,marginBottom:14,padding:18},energyCard:{backgroundColor:colors.surfaceAccent,borderColor:colors.borderSelected,borderRadius:24,borderWidth:1,marginBottom:14,padding:20},cardEyebrow:{color:colors.accent,fontSize:10,fontWeight:'800',letterSpacing:1.4},energy:{color:colors.text,fontSize:40,fontWeight:'800',letterSpacing:-1.1,marginTop:10},energyTrend:{color:colors.textMuted,fontSize:13,marginTop:5},cardHeader:{alignItems:'flex-start',flexDirection:'row',justifyContent:'space-between'},cardTitle:{color:colors.text,fontSize:19,fontWeight:'800',marginTop:5},average:{color:colors.accentSoft,fontSize:13,fontWeight:'700'},
+  cardEyebrow:{color:colors.accent,fontSize:10,fontWeight:'800',letterSpacing:1.4},energy:{color:colors.text,fontSize:32,fontWeight:'800',letterSpacing:-.8},energyTrend:{color:colors.textMuted,fontSize:13,marginTop:7},cardHeader:{alignItems:'flex-start',flexDirection:'row',justifyContent:'space-between'},cardTitle:{color:colors.text,fontSize:16,fontWeight:'800'},average:{color:colors.accentSoft,fontSize:13,fontWeight:'700'},scoreSummary:{alignItems:'center',flexDirection:'row',justifyContent:'space-between'},sectionBody:{borderTopColor:colors.border,borderTopWidth:1,padding:18},
   chart:{alignItems:'flex-end',flexDirection:'row',gap:7,height:134,marginTop:17},chartColumn:{alignItems:'center',flex:1,justifyContent:'flex-end'},bar:{backgroundColor:colors.accentStrong,borderRadius:6,minHeight:18,width:'72%'},manualBar:{backgroundColor:colors.accentSoft,borderColor:colors.accentStrong,borderWidth:1},chartScore:{color:colors.textMuted,fontSize:9,fontWeight:'700',marginTop:5},chartDate:{color:colors.textFaint,fontSize:9,marginTop:2},legend:{alignItems:'center',flexDirection:'row',gap:6,justifyContent:'flex-end',marginTop:12},legendDot:{backgroundColor:colors.accentStrong,borderRadius:3,height:6,width:6},manualDot:{backgroundColor:colors.accentSoft},legendText:{color:colors.textFaint,fontSize:9,marginRight:5},
   journeyCard:{backgroundColor:colors.surface,borderColor:colors.border,borderRadius:22,borderWidth:1,marginBottom:14,padding:18},journeyGrid:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:18,maxWidth:283},journeySquare:{backgroundColor:colors.surfaceRaised,borderColor:colors.border,borderRadius:4,borderWidth:1,height:22,width:22},journeySquareComplete:{backgroundColor:colors.accentStrong,borderColor:colors.accent},journeySquareFuture:{opacity:.36},profileBody:{borderTopColor:colors.border,borderTopWidth:1,padding:18},profileTitle:{color:colors.text,fontSize:17,fontWeight:'800',lineHeight:23},profileCopy:{color:colors.textMuted,fontSize:14,lineHeight:22,marginTop:10},profileLoading:{alignItems:'center',flexDirection:'row',gap:10,marginTop:14},profileLoadingText:{color:colors.textSubtle,fontSize:12},profileUpdated:{color:colors.textFaint,fontSize:10,lineHeight:16,marginTop:14},section:{backgroundColor:colors.surface,borderColor:colors.border,borderRadius:20,borderWidth:1,marginBottom:14,overflow:'hidden'},sectionHeader:{alignItems:'center',flexDirection:'row',padding:18},sectionHeading:{flex:1},sectionSubtitle:{color:colors.textSubtle,fontSize:11,lineHeight:17,marginTop:5},chevron:{color:colors.textMuted,fontSize:20},ledgerRow:{borderTopColor:colors.border,borderTopWidth:1,flexDirection:'row',padding:17},delta:{fontSize:24,fontWeight:'800',letterSpacing:-.5,minWidth:52},positive:{color:colors.accentStrong},negative:{color:amber},ledgerCopy:{flex:1},ledgerTitle:{color:colors.text,fontSize:14,fontWeight:'700'},ledgerNote:{color:colors.textMuted,fontSize:12,lineHeight:18,marginTop:4},ledgerDate:{color:colors.textFaint,fontSize:10,marginTop:7},experiment:{borderTopColor:colors.border,borderTopWidth:1,padding:17},experimentHeader:{alignItems:'flex-start',gap:10},experimentTitle:{color:colors.text,fontSize:14,fontWeight:'700',lineHeight:20},verdict:{color:colors.textSubtle,fontSize:10,fontWeight:'800',textTransform:'uppercase'},helpful:{color:colors.success},experimentMeta:{color:colors.textSubtle,fontSize:11,lineHeight:17,marginTop:8},empty:{color:colors.textSubtle,fontSize:13,lineHeight:20,padding:18},error:{color:colors.danger,fontSize:12,lineHeight:18,marginTop:8}
 });
