@@ -41,7 +41,7 @@ module.exports = {
     android: {
       package: variant.androidPackage,
       adaptiveIcon: {
-        backgroundColor: '#E6F4FE',
+        backgroundColor: '#010818',
         foregroundImage: './assets/android-icon-foreground.png',
         backgroundImage: './assets/android-icon-background.png',
         monochromeImage: './assets/android-icon-monochrome.png',
