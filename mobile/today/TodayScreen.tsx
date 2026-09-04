@@ -70,17 +70,27 @@ const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
   const [trackWidth, setTrackWidth] = useState(0);
   const trackLeft = useRef(0);
   const trackRef = useRef<View>(null);
+  const valueRef = useRef(value);
+  valueRef.current = value;
   const displayValue = value ?? 50;
   const updateFromPageX = (pageX: number) => {
     if (disabled || !onChange || trackWidth <= 0) return;
-    onChange(clampSleepScore(((pageX - trackLeft.current) / trackWidth) * 100));
+    const nextScore = clampSleepScore(((pageX - trackLeft.current) / trackWidth) * 100);
+    if (nextScore !== valueRef.current) {
+      valueRef.current = nextScore;
+      onChange(nextScore);
+    }
   };
   const measureTrack = (pageX?: number) => {
     trackRef.current?.measureInWindow((x, _y, width) => {
       trackLeft.current = x;
       if (width > 0) setTrackWidth(width);
       if (pageX !== undefined && width > 0 && onChange && !disabled) {
-        onChange(clampSleepScore(((pageX - x) / width) * 100));
+        const nextScore = clampSleepScore(((pageX - x) / width) * 100);
+        if (nextScore !== valueRef.current) {
+          valueRef.current = nextScore;
+          onChange(nextScore);
+        }
       }
     });
   };
@@ -113,7 +123,9 @@ const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
         onMoveShouldSetResponder={() => !disabled}
         onResponderGrant={beginDrag}
         onResponderMove={(event) => updateFromPageX(event.nativeEvent.pageX)}
-        onResponderTerminationRequest={() => false}
+        onResponderRelease={(event) => updateFromPageX(event.nativeEvent.pageX)}
+        onResponderTerminate={() => measureTrack()}
+        onResponderTerminationRequest={() => true}
         onStartShouldSetResponder={() => !disabled}
         style={styles.sleepScoreTrackTouch}
       >
