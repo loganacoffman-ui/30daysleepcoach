@@ -16,7 +16,6 @@ import {
 } from "react-native";
 import type { StyleProp, TextStyle } from "react-native";
 import type { User } from "@supabase/supabase-js";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors, layout } from "../design/theme";
@@ -26,8 +25,11 @@ import { feelingLabel } from "../today/feeling";
 import type { TodayRepository } from "../today/types";
 import {
   createCoachConversation,
+  dailyConversationDate,
+  getOrCreateDailyConversation,
   loadCoachHomeState,
   loadCoachConversation,
+  localDate,
   listCoachConversations,
   resolveCoachToolCall,
   sendCoachMessage,
@@ -39,7 +41,6 @@ const HISTORY_SWIPE_OPEN_DISTANCE = 96;
 const HISTORY_DRAWER_WIDTH_RATIO = 0.82;
 const HISTORY_DRAWER_OPEN_DURATION = 260;
 const HISTORY_DRAWER_CLOSE_DURATION = 200;
-const activeConversationKey = (userId: string) => `sleep-coach:active-conversation:${userId}`;
 const thinkingSteps = [
   "Reviewing your recent sleep…",
   "Comparing your experiments…",
@@ -181,11 +182,13 @@ const Message = ({
 
 export default function CoachChatScreen({
   dailyViewRequest,
+  homeRequest,
   user,
   profile,
   repository,
 }: {
   dailyViewRequest?: number;
+  homeRequest?: number;
   user: User;
   profile: SleepProfile;
   repository: TodayRepository;
@@ -334,21 +337,8 @@ export default function CoachChatScreen({
   );
 
   useEffect(() => {
-    let active = true;
     void refreshHistory().catch(() => undefined);
     void loadCoachHomeState(user).then(setHomeState).catch(() => setHomeState(null));
-    void AsyncStorage.getItem(activeConversationKey(user.id)).then(async storedId => {
-      if (!storedId || !active) return;
-      try {
-        const loadedMessages = await loadCoachConversation(user, storedId);
-        if (!active) return;
-        setConversationId(storedId);
-        setMessages(loadedMessages);
-      } catch {
-        await AsyncStorage.removeItem(activeConversationKey(user.id));
-      }
-    });
-    return () => { active = false; };
   }, [user.id]);
 
   useEffect(() => {
@@ -357,18 +347,13 @@ export default function CoachChatScreen({
     return () => clearInterval(timer);
   }, [sending]);
 
-  useEffect(() => {
-    if (dailyViewRequest) setDailyViewOpen(true);
-  }, [dailyViewRequest]);
-
   const beginConversation = async (firstMessage: string) => {
     const id = await createCoachConversation(user, firstMessage);
     setConversationId(id);
-    await AsyncStorage.setItem(activeConversationKey(user.id), id);
     return id;
   };
 
-  const startNewChat = () => {
+  const showCoachHome = useCallback(() => {
     setDailyViewOpen(false);
     setConversationId(null);
     setMessages([]);
@@ -376,18 +361,46 @@ export default function CoachChatScreen({
     setError("");
     setRevealingMessageId(null);
     closeHistory();
-    void AsyncStorage.removeItem(activeConversationKey(user.id));
-  };
+    void loadCoachHomeState(user).then(setHomeState).catch(() => undefined);
+  }, [closeHistory, user]);
+
+  const startNewChat = showCoachHome;
+
+  const openDailyThread = useCallback(async () => {
+    setBusyAction(true);
+    setError("");
+    try {
+      const id = await getOrCreateDailyConversation(user);
+      const loadedMessages = await loadCoachConversation(user, id);
+      setConversationId(id);
+      setMessages(loadedMessages);
+      setDailyViewOpen(true);
+      closeHistory();
+      await refreshHistory();
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Today’s coaching thread could not be opened.");
+    } finally {
+      setBusyAction(false);
+    }
+  }, [closeHistory, refreshHistory, user]);
+
+  useEffect(() => {
+    if (homeRequest) showCoachHome();
+  }, [homeRequest, showCoachHome]);
+
+  useEffect(() => {
+    if (dailyViewRequest) void openDailyThread();
+  }, [dailyViewRequest, openDailyThread]);
 
   const openConversation = async (conversation: CoachConversationSummary) => {
-    setDailyViewOpen(false);
+    const dailyDate = dailyConversationDate(conversation.title);
+    setDailyViewOpen(dailyDate === localDate());
     setBusyAction(true);
     setError("");
     try {
       const loadedMessages = await loadCoachConversation(user, conversation.id);
       setConversationId(conversation.id);
       setMessages(loadedMessages);
-      await AsyncStorage.setItem(activeConversationKey(user.id), conversation.id);
       closeHistory();
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "That conversation could not be loaded.");
@@ -504,6 +517,14 @@ export default function CoachChatScreen({
     }
   };
 
+  const isCoachHome = !dailyViewOpen && !conversationId && messages.length === 0;
+  const recentConversation = conversations[0] ?? null;
+  const conversationLabel = (conversation: CoachConversationSummary) => {
+    const dailyDate = dailyConversationDate(conversation.title);
+    if (!dailyDate) return conversation.title;
+    return `Your Day · ${new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(`${dailyDate}T12:00:00`))}`;
+  };
+
   return (
     <SafeAreaView edges={["top"]} style={styles.screen}>
       <View pointerEvents="none" style={styles.ambient}>
@@ -529,12 +550,10 @@ export default function CoachChatScreen({
               <Text style={styles.title}>Coach</Text>
             </View>
             <Pressable accessibilityRole="button" onPress={() => {
-              if (dailyViewOpen) {
-                setDailyViewOpen(false);
-                void loadCoachHomeState(user).then(setHomeState).catch(() => undefined);
-              } else setDailyViewOpen(true);
+              if (isCoachHome) void openDailyThread();
+              else showCoachHome();
             }} style={styles.newButton}>
-              <Text style={styles.newButtonText}>{dailyViewOpen ? "← Chat" : "Your day"}</Text>
+              <Text style={styles.newButtonText}>{isCoachHome ? "Your day" : "← Coach home"}</Text>
             </Pressable>
           </View>
 
@@ -544,13 +563,16 @@ export default function CoachChatScreen({
             <View style={styles.newChat}>
               <Text style={styles.newChatTitle}>What would you like to explore?</Text>
               <Text style={styles.personalizedNote}>{personalizedGreeting(homeState)}</Text>
-              <Pressable accessibilityRole="button" onPress={() => setDailyViewOpen(true)} style={({ pressed }) => [styles.dailyEntry, pressed && styles.suggestionPressed]}>
+              <Pressable accessibilityRole="button" onPress={() => void openDailyThread()} style={({ pressed }) => [styles.dailyEntry, pressed && styles.suggestionPressed]}>
                 <View style={styles.dailyEntryCopy}>
                   <Text style={styles.dailyEntryEyebrow}>YOUR DAY</Text>
                   <Text style={styles.dailyEntryTitle}>{homeState?.hasCheckedInToday ? "View today’s coaching" : "Complete today’s check-in"}</Text>
                 </View>
                 <Text style={styles.dailyEntryArrow}>›</Text>
               </Pressable>
+              {recentConversation && <Pressable accessibilityRole="button" onPress={() => void openConversation(recentConversation)} style={({ pressed }) => [styles.resumeAction, pressed && styles.suggestionPressed]}>
+                <View style={styles.resumeDot}/><View style={styles.resumeCopy}><Text style={styles.resumeLabel}>Continue recent conversation</Text><Text numberOfLines={1} style={styles.resumeDescription}>{conversationLabel(recentConversation)}</Text></View><Text style={styles.resumeArrow}>›</Text>
+              </Pressable>}
               <View style={styles.suggestions}>
                 {[
                   "How is my sleep trending?",
@@ -681,7 +703,10 @@ export default function CoachChatScreen({
                     pressed && styles.suggestionPressed,
                   ]}
                 >
-                  <Text numberOfLines={2} style={styles.conversationTitle}>{item.title}</Text>
+                  <View style={styles.conversationTitleRow}>
+                    <Text numberOfLines={2} style={styles.conversationTitle}>{conversationLabel(item)}</Text>
+                    {dailyConversationDate(item.title) && <Text style={styles.dailyBadge}>DAILY</Text>}
+                  </View>
                 </Pressable>
               )}
             />
@@ -993,7 +1018,19 @@ const styles = StyleSheet.create({
   drawerEmpty: { color: colors.textSubtle, fontSize: 13, lineHeight: 19, padding: 12 },
   conversationRow: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 13 },
   conversationRowActive: { backgroundColor: colors.surfaceAccent },
-  conversationTitle: { color: colors.textMuted, fontSize: 14, lineHeight: 19 },
+  conversationTitleRow: { alignItems: "center", flexDirection: "row", gap: 8 },
+  conversationTitle: { color: colors.textMuted, flex: 1, fontSize: 14, lineHeight: 19 },
+  dailyBadge: {
+    backgroundColor: colors.surfaceAccent,
+    borderRadius: 7,
+    color: colors.accent,
+    fontSize: 8,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+    overflow: "hidden",
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+  },
   resumeAction: {
     alignItems: "center",
     backgroundColor: colors.surfaceAccent,

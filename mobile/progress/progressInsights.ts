@@ -73,6 +73,50 @@ export type ExperimentInsight = {
   verdict: 'Likely helpful' | 'Likely unhelpful' | 'Still learning';
 };
 
+export type RankedSleepSignal = {
+  key: string;
+  label: string;
+  kind: 'factor' | 'experiment';
+  count: number;
+  averageDelta: number;
+  confidence: 'Early signal' | 'Moderate confidence' | 'Stronger signal';
+};
+
+export function rankSleepSignals(
+  checkins: ProgressCheckin[],
+  commitments: ProgressCommitment[],
+  points: SleepPoint[],
+): RankedSleepSignal[] {
+  const deltaByDate = new Map(rollingDeltas(points).map(point => [point.date, point.delta]));
+  const evidence = new Map<string, { label: string; kind: RankedSleepSignal['kind']; deltas: number[] }>();
+  const addEvidence = (key: string, label: string, kind: RankedSleepSignal['kind'], delta: number | null | undefined) => {
+    if (typeof delta !== 'number') return;
+    const existing = evidence.get(key) ?? { label, kind, deltas: [] };
+    existing.deltas.push(delta);
+    evidence.set(key, existing);
+  };
+  checkins.forEach(row => {
+    if (row.suspected_factor && row.suspected_factor !== 'unknown') addEvidence(`factor:${row.suspected_factor}`, row.suspected_factor, 'factor', deltaByDate.get(row.checkin_date));
+  });
+  commitments.forEach(item => {
+    if (item.status !== 'completed') return;
+    const normalized = item.behavior.trim().toLowerCase();
+    addEvidence(`experiment:${normalized}`, item.behavior.trim(), 'experiment', deltaByDate.get(addDays(item.behavior_date, 1)));
+  });
+  return [...evidence.entries()].flatMap(([key, item]) => {
+    const averageDelta = Math.round(item.deltas.reduce((sum, delta) => sum + delta, 0) / item.deltas.length);
+    if (item.deltas.length < 2 || Math.abs(averageDelta) < 4) return [];
+    return [{
+      key,
+      label: item.label,
+      kind: item.kind,
+      count: item.deltas.length,
+      averageDelta,
+      confidence: item.deltas.length >= 5 ? 'Stronger signal' as const : item.deltas.length >= 3 ? 'Moderate confidence' as const : 'Early signal' as const,
+    }];
+  }).sort((a, b) => (b.count * Math.abs(b.averageDelta)) - (a.count * Math.abs(a.averageDelta))).slice(0, 3);
+}
+
 export function experimentInsights(commitments: ProgressCommitment[], points: SleepPoint[]): ExperimentInsight[] {
   const scoreByDate = new Map(rollingDeltas(points).map(point => [point.date, point]));
   const groups = new Map<string, ProgressCommitment[]>();

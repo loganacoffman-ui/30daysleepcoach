@@ -25,6 +25,7 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
   const [tab,setTab]=useState<Tab>('coach');
   const [refreshKey,setRefreshKey]=useState(0);
   const [dailyViewRequest,setDailyViewRequest]=useState(0);
+  const [coachHomeRequest,setCoachHomeRequest]=useState(0);
   const repository=useMemo(()=>createSupabaseTodayRepository(session.user,profile.displayName,profile.primaryConcern),[session.user,profile.displayName,profile.primaryConcern]);
   useEffect(()=>{
     void supabase.from('app_open_days').upsert(
@@ -53,11 +54,11 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
     <View style={styles.screen}>
       <View style={styles.body}>
         {tab === 'progress' && <ProgressScreen profile={profile} user={session.user} />}
-        {tab === 'coach' && <CoachChatScreen dailyViewRequest={dailyViewRequest} key={refreshKey} profile={profile} repository={repository} user={session.user} />}
+        {tab === 'coach' && <CoachChatScreen dailyViewRequest={dailyViewRequest} homeRequest={coachHomeRequest} key={refreshKey} profile={profile} repository={repository} user={session.user} />}
         {tab === 'settings' && <SettingsScreen busy={busy} onDeleteAccount={onDeleteAccount} onSignOut={onSignOut} profile={profile} user={session.user} />}
       </View>
       <View style={styles.tabs}>
-        {tabs.map(item => <Pressable accessibilityRole="tab" accessibilityState={{selected:tab===item.key}} key={item.key} onPress={()=>setTab(item.key)} style={styles.tab}><Text style={[styles.icon,tab===item.key&&styles.selected]}>{item.icon}</Text><Text style={[styles.label,tab===item.key&&styles.selected]}>{item.label}</Text></Pressable>)}
+        {tabs.map(item => <Pressable accessibilityRole="tab" accessibilityState={{selected:tab===item.key}} key={item.key} onPress={()=>{setTab(item.key);if(item.key==='coach')setCoachHomeRequest(value=>value+1);}} style={styles.tab}><Text style={[styles.icon,tab===item.key&&styles.selected]}>{item.icon}</Text><Text style={[styles.label,tab===item.key&&styles.selected]}>{item.label}</Text></Pressable>)}
       </View>
       <StatusBar style="light" />
     </View>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { experimentInsights, feelingTrend, mergeSleepPoints, rollingDeltas, weeklyFeeling } from '../mobile/progress/progressInsights';
+import { experimentInsights, feelingTrend, mergeSleepPoints, rankSleepSignals, rollingDeltas, weeklyFeeling } from '../mobile/progress/progressInsights';
 
 describe('progress intelligence', () => {
   it('prefers wearable scores and falls back to manual scores', () => {
@@ -65,5 +65,15 @@ describe('progress intelligence', () => {
       { checkin_date: '2026-09-03', manual_sleep_score: null, morningFeeling: 'great', note: null, suspected_factor: null },
     ]);
     expect(result).toEqual({ feeling: 'okay', count: 3 });
+  });
+
+  it('promotes only repeated material factors into ranked signals', () => {
+    const points = [70, 60, 72, 62].map((score, index) => ({ date: `2026-09-0${index + 1}`, score, source: 'manual' as const }));
+    const checkins = [
+      { checkin_date: '2026-09-02', manual_sleep_score: 60, morningFeeling: 'tired' as const, note: null, suspected_factor: 'late_meal' },
+      { checkin_date: '2026-09-04', manual_sleep_score: 62, morningFeeling: 'tired' as const, note: null, suspected_factor: 'late_meal' },
+      { checkin_date: '2026-09-03', manual_sleep_score: 72, morningFeeling: 'rested' as const, note: null, suspected_factor: 'noise' },
+    ];
+    expect(rankSleepSignals(checkins, [], points)).toEqual([expect.objectContaining({ label: 'late_meal', count: 2, averageDelta: -10, confidence: 'Early signal' })]);
   });
 });
