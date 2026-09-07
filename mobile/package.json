@@ -5,7 +5,7 @@
   "dependencies": {
     "@kingstinct/react-native-healthkit": "^14.1.0",
     "@react-native-async-storage/async-storage": "^2.2.0",
-    "@supabase/supabase-js": "2.112.3",
+    "@supabase/supabase-js": "^2.112.0",
     "expo": "~57.0.18",
     "expo-apple-authentication": "~57.0.1",
     "expo-auth-session": "~57.0.10",

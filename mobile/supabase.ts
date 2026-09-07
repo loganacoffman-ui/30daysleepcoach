@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, processLock } from '@supabase/supabase-js';
 import 'react-native-url-polyfill/auto';
-import { createBoundedFetch } from './auth/recovery';
 
 const fallbackSupabaseUrl = 'https://qfnouotdhfltgvjhfbld.supabase.co';
 const fallbackSupabasePublicKey =
@@ -12,13 +11,12 @@ export const supabasePublicKey =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || fallbackSupabasePublicKey;
 
 export const supabase = createClient(supabaseUrl, supabasePublicKey, {
-  global: { fetch: createBoundedFetch() },
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
     flowType: 'pkce',
-    // Use the SDK's default coordination (2.112.3+) instead of the legacy lock.
+    lock: processLock,
   },
 });
