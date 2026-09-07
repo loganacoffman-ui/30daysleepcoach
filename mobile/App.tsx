@@ -21,6 +21,11 @@ import {
 } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 
+import {
+  authErrorMessage,
+  isTransientAuthError,
+  shouldClearPersistedSession,
+} from './auth/sessionPolicy';
 import { colors } from './design/theme';
 import { clearDailyCheckInReminder, syncRemotePushRegistration } from './notifications';
 import { Onboarding } from './Onboarding';
@@ -77,19 +82,13 @@ async function createSessionFromUrl(url: string): Promise<AuthCallbackResult> {
 }
 
 function getErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (
-    error &&
-    typeof error === 'object' &&
-    'message' in error &&
-    typeof error.message === 'string'
-  ) {
-    return error.message;
-  }
-  return 'Something went wrong. Please try again.';
+  return authErrorMessage(error);
 }
+
+const authRetryDelaysMs = [350, 900];
+
+const wait = (delayMs: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, delayMs));
 
 function AppContent() {
   const incomingUrl = Linking.useLinkingURL();
@@ -121,22 +120,33 @@ function AppContent() {
         return;
       }
 
-      const { data: userData, error: userError } = await supabase.auth.getUser();
+      // A persisted session is enough to render the app. Validate it in the
+      // background so a slow or unavailable auth service never blocks launch.
+      storedSessionValidated = true;
+      setSession(data.session);
+      setInitializing(false);
+
+      let { data: userData, error: userError } = await supabase.auth.getUser();
+      for (const delayMs of authRetryDelaysMs) {
+        if (!userError || !isTransientAuthError(userError)) break;
+        await wait(delayMs);
+        ({ data: userData, error: userError } = await supabase.auth.getUser());
+      }
       if (!mounted) return;
 
       if (userError || !userData.user) {
+        if (userError && !shouldClearPersistedSession(userError)) {
+          return;
+        }
+
         await supabase.auth.signOut({ scope: 'local' });
         if (!mounted) return;
-        storedSessionValidated = true;
         setSession(null);
         setMessage('Your previous session expired. Please sign in again.');
-        setInitializing(false);
         return;
       }
 
-      storedSessionValidated = true;
       setSession({ ...data.session, user: userData.user });
-      setInitializing(false);
     };
 
     void restoreSession();
@@ -243,10 +253,18 @@ function AppContent() {
         throw new Error('Enter your email and password.');
       }
 
-      const { error } = await supabase.auth.signInWithPassword({
+      let { error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
+      for (const delayMs of authRetryDelaysMs) {
+        if (!error || !isTransientAuthError(error)) break;
+        await wait(delayMs);
+        ({ error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        }));
+      }
 
       if (error) {
         throw error;
