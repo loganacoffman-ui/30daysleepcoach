@@ -251,6 +251,48 @@ export const createCoachConversation = async (user: User, firstMessage?: string)
   return created.data.id as string;
 };
 
+const DAILY_CONVERSATION_PREFIX = 'Your Day · ';
+const dailyConversationRequests = new Map<string, Promise<string>>();
+
+export const dailyConversationDate = (title: string) => {
+  if (!title.startsWith(DAILY_CONVERSATION_PREFIX)) return null;
+  const date = title.slice(DAILY_CONVERSATION_PREFIX.length);
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
+};
+
+export const getOrCreateDailyConversation = async (user: User, date = localDate()) => {
+  const requestKey = `${user.id}:${date}`;
+  const pending = dailyConversationRequests.get(requestKey);
+  if (pending) return pending;
+  const request = getOrCreateDailyConversationRecord(user, date);
+  dailyConversationRequests.set(requestKey, request);
+  try { return await request; }
+  finally { dailyConversationRequests.delete(requestKey); }
+};
+
+const getOrCreateDailyConversationRecord = async (user: User, date: string) => {
+  const title = `${DAILY_CONVERSATION_PREFIX}${date}`;
+  const existing = await supabase
+    .from('coach_conversations')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('title', title)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (existing.error) throw existing.error;
+  if (existing.data?.id) return existing.data.id as string;
+  const created = await supabase
+    .from('coach_conversations')
+    .insert({ user_id: user.id, title })
+    .select('id')
+    .single();
+  if (created.error || !created.data) {
+    throw created.error ?? new Error('Could not open today’s coaching thread.');
+  }
+  return created.data.id as string;
+};
+
 export const listCoachConversations = async (user: User): Promise<CoachConversationSummary[]> => {
   const result = await supabase
     .from('coach_conversations')
