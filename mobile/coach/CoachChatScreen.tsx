@@ -518,7 +518,11 @@ export default function CoachChatScreen({
   };
 
   const isCoachHome = !dailyViewOpen && !conversationId && messages.length === 0;
-  const recentConversation = conversations[0] ?? null;
+  // Your Day already has a dedicated entry point. Only offer to resume an
+  // actual standalone Coach conversation here.
+  const recentConversation = conversations.find(
+    conversation => !dailyConversationDate(conversation.title),
+  ) ?? null;
   const conversationLabel = (conversation: CoachConversationSummary) => {
     const dailyDate = dailyConversationDate(conversation.title);
     if (!dailyDate) return conversation.title;
