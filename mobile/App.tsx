@@ -1,10 +1,9 @@
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
-import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
@@ -21,9 +20,13 @@ import {
 } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 
+import {
+  authErrorMessage,
+  isTransientAuthError,
+  shouldClearPersistedSession,
+} from './auth/sessionPolicy';
 import { colors } from './design/theme';
-import { restoreStoredSession, withDeadline } from './auth/recovery';
-import { clearDailyCheckInReminder, syncRemotePushRegistration } from './notifications';
+import { clearDailyCheckInReminder } from './notifications';
 import { Onboarding } from './Onboarding';
 import { supabase } from './supabase';
 import { loadSleepProfile } from './onboarding/profileRepository';
@@ -52,7 +55,7 @@ async function createSessionFromUrl(url: string): Promise<AuthCallbackResult> {
   const refreshToken = params.refresh_token;
 
   if (typeof authorizationCode === 'string') {
-    const { error } = await withDeadline(supabase.auth.exchangeCodeForSession(authorizationCode));
+    const { error } = await supabase.auth.exchangeCodeForSession(authorizationCode);
 
     if (error) {
       throw error;
@@ -62,10 +65,10 @@ async function createSessionFromUrl(url: string): Promise<AuthCallbackResult> {
   }
 
   if (typeof accessToken === 'string' && typeof refreshToken === 'string') {
-    const { error } = await withDeadline(supabase.auth.setSession({
+    const { error } = await supabase.auth.setSession({
       access_token: accessToken,
       refresh_token: refreshToken,
-    }));
+    });
 
     if (error) {
       throw error;
@@ -78,19 +81,13 @@ async function createSessionFromUrl(url: string): Promise<AuthCallbackResult> {
 }
 
 function getErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (
-    error &&
-    typeof error === 'object' &&
-    'message' in error &&
-    typeof error.message === 'string'
-  ) {
-    return error.message;
-  }
-  return 'Something went wrong. Please try again.';
+  return authErrorMessage(error);
 }
+
+const authRetryDelaysMs = [350, 900];
+
+const wait = (delayMs: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, delayMs));
 
 function AppContent() {
   const incomingUrl = Linking.useLinkingURL();
@@ -105,44 +102,61 @@ function AppContent() {
   const [appleSignInAvailable, setAppleSignInAvailable] = useState(false);
   const [profile, setProfile] = useState<SleepProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
-  const [profileUserId, setProfileUserId] = useState<string | null>(null);
-  const [profileError, setProfileError] = useState('');
-  const [profileAttempt, setProfileAttempt] = useState(0);
-  const [startupError, setStartupError] = useState('');
-  const [startupAttempt, setStartupAttempt] = useState(0);
-  const sessionRevision = useRef(0);
 
   useEffect(() => {
     let mounted = true;
-    const revision = sessionRevision.current;
-    setInitializing(true);
-    setStartupError('');
-    void withDeadline(restoreStoredSession(supabase.auth))
-      .then((restored) => {
-        if (mounted && revision === sessionRevision.current) setSession(restored);
-      })
-      .catch((error: unknown) => {
-        if (mounted && revision === sessionRevision.current) setStartupError(getErrorMessage(error));
-      })
-      .finally(() => {
-        if (mounted && revision === sessionRevision.current) setInitializing(false);
-      });
-    return () => { mounted = false; };
-  }, [startupAttempt]);
+    let storedSessionValidated = false;
 
-  useEffect(() => {
+    const restoreSession = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (!mounted) return;
+
+      if (error || !data.session) {
+        storedSessionValidated = true;
+        setSession(null);
+        if (error) setMessage(error.message);
+        setInitializing(false);
+        return;
+      }
+
+      // A persisted session is enough to render the app. Validate it in the
+      // background so a slow or unavailable auth service never blocks launch.
+      storedSessionValidated = true;
+      setSession(data.session);
+      setInitializing(false);
+
+      let { data: userData, error: userError } = await supabase.auth.getUser();
+      for (const delayMs of authRetryDelaysMs) {
+        if (!userError || !isTransientAuthError(userError)) break;
+        await wait(delayMs);
+        ({ data: userData, error: userError } = await supabase.auth.getUser());
+      }
+      if (!mounted) return;
+
+      if (userError || !userData.user) {
+        if (userError && !shouldClearPersistedSession(userError)) {
+          return;
+        }
+
+        await supabase.auth.signOut({ scope: 'local' });
+        if (!mounted) return;
+        setSession(null);
+        setMessage('Your previous session expired. Please sign in again.');
+        return;
+      }
+
+      setSession({ ...data.session, user: userData.user });
+    };
+
+    void restoreSession();
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      if (event === 'INITIAL_SESSION') {
+      if (event === 'INITIAL_SESSION' && !storedSessionValidated) {
         return;
       }
       setSession(nextSession);
-      if (event === 'SIGNED_OUT' || event === 'PASSWORD_RECOVERY') {
-        sessionRevision.current += 1;
-        setStartupError('');
-        setInitializing(false);
-      }
       if (event === 'PASSWORD_RECOVERY') {
         setRecoveryMode(true);
         setMessage('Choose a new password for your account.');
@@ -162,6 +176,7 @@ function AppContent() {
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
       appStateSubscription.remove();
       supabase.auth.stopAutoRefresh();
@@ -183,7 +198,6 @@ function AppContent() {
 
     void createSessionFromUrl(incomingUrl)
       .then(({ isRecovery }) => {
-        if (!isRecovery) setStartupAttempt((attempt) => attempt + 1);
         if (isRecovery) {
           setRecoveryMode(true);
           setMessage('Choose a new password for your account.');
@@ -198,30 +212,15 @@ function AppContent() {
     let mounted = true;
     if (!session) {
       setProfile(null);
-      setProfileUserId(null);
-      setProfileError('');
       setProfileLoading(false);
       return;
     }
     setProfileLoading(true);
-    setProfileError('');
-    setProfile(null);
-    setProfileUserId(session.user.id);
-    void withDeadline(loadSleepProfile(session.user))
+    void loadSleepProfile(session.user)
       .then((nextProfile) => { if (mounted) setProfile(nextProfile); })
-      .catch((error: unknown) => { if (mounted) setProfileError(getErrorMessage(error)); })
+      .catch((error: unknown) => { if (mounted) setMessage(getErrorMessage(error)); })
       .finally(() => { if (mounted) setProfileLoading(false); });
     return () => { mounted = false; };
-  }, [session?.user.id, profileAttempt]);
-
-  useEffect(() => {
-    if (!session || Platform.OS === 'web') return;
-
-    void syncRemotePushRegistration().catch(() => undefined);
-    const tokenSubscription = Notifications.addPushTokenListener(() => {
-      void syncRemotePushRegistration().catch(() => undefined);
-    });
-    return () => tokenSubscription.remove();
   }, [session?.user.id]);
 
   const runAuthAction = async (action: () => Promise<void>) => {
@@ -243,10 +242,18 @@ function AppContent() {
         throw new Error('Enter your email and password.');
       }
 
-      const { error } = await withDeadline(supabase.auth.signInWithPassword({
+      let { error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
-      }));
+      });
+      for (const delayMs of authRetryDelaysMs) {
+        if (!error || !isTransientAuthError(error)) break;
+        await wait(delayMs);
+        ({ error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        }));
+      }
 
       if (error) {
         throw error;
@@ -259,13 +266,13 @@ function AppContent() {
         throw new Error('Enter a valid email and a password with at least 8 characters.');
       }
 
-      const { data, error } = await withDeadline(supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
           emailRedirectTo: redirectTo,
         },
-      }));
+      });
 
       if (error) {
         throw error;
@@ -284,9 +291,9 @@ function AppContent() {
         throw new Error('Enter your email first.');
       }
 
-      const { error } = await withDeadline(supabase.auth.resetPasswordForEmail(email.trim(), {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo,
-      }));
+      });
 
       if (error) {
         throw error;
@@ -301,7 +308,7 @@ function AppContent() {
         throw new Error('Your new password must be at least 8 characters.');
       }
 
-      const { error } = await withDeadline(supabase.auth.updateUser({ password: newPassword }));
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
 
       if (error) {
         throw error;
@@ -314,13 +321,13 @@ function AppContent() {
 
   const signInWithGoogle = () =>
     runAuthAction(async () => {
-      const { data, error } = await withDeadline(supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo,
           skipBrowserRedirect: true,
         },
-      }));
+      });
 
       if (error) {
         throw error;
@@ -351,10 +358,10 @@ function AppContent() {
           throw new Error('Apple did not return a valid identity token. Please try again.');
         }
 
-        const { error } = await withDeadline(supabase.auth.signInWithIdToken({
+        const { error } = await supabase.auth.signInWithIdToken({
           provider: 'apple',
           token: credential.identityToken,
-        }));
+        });
 
         if (error) {
           throw error;
@@ -364,13 +371,13 @@ function AppContent() {
           const fullName = AppleAuthentication.formatFullName(credential.fullName);
 
           if (fullName) {
-            const { error: updateError } = await withDeadline(supabase.auth.updateUser({
+            const { error: updateError } = await supabase.auth.updateUser({
               data: {
                 full_name: fullName,
                 given_name: credential.fullName.givenName,
                 family_name: credential.fullName.familyName,
               },
-            }));
+            });
 
             if (updateError) {
               throw updateError;
@@ -389,7 +396,7 @@ function AppContent() {
   const signOut = () =>
     runAuthAction(async () => {
       await clearDailyCheckInReminder();
-      const { error } = await withDeadline(supabase.auth.signOut());
+      const { error } = await supabase.auth.signOut();
 
       if (error) {
         throw error;
@@ -414,7 +421,7 @@ function AppContent() {
               }
 
               await clearDailyCheckInReminder();
-              await withDeadline(supabase.auth.signOut({ scope: 'local' }));
+              await supabase.auth.signOut({ scope: 'local' });
               setMessage('Your account has been permanently deleted.');
             });
           },
@@ -444,47 +451,14 @@ function AppContent() {
     );
   }
 
-  const retryScreen = (title: string, detail: string, retry: () => void) => (
-    <View style={[styles.loadingContainer, { paddingHorizontal: 24 }]}>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.subtitle}>{detail}</Text>
-      <Pressable accessibilityRole="button" style={[styles.button, styles.primaryButton]} onPress={retry} disabled={busy}>
-        <Text style={styles.primaryButtonText}>Try again</Text>
-      </Pressable>
-      <Pressable accessibilityRole="button" style={[styles.button, styles.secondaryButton]} disabled={busy}
-        onPress={() => void runAuthAction(async () => {
-          const { error } = await withDeadline(supabase.auth.signOut({ scope: 'local' }));
-          if (error) throw error;
-        })}>
-        <Text style={styles.secondaryButtonText}>{busy ? 'Signing out…' : 'Sign in again'}</Text>
-      </Pressable>
-      {!!message && <Text style={styles.message}>{message}</Text>}
-      <StatusBar style="light" />
-    </View>
-  );
-
-  if (startupError) {
-    return retryScreen('We couldn’t connect', startupError, () => {
-      setInitializing(true);
-      setStartupAttempt((attempt) => attempt + 1);
-    });
-  }
-
   if (session && !recoveryMode) {
-    if (profileLoading || profileUserId !== session.user.id) {
+    if (profileLoading) {
       return (
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={colors.accent} size="large" />
           <StatusBar style="light" />
         </View>
       );
-    }
-
-    if (profileError) {
-      return retryScreen('We couldn’t load your profile', profileError, () => {
-        setProfileLoading(true);
-        setProfileAttempt((attempt) => attempt + 1);
-      });
     }
 
     if (!profile) {

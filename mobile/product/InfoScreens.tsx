@@ -11,7 +11,6 @@ import {
   getDailyCheckInReminderState,
   saveDailyCheckInReminderTime,
   scheduleDailyCheckInReminder,
-  sendTestPushNotification,
 } from '../notifications';
 import { supabase } from '../supabase';
 import type { SleepProfile, SleepSource } from '../onboarding/types';
@@ -78,8 +77,6 @@ export function SettingsScreen({ user, profile, busy, onSignOut, onDeleteAccount
   const [reminderLoading,setReminderLoading]=useState(true);
   const [reminderBusy,setReminderBusy]=useState(false);
   const [reminderError,setReminderError]=useState('');
-  const [testPushBusy,setTestPushBusy]=useState(false);
-  const [testPushMessage,setTestPushMessage]=useState('');
   const [preferredSource,setPreferredSource]=useState<SleepSource|null>(profile.preferredSleepSource);
   const [sourceBusy,setSourceBusy]=useState(false);
   const [sourceError,setSourceError]=useState('');
@@ -163,21 +160,6 @@ export function SettingsScreen({ user, profile, busy, onSignOut, onDeleteAccount
     }
   };
 
-  const testPush=async()=>{
-    if(testPushBusy)return;
-    setTestPushBusy(true);
-    setTestPushMessage('');
-    setReminderError('');
-    try{
-      await sendTestPushNotification();
-      setTestPushMessage('Test sent. Lock your phone or leave the app to see it arrive.');
-    }catch(error){
-      setReminderError(getNotificationError(error));
-    }finally{
-      setTestPushBusy(false);
-    }
-  };
-
   const savePreferredSource=async(source:SleepSource)=>{
     if(sourceBusy)return;
     setSourceBusy(true);
@@ -217,8 +199,6 @@ export function SettingsScreen({ user, profile, busy, onSignOut, onDeleteAccount
         <Text style={s.reminderTime}>{formatReminderTime(reminderTime)}</Text>
         <Pressable accessibilityLabel="Move reminder 15 minutes later" disabled={reminderBusy} onPress={()=>{void adjustReminderTime(1);}} style={s.timeAdjustButton}><Text style={s.timeAdjustText}>+</Text></Pressable>
       </View>
-      {reminderEnabled&&<Pressable accessibilityRole="button" disabled={testPushBusy} onPress={()=>{void testPush();}} style={s.button}><Text style={s.buttonText}>{testPushBusy?'Sending…':'Send test notification'}</Text></Pressable>}
-      {!!testPushMessage&&<Text style={s.notificationSuccess}>{testPushMessage}</Text>}
       {!!reminderError&&<Text style={s.notificationError}>{reminderError}</Text>}
     </View>
     {Platform.OS==='ios'&&<View style={s.card}>
