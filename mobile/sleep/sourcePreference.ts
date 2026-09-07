@@ -5,7 +5,7 @@ import { supabase } from '../supabase';
 
 const preferenceKey = (userId: string) => `sleep-coach:preferred-sleep-source:${userId}`;
 
-const asSleepSource = (value: unknown): SleepSource | null =>
+export const asSleepSource = (value: unknown): SleepSource | null =>
   value === 'apple_health' || value === 'oura' ? value : null;
 
 export const isUnavailableSleepSchemaError = (error: unknown) => {
@@ -20,8 +20,12 @@ export const isUnavailableSleepSchemaError = (error: unknown) => {
   );
 };
 
+export async function loadLocalPreferredSleepSource(userId: string): Promise<SleepSource | null> {
+  return asSleepSource(await AsyncStorage.getItem(preferenceKey(userId)));
+}
+
 export async function loadPreferredSleepSource(userId: string): Promise<SleepSource | null> {
-  const localPreference = asSleepSource(await AsyncStorage.getItem(preferenceKey(userId)));
+  const localPreference = await loadLocalPreferredSleepSource(userId);
   const { data, error } = await supabase
     .from('sleep_profiles')
     .select('preferred_sleep_source')

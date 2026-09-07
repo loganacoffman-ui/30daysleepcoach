@@ -1,6 +1,6 @@
 import type { User } from '@supabase/supabase-js';
 
-import { loadPreferredSleepSource } from '../sleep/sourcePreference';
+import { asSleepSource, isUnavailableSleepSchemaError, loadLocalPreferredSleepSource } from '../sleep/sourcePreference';
 import { supabase } from '../supabase';
 import type { PrimaryConcern, SleepProfile, SleepSource } from './types';
 
@@ -12,6 +12,7 @@ type ProfileRow = {
   timezone: string;
   intake_answers: { reminder_time?: string; first_experiment?: string } | null;
   onboarding_completed_at: string | null;
+  preferred_sleep_source?: string | null;
 };
 
 const asProfile = (row: ProfileRow, preferredSleepSource: SleepSource | null): SleepProfile | null => {
@@ -30,14 +31,22 @@ const asProfile = (row: ProfileRow, preferredSleepSource: SleepSource | null): S
 };
 
 export async function loadSleepProfile(user: User): Promise<SleepProfile | null> {
-  const [{ data, error }, preferredSleepSource] = await Promise.all([
+  const columns = 'display_name, primary_concern, typical_bedtime, typical_wake_time, timezone, intake_answers, onboarding_completed_at';
+  const readProfile = (includeSource: boolean) =>
     supabase
       .from('sleep_profiles')
-      .select('display_name, primary_concern, typical_bedtime, typical_wake_time, timezone, intake_answers, onboarding_completed_at')
+      .select(includeSource ? `${columns}, preferred_sleep_source` : columns)
       .eq('user_id', user.id)
-      .maybeSingle(),
-    loadPreferredSleepSource(user.id),
+      .maybeSingle();
+  const [result, localSource] = await Promise.all([
+    readProfile(true),
+    loadLocalPreferredSleepSource(user.id),
   ]);
+  // Retain compatibility with installations predating the sleep-source column.
+  const { data, error } = result.error && isUnavailableSleepSchemaError(result.error)
+    ? await readProfile(false)
+    : result;
   if (error) throw error;
-  return data ? asProfile(data as ProfileRow, preferredSleepSource) : null;
+  const row = data as ProfileRow | null;
+  return row ? asProfile(row, asSleepSource(row.preferred_sleep_source) ?? localSource) : null;
 }
