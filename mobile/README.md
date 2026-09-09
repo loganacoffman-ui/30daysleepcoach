@@ -63,6 +63,23 @@ pnpm start:tunnel
 
 Start editing `App.tsx`; Expo will reload the app as you save.
 
+## Conversational check-in persistence
+
+Continue check-in saves the reviewed sleep score and conversation position on
+the device before advancing. Switching tabs or restarting the app resumes the
+same day's check-in, including an unsent composer draft.
+
+Local conversations, including completed check-ins, are cached only for their
+check-in date. Older copies are pruned when the app returns to the foreground or
+loads a check-in. Sign-out and account deletion clear that user's local drafts;
+queued or late writes cannot recreate them after cleanup. Signed-out startup
+also removes orphaned check-in caches. Saved check-ins remain in the account's
+database until account deletion; the local cache is only for resuming the UI.
+
+The journal `note` contains user replies only, with a 20,000-character aggregate
+limit enforced by the mobile flow and database constraint. Coach questions and
+clarifications stay in the separate local conversation cache.
+
 ## Daily check-in notifications
 
 The onboarding reminder registers the signed-in device with Expo Push Service

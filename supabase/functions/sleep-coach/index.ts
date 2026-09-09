@@ -28,6 +28,8 @@ import {
   isDailyCoachCacheFresh,
 } from "../_shared/coaching-cache.ts";
 import { chooseDailyExperiment } from "../_shared/experimentCycle.ts";
+import { interpretCheckinReply } from "../_shared/checkinReply.ts";
+import { parseCheckinReplyRequest } from "../_shared/checkinReplyContract.ts";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
@@ -889,6 +891,30 @@ Deno.serve(async (req: Request) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
+    }
+
+    // Interpret native check-in replies without writing data or invoking coaching tools.
+    if (mode === "checkin_reply") {
+      let request;
+      try {
+        request = parseCheckinReplyRequest(body.checkinReply);
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid check-in reply" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      try {
+        const interpretation = await interpretCheckinReply(request, ANTHROPIC_API_KEY);
+        return new Response(JSON.stringify({ interpretation }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch {
+        return new Response(JSON.stringify({ error: "Your reply could not be understood right now. Please try again." }), {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // ─── CONFIRMED COACH TOOL ACTIONS ────────────────────────────────
