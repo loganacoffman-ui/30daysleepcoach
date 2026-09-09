@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   AppState,
@@ -15,7 +15,7 @@ import {
 import type { User } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { loadDailyCoaching } from '../coach/coachRepository';
+import { loadDailyCoaching, type CoachMessage } from '../coach/coachRepository';
 import { colors, layout } from '../design/theme';
 import type { SleepProfile } from '../onboarding/types';
 import { mockTodayRepository } from './mockTodayRepository';
@@ -30,7 +30,15 @@ import type {
 
 type TodayScreenProps = {
   embedded?: boolean;
-  onChat?: (message: string) => void;
+  refreshRequest?: number;
+  chat?: {
+    messages: CoachMessage[];
+    renderMessage: (message: CoachMessage) => ReactNode;
+    onSend: (message: string) => Promise<boolean>;
+    sending: boolean;
+    disabled: boolean;
+    error: string;
+  };
   repository?: TodayRepository;
   profile?: SleepProfile;
   user?: User;
@@ -171,7 +179,7 @@ const DailyReport = ({ action, cacheKey, meaning, pattern }: {
   return <Text style={styles.dailyReportText}>{visible}</Text>;
 };
 
-export default function TodayScreen({ embedded = false, onChat, profile, repository = mockTodayRepository, user }: TodayScreenProps) {
+export default function TodayScreen({ embedded = false, chat, profile, refreshRequest, repository = mockTodayRepository, user }: TodayScreenProps) {
   const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -189,6 +197,7 @@ export default function TodayScreen({ embedded = false, onChat, profile, reposit
   const replyRequestRef = useRef(0);
   useEffect(() => () => { replyRequestRef.current += 1; }, []);
   const scrollRef = useRef<ScrollView>(null);
+  const followLatest = useRef(true);
   const [manualSleepFallback, setManualSleepFallback] = useState(false);
   const [manualSleepScore, setManualSleepScore] = useState<number | null>(null);
   const [manualSleepSaving, setManualSleepSaving] = useState(false);
@@ -215,7 +224,7 @@ export default function TodayScreen({ embedded = false, onChat, profile, reposit
 
   useEffect(() => {
     void loadToday();
-  }, [loadToday]);
+  }, [loadToday, refreshRequest]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', state => {
@@ -295,6 +304,13 @@ export default function TodayScreen({ embedded = false, onChat, profile, reposit
     }
   }, [conversation.turns.length, conversation.step, sleepReviewed, snapshot?.checkin?.completedAt]);
 
+  const latestChatMessage = chat?.messages.at(-1);
+  useEffect(() => {
+    if (!loading && latestChatMessage && followLatest.current) {
+      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+    }
+  }, [loading, chat?.messages.length, latestChatMessage?.id, latestChatMessage?.content]);
+
   // A score already reviewed today remains usable if a later wearable sync is
   // temporarily unavailable. A newly synced score takes precedence.
   const sleepData = snapshot?.sleepData.status === 'missing' && sleepReviewed && reviewedSleepData
@@ -332,8 +348,12 @@ export default function TodayScreen({ embedded = false, onChat, profile, reposit
   const reply = async (text: string, choice?: string) => {
     if (!text.trim() || savingRef.current || interpretingRef.current) return;
     if (snapshot?.checkin) {
-      onChat?.(text.trim());
+      if (!chat || chat.sending || chat.disabled) return;
+      const request = replyRequestRef.current;
+      followLatest.current = true;
       setInput('');
+      const sent = await chat.onSend(text.trim());
+      if (!sent && request === replyRequestRef.current) setInput(text);
       return;
     }
     if (!sleepReviewed || conversation.step === 'sleep' || !sleepContextReady) return;
@@ -458,6 +478,10 @@ export default function TodayScreen({ embedded = false, onChat, profile, reposit
     >
       <ScrollView
         ref={scrollRef}
+        onScroll={({ nativeEvent }) => {
+          followLatest.current = nativeEvent.contentSize.height - nativeEvent.layoutMeasurement.height - nativeEvent.contentOffset.y < 100;
+        }}
+        scrollEventThrottle={16}
         contentContainerStyle={[styles.content, embedded && styles.embeddedContent]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -654,22 +678,28 @@ export default function TodayScreen({ embedded = false, onChat, profile, reposit
               </View>
             )}
         </View>
+        {!!chat?.messages.length && (
+          <View style={styles.followupMessages}>
+            {chat.messages.map(message => <View key={message.id}>{chat.renderMessage(message)}</View>)}
+          </View>
+        )}
       </ScrollView>
       <ChatComposer
         value={input}
         maxLength={snapshot.checkin ? 4000 : Math.min(4000, remainingCheckinCharacters(conversation))}
         onChangeText={setInput}
         onSend={() => void reply(input)}
-        sending={saving || interpreting}
-        disabled={!draftLoaded || (!snapshot.checkin && (!sleepReviewed || !sleepContextReady)) || (!!snapshot.checkin && !onChat)}
+        sending={saving || interpreting || !!chat?.sending}
+        disabled={!draftLoaded || (!snapshot.checkin && (!sleepReviewed || !sleepContextReady)) || (!!snapshot.checkin && (!chat || chat.disabled))}
         placeholder={snapshot.checkin ? 'Ask your coach…' : !sleepReviewed ? 'Start with your sleep score above' : conversation.step === 'details' ? 'Share anything else…' : 'Reply or add more detail…'}
-        error={error}
+        error={error || chat?.error}
       />
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  followupMessages: { gap: 18, paddingTop: 18 },
   conversation: { gap: 18, paddingTop: 18 },
   chatTurn: { alignSelf: 'flex-start', maxWidth: '94%', paddingVertical: 6 },
   userTurn: { alignSelf: 'flex-end', backgroundColor: colors.surfaceRaised, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12 },

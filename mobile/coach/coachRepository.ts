@@ -308,6 +308,24 @@ export const listCoachConversations = async (user: User): Promise<CoachConversat
   }));
 };
 
+const loadConversationRows = async <T,>(
+  table: 'coach_messages' | 'coach_tool_calls', columns: string, userId: string, conversationId: string,
+): Promise<T[]> => {
+  const rows: T[] = [];
+  const pageSize = 200;
+  for (let offset = 0; ; offset += pageSize) {
+    let query = supabase.from(table).select(columns)
+      .eq('conversation_id', conversationId).eq('user_id', userId)
+      .order('created_at', { ascending: true });
+    if (table === 'coach_messages') query = query.order('role', { ascending: false });
+    const { data, error } = await query.order('id', { ascending: true }).range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    const page = (data ?? []) as unknown as T[];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+};
+
 export const loadCoachConversation = async (user: User, conversationId: string): Promise<CoachMessage[]> => {
   const conversation = await supabase
     .from('coach_conversations')
@@ -318,22 +336,11 @@ export const loadCoachConversation = async (user: User, conversationId: string):
   if (conversation.error) throw conversation.error;
   if (!conversation.data) throw new Error('That coaching conversation is no longer available.');
 
-  const [messagesResult, toolCallsResult] = await Promise.all([supabase
-    .from('coach_messages')
-    .select('id, role, content, created_at, metadata')
-    .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true })
-    .limit(60), supabase
-    .from('coach_tool_calls')
-    .select('id, tool_name, status, input, requires_confirmation, expires_at')
-    .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true })]);
-  if (messagesResult.error) throw messagesResult.error;
-  if (toolCallsResult.error) throw toolCallsResult.error;
-  return mapCoachMessages(
-    (messagesResult.data ?? []) as StoredCoachMessage[],
-    (toolCallsResult.data ?? []) as StoredCoachToolCall[],
-  );
+  const [messages, toolCalls] = await Promise.all([
+    loadConversationRows<StoredCoachMessage>('coach_messages', 'id, role, content, created_at, metadata', user.id, conversationId),
+    loadConversationRows<StoredCoachToolCall>('coach_tool_calls', 'id, tool_name, status, input, requires_confirmation, expires_at', user.id, conversationId),
+  ]);
+  return mapCoachMessages(messages, toolCalls);
 };
 
 export const loadDailyCoaching = async (user: User, profile: SleepProfile, context?: CoachContext): Promise<DailyCoaching> => {
