@@ -183,12 +183,14 @@ const Message = ({
 export default function CoachChatScreen({
   dailyViewRequest,
   homeRequest,
+  refreshRequest,
   user,
   profile,
   repository,
 }: {
   dailyViewRequest?: number;
   homeRequest?: number;
+  refreshRequest?: number;
   user: User;
   profile: SleepProfile;
   repository: TodayRepository;
@@ -202,6 +204,7 @@ export default function CoachChatScreen({
   const [revealingMessageId, setRevealingMessageId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
   const [busyAction, setBusyAction] = useState(false);
   const [resolvingToolCallId, setResolvingToolCallId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -339,7 +342,7 @@ export default function CoachChatScreen({
   useEffect(() => {
     void refreshHistory().catch(() => undefined);
     void loadCoachHomeState(user).then(setHomeState).catch(() => setHomeState(null));
-  }, [user.id]);
+  }, [user.id, refreshRequest]);
 
   useEffect(() => {
     if (!sending) { setThinkingIndex(0); return; }
@@ -394,13 +397,13 @@ export default function CoachChatScreen({
 
   const openConversation = async (conversation: CoachConversationSummary) => {
     const dailyDate = dailyConversationDate(conversation.title);
-    setDailyViewOpen(dailyDate === localDate());
     setBusyAction(true);
     setError("");
     try {
       const loadedMessages = await loadCoachConversation(user, conversation.id);
       setConversationId(conversation.id);
       setMessages(loadedMessages);
+      setDailyViewOpen(dailyDate === localDate());
       closeHistory();
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "That conversation could not be loaded.");
@@ -413,10 +416,10 @@ export default function CoachChatScreen({
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
   };
 
-  const send = async (suggested?: string) => {
+  const send = async (suggested?: string): Promise<boolean> => {
     const content = (suggested ?? input).trim();
-    if (!content || sending || busyAction) return;
-    setDailyViewOpen(false);
+    if (!content || sendingRef.current || busyAction || resolvingToolCallId) return false;
+    sendingRef.current = true;
 
     const optimistic: CoachMessage = {
       id: `pending-${Date.now()}`,
@@ -481,15 +484,18 @@ export default function CoachChatScreen({
           ? { ...message, pending: false }
           : message
       ));
-      await refreshHistory();
+      await refreshHistory().catch(() => undefined);
       scrollToLatest();
+      return true;
     } catch (sendError) {
       setMessages(current => current
         .filter(message => message.id !== streamingId)
         .map(message => message.id === optimistic.id ? { ...message, pending: false } : message));
       setError(sendError instanceof Error ? sendError.message : "Your coach could not respond.");
+      return false;
     } finally {
       clearInterval(revealTimer);
+      sendingRef.current = false;
       setSending(false);
     }
   };
@@ -528,6 +534,15 @@ export default function CoachChatScreen({
     if (!dailyDate) return conversation.title;
     return `Your Day · ${new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(`${dailyDate}T12:00:00`))}`;
   };
+  const renderMessage = (message: CoachMessage) => (
+    <Message
+      animate={message.id === revealingMessageId}
+      message={message}
+      onResolveToolCall={(toolCallId, action) => void handleToolCall(toolCallId, action)}
+      resolving={resolvingToolCallId === message.toolCall?.id}
+      thinkingStep={thinkingSteps[thinkingIndex]}
+    />
+  );
 
   return (
     <SafeAreaView edges={["top"]} style={styles.screen}>
@@ -562,7 +577,15 @@ export default function CoachChatScreen({
           </View>
 
           {dailyViewOpen ? (
-            <TodayScreen embedded onChat={message => void send(message)} profile={profile} repository={repository} user={user} />
+            <TodayScreen
+              key={conversationId}
+              embedded
+              refreshRequest={refreshRequest}
+              chat={{ messages, renderMessage, onSend: send, sending, disabled: busyAction || !!resolvingToolCallId, error }}
+              profile={profile}
+              repository={repository}
+              user={user}
+            />
           ) : !conversationId && messages.length === 0 ? (
             <View style={styles.newChat}>
               <Text style={styles.newChatTitle}>What would you like to explore?</Text>
@@ -612,15 +635,7 @@ export default function CoachChatScreen({
               data={messages}
               keyExtractor={message => message.id}
               ref={listRef}
-              renderItem={({ item }) => (
-                <Message
-                  animate={item.id === revealingMessageId}
-                  message={item}
-                  onResolveToolCall={(toolCallId, action) => void handleToolCall(toolCallId, action)}
-                  resolving={resolvingToolCallId === item.toolCall?.id}
-                  thinkingStep={thinkingSteps[thinkingIndex]}
-                />
-              )}
+              renderItem={({ item }) => renderMessage(item)}
               showsVerticalScrollIndicator={false}
             />
           )}

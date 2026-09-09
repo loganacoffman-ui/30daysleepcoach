@@ -69,6 +69,11 @@ Continue check-in saves the reviewed sleep score and conversation position on
 the device before advancing. Switching tabs or restarting the app resumes the
 same day's check-in, including an unsent composer draft.
 
+After check-in, follow-up messages and coach replies stay in the same daily
+conversation beneath the report. Reopening Your Day reloads the full saved chat
+history, and switching tabs keeps the active conversation mounted. Health syncs
+refresh the daily data without resetting the conversation.
+
 Local conversations, including completed check-ins, are cached only for their
 check-in date. Older copies are pruned when the app returns to the foreground or
 loads a check-in. Sign-out and account deletion clear that user's local drafts;
