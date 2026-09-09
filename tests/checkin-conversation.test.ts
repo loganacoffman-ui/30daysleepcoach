@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { answerCheckin, appendCheckinReply, checkinChoices, checkinDraft, initialCheckin, startCheckin } from '../mobile/today/checkinConversation';
+import { answerCheckin, appendCheckinReply, checkinChoices, checkinDraft, checkinNote, initialCheckin, MAX_CHECKIN_NOTE_LENGTH, remainingCheckinCharacters, startCheckin } from '../mobile/today/checkinConversation';
+import { readFileSync } from 'node:fs';
 import type { CheckinInterpretation } from '../mobile/today/checkinReplyContract';
 
 const understood = (answer: string | null, finish = false): CheckinInterpretation => ({ addressed: true, answer, finish, clarification: null });
@@ -84,5 +85,34 @@ describe('conversational mobile check-in', () => {
     const finished = appendCheckinReply(done, 'One last detail in the composer');
     expect(checkinDraft(finished)?.note).toContain('One last detail in the composer');
     expect(checkinDraft(finished)?.morningFeeling).toBe('great');
+  });
+
+  it('saves only user prose in the journal and retains coach questions separately', () => {
+    let state = answerCheckin(startCheckin(), 'My partner was tired', undefined, clarify('How did you feel yourself?'));
+    state = answerCheckin(state, 'I felt rested.', 'rested');
+    state = answerCheckin(state, 'The room was cool.', undefined, understood('temperature'));
+    expect(checkinDraft(state)?.note).toBe('My partner was tired\n\nI felt rested.\n\nThe room was cool.');
+    expect(state.turns.some(turn => turn.role === 'assistant' && turn.content === 'How did you feel yourself?')).toBe(true);
+  });
+
+  it('enforces the aggregate note limit including separators without truncating or changing prior replies', () => {
+    const state = { ...startCheckin(), step: 'details' as const, morningFeeling: 'rested' as const, turns: [] };
+    const full = appendCheckinReply(state, 'x'.repeat(MAX_CHECKIN_NOTE_LENGTH));
+    expect(checkinDraft(full)?.note?.length).toBe(MAX_CHECKIN_NOTE_LENGTH);
+    expect(remainingCheckinCharacters(full)).toBe(0);
+    expect(() => appendCheckinReply(full, 'One more thought')).toThrow('20,000 characters');
+    expect(checkinNote(full)).toBe('x'.repeat(MAX_CHECKIN_NOTE_LENGTH));
+    const almostFull = appendCheckinReply(state, 'x'.repeat(MAX_CHECKIN_NOTE_LENGTH - 2));
+    expect(() => appendCheckinReply(almostFull, 'y')).toThrow('20,000 characters');
+    expect(checkinDraft(full)?.morningFeeling).toBe('rested'); // Finishing without more text still works.
+  });
+
+  it('uses Unicode character counts matching PostgreSQL and the migration limit', () => {
+    const migration = readFileSync(new URL('../supabase/migrations/20260909013346_conversational_checkin_notes.sql', import.meta.url), 'utf8');
+    expect(Number(migration.match(/char_length\(note\) <= (\d+)/)?.[1])).toBe(MAX_CHECKIN_NOTE_LENGTH);
+    const state = { ...startCheckin(), step: 'details' as const, morningFeeling: 'rested' as const, turns: [] };
+    const full = appendCheckinReply(state, '🌙'.repeat(MAX_CHECKIN_NOTE_LENGTH));
+    expect([...checkinDraft(full)!.note!]).toHaveLength(MAX_CHECKIN_NOTE_LENGTH);
+    expect(() => appendCheckinReply(full, '🌙')).toThrow();
   });
 });

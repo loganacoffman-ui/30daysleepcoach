@@ -15,6 +15,26 @@ export type CheckinConversation = {
 export type CheckinChoice = { value: string; label: string };
 
 export const initialCheckin: CheckinConversation = { step: 'sleep', turns: [] };
+export const MAX_CHECKIN_NOTE_LENGTH = 20_000;
+
+// Journal consumers attribute this field to the user. The role-labelled
+// conversation is kept separately in the local, same-day draft.
+export const checkinNote = (state: CheckinConversation) => state.turns
+  .filter(turn => turn.role === 'user')
+  .map(turn => turn.content.trim())
+  .filter(Boolean)
+  .join('\n\n');
+
+export const remainingCheckinCharacters = (state: CheckinConversation) => {
+  const note = checkinNote(state);
+  return Math.max(0, MAX_CHECKIN_NOTE_LENGTH - [...note].length - (note ? 2 : 0));
+};
+
+export function assertCheckinNoteLength(note: string) {
+  if ([...note].length > MAX_CHECKIN_NOTE_LENGTH) {
+    throw new Error('This check-in can hold 20,000 characters. Shorten this message, or finish here and keep chatting with your coach.');
+  }
+}
 export const factorOptions: CheckinChoice[] = [
   { value: 'stress', label: 'Stress' },
   { value: 'late_meal', label: 'Late meal' },
@@ -49,7 +69,10 @@ export function startCheckin(behavior?: string, commitmentId?: string): CheckinC
 }
 
 export function appendCheckinReply(state: CheckinConversation, text: string): CheckinConversation {
-  return text.trim() ? { ...state, turns: [...state.turns, { role: 'user', content: text.trim() }] } : state;
+  if (!text.trim()) return state;
+  const next: CheckinConversation = { ...state, turns: [...state.turns, { role: 'user', content: text.trim() }] };
+  assertCheckinNoteLength(checkinNote(next));
+  return next;
 }
 
 // Inline choices are explicit answers. Every typed reply is interpreted by the
@@ -80,11 +103,12 @@ export function answerCheckin(state: CheckinConversation, text: string, choice?:
 
 export function checkinDraft(state: CheckinConversation, manualSleepScore?: number): DailyCheckinDraft | null {
   if (!state.morningFeeling || state.step !== 'details') return null;
+  const note = checkinNote(state);
+  assertCheckinNoteLength(note);
   return {
     morningFeeling: state.morningFeeling,
     manualSleepScore,
     suspectedFactor: state.suspectedFactor,
-    // Keep question context alongside every unabridged reply for the coach.
-    note: state.turns.map(turn => `${turn.role === 'assistant' ? 'Coach' : 'You'}: ${turn.content}`).join('\n\n'),
+    note,
   };
 }

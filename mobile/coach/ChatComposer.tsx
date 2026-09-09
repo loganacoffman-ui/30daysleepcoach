@@ -1,7 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors } from '../design/theme';
 
-export default function ChatComposer({ value, onChangeText, onSend, disabled = false, sending = false, placeholder = 'Ask your coach…', error }: {
+export default function ChatComposer({ value, onChangeText, onSend, disabled = false, sending = false, placeholder = 'Ask your coach…', error, maxLength = 4000 }: {
   value: string;
   onChangeText: (text: string) => void;
   onSend: () => void;
@@ -9,6 +9,7 @@ export default function ChatComposer({ value, onChangeText, onSend, disabled = f
   sending?: boolean;
   placeholder?: string;
   error?: string;
+  maxLength?: number;
 }) {
   const cannotSend = disabled || sending || !value.trim();
   return (
@@ -19,7 +20,7 @@ export default function ChatComposer({ value, onChangeText, onSend, disabled = f
           accessibilityLabel="Message your sleep coach"
           autoCorrect
           editable={!disabled && !sending}
-          maxLength={4000}
+          maxLength={maxLength}
           multiline
           onChangeText={onChangeText}
           onSubmitEditing={onSend}

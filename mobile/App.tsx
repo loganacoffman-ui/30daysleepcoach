@@ -32,6 +32,7 @@ import { supabase } from './supabase';
 import { loadSleepProfile } from './onboarding/profileRepository';
 import type { SleepProfile } from './onboarding/types';
 import ProductApp from './product/ProductApp';
+import { checkinDraftStorage, localCheckinDate } from './today/checkinDraftStorage';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -106,6 +107,21 @@ function AppContent() {
   useEffect(() => {
     let mounted = true;
     let storedSessionValidated = false;
+    let activeUserId: string | null = null;
+    const acceptSession = (nextSession: Session | null) => {
+      const nextUserId = nextSession?.user.id ?? null;
+      if (activeUserId && activeUserId !== nextUserId) {
+        void checkinDraftStorage.clearUser(activeUserId).catch(() => {
+          if (mounted) setMessage('Local check-in history could not be cleared. Please try signing out again.');
+        });
+      }
+      if (nextUserId && activeUserId !== nextUserId) {
+        checkinDraftStorage.allowUser(nextUserId);
+        void checkinDraftStorage.pruneUser(nextUserId, localCheckinDate()).catch(() => undefined);
+      }
+      activeUserId = nextUserId;
+      setSession(nextSession);
+    };
 
     const restoreSession = async () => {
       const { data, error } = await supabase.auth.getSession();
@@ -113,7 +129,8 @@ function AppContent() {
 
       if (error || !data.session) {
         storedSessionValidated = true;
-        setSession(null);
+        void checkinDraftStorage.clearSignedOutDrafts().catch(() => undefined);
+        acceptSession(null);
         if (error) setMessage(error.message);
         setInitializing(false);
         return;
@@ -122,7 +139,7 @@ function AppContent() {
       // A persisted session is enough to render the app. Validate it in the
       // background so a slow or unavailable auth service never blocks launch.
       storedSessionValidated = true;
-      setSession(data.session);
+      acceptSession(data.session);
       setInitializing(false);
 
       let { data: userData, error: userError } = await supabase.auth.getUser();
@@ -131,7 +148,7 @@ function AppContent() {
         await wait(delayMs);
         ({ data: userData, error: userError } = await supabase.auth.getUser());
       }
-      if (!mounted) return;
+      if (!mounted || activeUserId !== data.session.user.id) return;
 
       if (userError || !userData.user) {
         if (userError && !shouldClearPersistedSession(userError)) {
@@ -140,12 +157,12 @@ function AppContent() {
 
         await supabase.auth.signOut({ scope: 'local' });
         if (!mounted) return;
-        setSession(null);
+        acceptSession(null);
         setMessage('Your previous session expired. Please sign in again.');
         return;
       }
 
-      setSession({ ...data.session, user: userData.user });
+      acceptSession({ ...data.session, user: userData.user });
     };
 
     void restoreSession();
@@ -156,7 +173,7 @@ function AppContent() {
       if (event === 'INITIAL_SESSION' && !storedSessionValidated) {
         return;
       }
-      setSession(nextSession);
+      acceptSession(nextSession);
       if (event === 'PASSWORD_RECOVERY') {
         setRecoveryMode(true);
         setMessage('Choose a new password for your account.');
@@ -170,6 +187,7 @@ function AppContent() {
     const appStateSubscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         supabase.auth.startAutoRefresh();
+        if (activeUserId) void checkinDraftStorage.pruneUser(activeUserId, localCheckinDate()).catch(() => undefined);
       } else {
         supabase.auth.stopAutoRefresh();
       }
@@ -395,10 +413,13 @@ function AppContent() {
 
   const signOut = () =>
     runAuthAction(async () => {
+      const userId = session?.user.id;
+      if (userId) await checkinDraftStorage.clearUser(userId);
       await clearDailyCheckInReminder();
       const { error } = await supabase.auth.signOut();
 
       if (error) {
+        if (userId) checkinDraftStorage.allowUser(userId);
         throw error;
       }
     });
@@ -420,8 +441,12 @@ function AppContent() {
                 throw new Error('We could not delete your account. Your account is still active.');
               }
 
-              await clearDailyCheckInReminder();
-              await supabase.auth.signOut({ scope: 'local' });
+              try {
+                if (session?.user.id) await checkinDraftStorage.clearUser(session.user.id);
+                await clearDailyCheckInReminder();
+              } finally {
+                await supabase.auth.signOut({ scope: 'local' });
+              }
               setMessage('Your account has been permanently deleted.');
             });
           },

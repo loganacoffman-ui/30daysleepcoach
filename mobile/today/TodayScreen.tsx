@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   type GestureResponderEvent,
   KeyboardAvoidingView,
   type LayoutChangeEvent,
@@ -20,7 +21,8 @@ import type { SleepProfile } from '../onboarding/types';
 import { mockTodayRepository } from './mockTodayRepository';
 import ChatComposer from '../coach/ChatComposer';
 import { interpretTypedCheckinReply } from './checkinReplyRepository';
-import { answerCheckin, appendCheckinReply, checkinChoices, checkinDraft, initialCheckin, startCheckin, type CheckinConversation } from './checkinConversation';
+import { checkinDraftStorage, checkinStorageKey, localCheckinDate } from './checkinDraftStorage';
+import { answerCheckin, appendCheckinReply, checkinChoices, checkinDraft, initialCheckin, remainingCheckinCharacters, startCheckin, type CheckinConversation } from './checkinConversation';
 import type {
   TodayRepository,
   TodaySnapshot,
@@ -176,7 +178,10 @@ export default function TodayScreen({ embedded = false, onChat, profile, reposit
   const [error, setError] = useState('');
   const [conversation, setConversation] = useState<CheckinConversation>(initialCheckin);
   const [input, setInput] = useState('');
-  const [draftLoaded, setDraftLoaded] = useState(false);
+  const [loadedDraftKey, setLoadedDraftKey] = useState<string | null>(null);
+  const [draftLoadAttempt, setDraftLoadAttempt] = useState(0);
+  const [continuing, setContinuing] = useState(false);
+  const [reviewedSleepData, setReviewedSleepData] = useState<TodaySnapshot['sleepData'] | null>(null);
   const [sleepReviewed, setSleepReviewed] = useState(false);
   const savingRef = useRef(false);
   const interpretingRef = useRef(false);
@@ -213,6 +218,13 @@ export default function TodayScreen({ embedded = false, onChat, profile, reposit
   }, [loadToday]);
 
   useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active' && snapshot?.date !== localCheckinDate()) void loadToday();
+    });
+    return () => subscription.remove();
+  }, [loadToday, snapshot?.date]);
+
+  useEffect(() => {
     if (!user || !profile || !snapshot?.checkin || snapshot.sleepData.status === 'missing') {
       setDailyCoaching(null);
       return;
@@ -233,35 +245,49 @@ export default function TodayScreen({ embedded = false, onChat, profile, reposit
     };
   }, [profile, snapshot?.checkin?.completedAt, snapshot?.sleepData.status, snapshot?.sleepData.score, user]);
 
-  const draftKey = snapshot ? `sleep-coach:checkin-draft:${user?.id ?? 'demo'}:${snapshot.date}` : null;
+  const draftOwner = user?.id ?? 'demo';
+  const draftKey = snapshot ? checkinStorageKey(draftOwner, snapshot.date) : null;
+  const draftLoaded = draftKey !== null && loadedDraftKey === draftKey;
   useEffect(() => {
-    if (!draftKey) return;
+    if (!draftKey || !snapshot) return;
     let active = true;
-    setDraftLoaded(false);
+    replyRequestRef.current += 1;
+    interpretingRef.current = false;
+    setInterpreting(false);
+    setContinuing(false);
+    setLoadedDraftKey(null);
     setSleepReviewed(false);
+    setReviewedSleepData(null);
+    setManualSleepScore(null);
+    setManualSleepFallback(false);
     setConversation(initialCheckin);
     setInput('');
-    void AsyncStorage.getItem(draftKey).then(value => {
-      if (!active || !value) return;
-      const draft = JSON.parse(value);
-      if (draft.conversation && Array.isArray(draft.conversation.turns)) {
+    void checkinDraftStorage.load(draftOwner, snapshot.date, snapshot.sleepData).then(draft => {
+      if (!active) return;
+      if (draft) {
         setConversation(draft.conversation);
-        setInput(snapshot?.checkin ? '' : draft.input ?? '');
-        setManualSleepScore(draft.manualSleepScore ?? null);
-        setManualSleepFallback(draft.manualSleepFallback ?? false);
+        setInput(snapshot.checkin ? '' : draft.input);
+        setManualSleepScore(draft.manualSleepScore);
+        setManualSleepFallback(draft.manualSleepFallback);
+        setSleepReviewed(draft.sleepReviewed);
+        setReviewedSleepData(draft.reviewedSleepData);
       }
-    }).catch(() => undefined).finally(() => {
-      if (active) setDraftLoaded(true);
+      setLoadedDraftKey(draftKey);
+    }).catch(() => {
+      if (active) setError('Your saved check-in couldn’t be loaded. Please try again.');
     });
     return () => { active = false; };
-  }, [draftKey]);
+  }, [draftKey, draftLoadAttempt]);
 
   useEffect(() => {
-    if (!draftKey || !draftLoaded) return;
-    // Keep the conversation available when today's check-in is reopened.
-    if (snapshot?.checkin && conversation.turns.length === 0) return;
-    void AsyncStorage.setItem(draftKey, JSON.stringify({ conversation, input: snapshot?.checkin ? '' : input, manualSleepScore, manualSleepFallback })).catch(() => undefined);
-  }, [draftKey, draftLoaded, conversation, input, manualSleepScore, manualSleepFallback, snapshot?.checkin]);
+    if (!snapshot || !draftLoaded) return;
+    // Keep only today's conversation; storage also serializes logout cleanup.
+    if (snapshot.checkin && conversation.turns.length === 0) return;
+    void checkinDraftStorage.save(draftOwner, snapshot.date, {
+      conversation, input: snapshot.checkin ? '' : input, manualSleepScore,
+      manualSleepFallback, sleepReviewed, reviewedSleepData,
+    }).catch(() => setError('Your latest changes couldn’t be saved on this device.'));
+  }, [draftKey, draftLoaded, conversation, input, manualSleepScore, manualSleepFallback, sleepReviewed, reviewedSleepData, snapshot?.checkin]);
 
   useEffect(() => {
     if (conversation.step !== 'sleep' && (sleepReviewed || snapshot?.checkin)) {
@@ -269,8 +295,39 @@ export default function TodayScreen({ embedded = false, onChat, profile, reposit
     }
   }, [conversation.turns.length, conversation.step, sleepReviewed, snapshot?.checkin?.completedAt]);
 
-  const sleepContextReady = !!snapshot && (snapshot.sleepData.status !== 'missing' ||
+  // A score already reviewed today remains usable if a later wearable sync is
+  // temporarily unavailable. A newly synced score takes precedence.
+  const sleepData = snapshot?.sleepData.status === 'missing' && sleepReviewed && reviewedSleepData
+    ? reviewedSleepData : snapshot?.sleepData;
+  const sleepContextReady = !!sleepData && (sleepData.status !== 'missing' ||
     (manualSleepFallback && manualSleepScore !== null));
+
+  const continueCheckin = async () => {
+    if (!snapshot || !sleepContextReady || !draftLoaded || continuing) return;
+    const next = conversation.step === 'sleep'
+      ? startCheckin(snapshot.previousCommitment?.behavior, snapshot.previousCommitment?.id) : conversation;
+    const acceptedSleepData: TodaySnapshot['sleepData'] = snapshot.sleepData.status === 'missing'
+      ? { status: 'manual', source: 'manual', score: manualSleepScore } : snapshot.sleepData;
+    const request = replyRequestRef.current;
+    setContinuing(true);
+    setError('');
+    try {
+      // Persist the milestone before advancing, including the exact accepted
+      // score. A tab switch or reload can immediately resume this same question.
+      await checkinDraftStorage.save(draftOwner, snapshot.date, {
+        conversation: next, input, manualSleepScore, manualSleepFallback,
+        sleepReviewed: true, reviewedSleepData: acceptedSleepData,
+      });
+      if (request !== replyRequestRef.current) return;
+      setConversation(next);
+      setReviewedSleepData(acceptedSleepData);
+      setSleepReviewed(true);
+    } catch {
+      setError('Your sleep score couldn’t be saved on this device. Please try again.');
+    } finally {
+      if (request === replyRequestRef.current) setContinuing(false);
+    }
+  };
 
   const reply = async (text: string, choice?: string) => {
     if (!text.trim() || savingRef.current || interpretingRef.current) return;
@@ -281,6 +338,10 @@ export default function TodayScreen({ embedded = false, onChat, profile, reposit
     }
     if (!sleepReviewed || conversation.step === 'sleep' || !sleepContextReady) return;
     setError('');
+    try { appendCheckinReply(conversation, text); } catch (limitError) {
+      setError(limitError instanceof Error ? limitError.message : 'Please shorten this reply.');
+      return;
+    }
     if (choice) {
       setConversation(current => current.step === conversation.step ? answerCheckin(current, text, choice) : current);
       setInput('');
@@ -310,10 +371,18 @@ export default function TodayScreen({ embedded = false, onChat, profile, reposit
 
   const submitCheckin = async (finalText = input, baseConversation = conversation) => {
     if (!snapshot || !sleepContextReady || savingRef.current) return;
-    // Include an unsent composer draft when the user taps Finish.
-    const finalConversation = appendCheckinReply(baseConversation, finalText);
-    const draft = checkinDraft(finalConversation, snapshot.sleepData.status === 'missing'
-      ? manualSleepScore ?? undefined : undefined);
+    // Include an unsent composer draft when the user taps Finish, without
+    // clearing it if it exceeds the aggregate journal limit.
+    let finalConversation: CheckinConversation;
+    let draft;
+    try {
+      finalConversation = appendCheckinReply(baseConversation, finalText);
+      draft = checkinDraft(finalConversation, sleepData?.status === 'manual'
+        ? sleepData.score ?? undefined : sleepData?.status === 'missing' ? manualSleepScore ?? undefined : undefined);
+    } catch (limitError) {
+      setError(limitError instanceof Error ? limitError.message : 'Please shorten this reply.');
+      return;
+    }
     if (!draft) return;
     savingRef.current = true;
     setSaving(true);
@@ -331,7 +400,7 @@ export default function TodayScreen({ embedded = false, onChat, profile, reposit
         previousCommitment: finalConversation.adherence ? null : snapshot.previousCommitment,
         sleepData: typeof draft.manualSleepScore === 'number'
           ? { status: 'manual', score: draft.manualSleepScore, source: 'manual' }
-          : snapshot.sleepData,
+          : sleepData ?? snapshot.sleepData,
       });
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Your check-in was not saved. Please try finishing again.');
@@ -436,7 +505,7 @@ export default function TodayScreen({ embedded = false, onChat, profile, reposit
           </View>
         )}
 
-        {snapshot.sleepData.status === 'missing' && (!sleepReviewed || snapshot.checkin) && (
+        {sleepData!.status === 'missing' && (!sleepReviewed || snapshot.checkin) && (
           <View style={styles.sleepDataCard}>
             <Text style={styles.sectionEyebrow}>LAST NIGHT'S SLEEP</Text>
             <Text style={styles.sleepDataTitle}>We couldn't find wearable data yet.</Text>
@@ -478,14 +547,14 @@ export default function TodayScreen({ embedded = false, onChat, profile, reposit
           </View>
         )}
 
-        {snapshot.sleepData.status !== 'missing' && (!sleepReviewed || snapshot.checkin) && (
+        {sleepData!.status !== 'missing' && (!sleepReviewed || snapshot.checkin) && (
           <View style={styles.dailyReport}>
             <SleepScoreSlider
               disabled
-              source={snapshot.sleepData.status === 'wearable'
-                ? snapshot.sleepData.source === 'apple_health' ? 'Apple Health' : 'Oura'
+              source={sleepData!.status === 'wearable'
+                ? sleepData!.source === 'apple_health' ? 'Apple Health' : 'Oura'
                 : 'Manual'}
-              value={snapshot.sleepData.score ?? null}
+              value={sleepData!.score ?? null}
             />
             {snapshot.checkin && (
               <View style={styles.checkinCompleteRow}>
@@ -519,23 +588,22 @@ export default function TodayScreen({ embedded = false, onChat, profile, reposit
           </View>
         )}
 
+        {!draftLoaded && !!error && <Pressable accessibilityRole="button" onPress={() => { setError(''); setDraftLoadAttempt(value => value + 1); }} style={styles.chip}><Text style={styles.chipText}>Retry saved check-in</Text></Pressable>}
+
         {!snapshot.checkin && !sleepReviewed && (
           <Pressable
             accessibilityRole="button"
-            disabled={!sleepContextReady || !draftLoaded}
-            onPress={() => {
-              if (conversation.step === 'sleep') setConversation(startCheckin(snapshot.previousCommitment?.behavior, snapshot.previousCommitment?.id));
-              setSleepReviewed(true);
-            }}
-            style={[styles.primaryButton, (!sleepContextReady || !draftLoaded) && styles.primaryButtonDisabled]}
+            disabled={!sleepContextReady || !draftLoaded || continuing}
+            onPress={() => void continueCheckin()}
+            style={[styles.primaryButton, (!sleepContextReady || !draftLoaded || continuing) && styles.primaryButtonDisabled]}
           >
-            <Text style={styles.primaryButtonText}>Continue check-in</Text>
+            {continuing ? <ActivityIndicator color={colors.ink} /> : <Text style={styles.primaryButtonText}>Continue check-in</Text>}
           </Pressable>
         )}
 
         {conversation.step !== 'sleep' && (sleepReviewed || snapshot.checkin) && (
           <View style={styles.conversation}>
-            {!snapshot.checkin && <Text style={styles.promptHint}>Sleep score {snapshot.sleepData.score ?? manualSleepScore} · {snapshot.sleepData.source === 'apple_health' ? 'Apple Health' : snapshot.sleepData.source === 'oura' ? 'Oura' : 'Manual'}</Text>}
+            {!snapshot.checkin && <Text style={styles.promptHint}>Sleep score {sleepData!.score ?? manualSleepScore} · {sleepData!.source === 'apple_health' ? 'Apple Health' : sleepData!.source === 'oura' ? 'Oura' : 'Manual'}</Text>}
             {conversation.turns.map((turn, index) => (
               <View key={index} style={[styles.chatTurn, turn.role === 'user' && styles.userTurn]}>
                 {turn.role === 'assistant' && <Text style={styles.chatCoachLabel}>COACH</Text>}
@@ -579,7 +647,7 @@ export default function TodayScreen({ embedded = false, onChat, profile, reposit
                 pattern={dailyCoaching.pattern}
               />
             )}
-            {snapshot.checkin && snapshot.sleepData.status !== 'missing' && !dailyCoaching && (
+            {snapshot.checkin && sleepData!.status !== 'missing' && !dailyCoaching && (
               <View style={styles.reportLoadingRow}>
                 <ActivityIndicator color={colors.accent} size="small" />
                 <Text style={styles.reportLoadingText}>Preparing today’s coaching…</Text>
@@ -589,6 +657,7 @@ export default function TodayScreen({ embedded = false, onChat, profile, reposit
       </ScrollView>
       <ChatComposer
         value={input}
+        maxLength={snapshot.checkin ? 4000 : Math.min(4000, remainingCheckinCharacters(conversation))}
         onChangeText={setInput}
         onSend={() => void reply(input)}
         sending={saving || interpreting}
