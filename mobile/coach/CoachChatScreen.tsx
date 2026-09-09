@@ -10,7 +10,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -20,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors, layout } from "../design/theme";
 import type { SleepProfile } from "../onboarding/types";
+import ChatComposer from "./ChatComposer";
 import TodayScreen from "../today/TodayScreen";
 import { feelingLabel } from "../today/feeling";
 import type { TodayRepository } from "../today/types";
@@ -562,7 +562,7 @@ export default function CoachChatScreen({
           </View>
 
           {dailyViewOpen ? (
-            <TodayScreen embedded profile={profile} repository={repository} user={user} />
+            <TodayScreen embedded onChat={message => void send(message)} profile={profile} repository={repository} user={user} />
           ) : !conversationId && messages.length === 0 ? (
             <View style={styles.newChat}>
               <Text style={styles.newChatTitle}>What would you like to explore?</Text>
@@ -626,40 +626,15 @@ export default function CoachChatScreen({
           )}
         </View>
 
-        <View style={styles.composerArea}>
-          {!!error && <Text style={styles.error}>{error}</Text>}
-          <View style={styles.composer}>
-              <TextInput
-                accessibilityLabel="Ask your sleep coach"
-                autoCorrect
-                editable={!sending && !busyAction && !resolvingToolCallId}
-                maxLength={4000}
-                multiline
-                onChangeText={setInput}
-                onSubmitEditing={() => void send()}
-                placeholder="Ask your coach…"
-                placeholderTextColor={colors.textFaint}
-                style={styles.input}
-                value={input}
-              />
-              <Pressable
-                accessibilityLabel="Send message"
-                disabled={!input.trim() || sending || busyAction || !!resolvingToolCallId}
-                onPress={() => void send()}
-                style={[
-                  styles.send,
-                  (!input.trim() || sending || busyAction || !!resolvingToolCallId) && styles.sendDisabled,
-                ]}
-              >
-                {sending ? (
-                  <ActivityIndicator color={colors.ink} size="small" />
-                ) : (
-                  <Text style={styles.sendText}>↑</Text>
-                )}
-              </Pressable>
-          </View>
-          <Text style={styles.disclaimer}>Behavioral coaching, not medical advice.</Text>
-        </View>
+        {!dailyViewOpen && <ChatComposer
+          value={input}
+          onChangeText={setInput}
+          onSend={() => void send()}
+          disabled={busyAction || !!resolvingToolCallId}
+          sending={sending}
+          error={error}
+        />}
+
       </KeyboardAvoidingView>
       {drawerOpen && (
         <View style={styles.drawerLayer}>
@@ -755,24 +730,6 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     marginTop: 10,
   },
-  composer: {
-    alignItems: "flex-end",
-    backgroundColor: colors.surface,
-    borderColor: colors.borderStrong,
-    borderRadius: 24,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 8,
-    minHeight: 52,
-    padding: 6,
-    paddingLeft: 17,
-  },
-  composerArea: {
-    backgroundColor: colors.canvas,
-    paddingBottom: 8,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-  },
   dailyBrief: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -812,14 +769,7 @@ const styles = StyleSheet.create({
   dailyPattern: { color: colors.text, fontSize: 18, lineHeight: 27 },
   dailyWhy: { color: colors.textSubtle, fontSize: 13, lineHeight: 20, marginTop: 16 },
   disabled: { opacity: 0.55 },
-  disclaimer: {
-    color: colors.textFaint,
-    fontSize: 10,
-    marginTop: 7,
-    textAlign: "center",
-  },
   emptyMessages: { flexGrow: 1 },
-  error: { color: colors.danger, fontSize: 12, lineHeight: 17, marginBottom: 8 },
   eyebrow: {
     color: colors.accent,
     fontSize: 9,
@@ -833,16 +783,6 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     paddingHorizontal: 20,
     paddingTop: layout.safeAreaHeaderPadding,
-  },
-  input: {
-    color: colors.text,
-    flex: 1,
-    fontSize: 16,
-    lineHeight: 22,
-    maxHeight: 110,
-    minHeight: 38,
-    paddingBottom: 8,
-    paddingTop: 8,
   },
   historyButton: {
     alignItems: "center",
@@ -1056,21 +996,6 @@ const styles = StyleSheet.create({
   },
   resumeLabel: { color: colors.accentSoft, fontSize: 14, fontWeight: "700" },
   screen: { backgroundColor: colors.canvas, flex: 1, overflow: "hidden" },
-  send: {
-    alignItems: "center",
-    backgroundColor: colors.accent,
-    borderRadius: 20,
-    height: 40,
-    justifyContent: "center",
-    width: 40,
-  },
-  sendDisabled: { backgroundColor: colors.surfaceAccent },
-  sendText: {
-    color: colors.ink,
-    fontSize: 22,
-    fontWeight: "600",
-    lineHeight: 24,
-  },
   spark: {
     alignItems: "center",
     backgroundColor: colors.surfaceAccent,
