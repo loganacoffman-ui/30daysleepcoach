@@ -99,11 +99,20 @@ needed), move it earlier or later in 15-minute increments, or send a real test
 push through the backend.
 
 Deploy `send-push-notifications`, set a strong `PUSH_CRON_SECRET` Edge Function
-secret, and invoke the function every minute with that value in the
-`x-cron-secret` header. It sends only to devices whose local reminder minute is
-due and records the local date to prevent duplicate daily delivery. If Expo
+secret, and invoke the function every 15 minutes (`*/15 * * * *`) with that value
+in the `x-cron-secret` header. It sends to devices whose reminder is due in the
+current minute or previous 14 minutes and records the reminder's local date to
+prevent duplicate daily delivery, including across midnight. Reminders between
+cron ticks arrive at the next tick. If Expo
 reports `DeviceNotRegistered`, that device is automatically disabled.
 `EXPO_ACCESS_TOKEN` is optional unless enhanced Expo push security is enabled.
+
+Deploy the updated sender before applying
+`20260911080915_reduce_push_cron_to_15_minutes.sql`. This migration updates the
+existing `dispatch-daily-push-notifications` job's schedule while preserving its
+command and enabled state. Environments without that job are skipped; use the
+same 15-minute schedule when configuring notifications there. The function and
+migration workflows run independently, so coordinate this deployment order.
 
 `expo-notifications` and its config plugin are native dependencies, so create and
 install a new development or production build after pulling this change:
