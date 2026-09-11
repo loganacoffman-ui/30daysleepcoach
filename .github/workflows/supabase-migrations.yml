@@ -38,5 +38,9 @@ jobs:
       - name: Link production project
         run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
 
+      # The 15-minute cron schedule requires the sender's wider due window.
+      - name: Deploy push sender before changing its schedule
+        run: supabase functions deploy send-push-notifications --project-ref "$SUPABASE_PROJECT_ID"
+
       - name: Apply pending migrations
         run: supabase db push --yes

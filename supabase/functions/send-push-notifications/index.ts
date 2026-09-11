@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { dueReminderDate } from "../_shared/push-reminder.ts";
 
 type PushDevice = {
   id: string;
@@ -22,32 +23,6 @@ function json(body: Record<string, unknown>, status = 200) {
     status,
     headers: { "Content-Type": "application/json" },
   });
-}
-
-function localClock(timeZone: string, now: Date) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(now);
-  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
-  return {
-    date: `${part("year")}-${part("month")}-${part("day")}`,
-    time: `${part("hour")}:${part("minute")}`,
-  };
-}
-
-function isDue(device: PushDevice, now: Date) {
-  try {
-    const local = localClock(device.timezone, now);
-    return local.time === device.reminder_time.slice(0, 5) && device.last_sent_local_date !== local.date;
-  } catch {
-    return false;
-  }
 }
 
 async function sendExpoMessages(messages: Record<string, unknown>[]) {
@@ -156,9 +131,9 @@ Deno.serve(async (req) => {
     if (error) throw error;
 
     const now = new Date();
-    const clockDue = ((data ?? []) as PushDevice[]).filter((device) => isDue(device, now));
+    const clockDue = ((data ?? []) as PushDevice[]).filter((device) => dueReminderDate(device, now) !== null);
     const dueChecks = await Promise.all(clockDue.map(async (device) => {
-      const localDate = localClock(device.timezone, now).date;
+      const localDate = dueReminderDate(device, now)!;
       const { data: checkin } = await admin
         .from("daily_checkins")
         .select("id")
@@ -205,7 +180,7 @@ Deno.serve(async (req) => {
         await Promise.all(deliveredIds.map((id) => {
           const device = batch.find((item) => item.id === id)!;
           return admin.from("push_notification_devices").update({
-            last_sent_local_date: localClock(device.timezone, now).date,
+            last_sent_local_date: dueReminderDate(device, now)!,
             updated_at: now.toISOString(),
           }).eq("id", id);
         }));
