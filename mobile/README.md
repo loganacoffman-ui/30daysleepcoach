@@ -107,12 +107,12 @@ cron ticks arrive at the next tick. If Expo
 reports `DeviceNotRegistered`, that device is automatically disabled.
 `EXPO_ACCESS_TOKEN` is optional unless enhanced Expo push security is enabled.
 
-The migration deployment workflow deploys the updated sender before applying
+Deploy the updated sender before applying
 `20260911080915_reduce_push_cron_to_15_minutes.sql`. This migration updates the
 existing `dispatch-daily-push-notifications` job's schedule while preserving its
 command and enabled state. Environments without that job are skipped; use the
-same 15-minute schedule when configuring notifications there. Follow the same
-sender-first order for manual deployments.
+same 15-minute schedule when configuring notifications there. The function and
+migration workflows run independently, so coordinate this deployment order.
 
 `expo-notifications` and its config plugin are native dependencies, so create and
 install a new development or production build after pulling this change:
