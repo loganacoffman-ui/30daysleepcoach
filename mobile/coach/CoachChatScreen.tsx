@@ -13,12 +13,12 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import type { StyleProp, TextStyle } from "react-native";
 import type { User } from "@supabase/supabase-js";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors, layout } from "../design/theme";
 import type { SleepProfile } from "../onboarding/types";
+import ChatBubble from "./ChatBubble";
 import ChatComposer from "./ChatComposer";
 import TodayScreen from "../today/TodayScreen";
 import { feelingLabel } from "../today/feeling";
@@ -47,11 +47,6 @@ const HISTORY_SWIPE_OPEN_DISTANCE = 96;
 const HISTORY_DRAWER_WIDTH_RATIO = 0.82;
 const HISTORY_DRAWER_OPEN_DURATION = 260;
 const HISTORY_DRAWER_CLOSE_DURATION = 200;
-const thinkingSteps = [
-  "Reviewing your recent sleep…",
-  "Comparing your experiments…",
-  "Connecting your check-in notes…",
-];
 
 const personalizedGreeting = (state: CoachHomeState | null) => {
   if (!state) return "Your coach will connect the dots as your sleep context builds.";
@@ -76,117 +71,68 @@ const dailyDateLabel = (date: string) =>
   new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" })
     .format(new Date(`${date}T12:00:00`));
 
-const plainCoachText = (text: string) =>
-  text
-    .replace(/\*\*/g, "")
-    .replace(/__/g, "")
-    .replace(/`/g, "")
-    .replace(/^#{1,6}\s*/gm, "")
-    .trim();
-
-const StreamingText = ({
-  animate,
-  style,
-  text,
-}: {
-  animate: boolean;
-  style: StyleProp<TextStyle>;
-  text: string;
-}) => {
-  const clean = plainCoachText(text);
-  const [visibleText, setVisibleText] = useState(animate ? "" : clean);
-
-  useEffect(() => {
-    if (!animate) {
-      setVisibleText(clean);
-      return;
-    }
-    const words = clean.split(/\s+/).filter(Boolean);
-    let visibleWords = 0;
-    setVisibleText("");
-    const timer = setInterval(() => {
-      visibleWords += 1;
-      setVisibleText(words.slice(0, visibleWords).join(" "));
-      if (visibleWords >= words.length) clearInterval(timer);
-    }, 32);
-    return () => clearInterval(timer);
-  }, [animate, clean]);
-
-  return <Text style={style}>{animate ? visibleText : clean}</Text>;
-};
-
 const Message = ({
   animate,
   message,
   onResolveToolCall,
   resolving,
-  thinkingStep,
 }: {
   animate: boolean;
   message: CoachMessage;
   onResolveToolCall: (toolCallId: string, action: "confirm" | "cancel") => void;
   resolving: boolean;
-  thinkingStep: string;
 }) => {
-  const isUser = message.role === "user";
   const toolCall = message.toolCall;
   const proposalExpired = toolCall
     ? toolCall.status === "expired" ||
       (toolCall.status === "pending" && new Date(toolCall.expiresAt) <= new Date())
     : false;
   return (
-    <View style={[styles.messageRow, isUser && styles.userMessageRow]}>
-      <View style={[styles.message, isUser ? styles.userMessage : styles.coachMessage]}>
-        {!isUser && <Text style={styles.coachLabel}>COACH</Text>}
-        {!isUser && message.pending && !message.content ? (
-          <View style={styles.thinking}><ActivityIndicator color={colors.accent} size="small" /><Text style={styles.thinkingText}>{thinkingStep}</Text></View>
-        ) : (
-          <StreamingText
-            animate={animate && !isUser}
-            style={[styles.messageText, isUser && styles.userMessageText]}
-            text={message.content}
-          />
-        )}
-        {toolCall && (
-          <View style={styles.toolCard}>
-            <Text style={styles.toolEyebrow}>PROPOSED EXPERIMENT</Text>
-            <Text style={styles.toolPreviousLabel}>Replace</Text>
-            <Text style={styles.toolPrevious}>{toolCall.proposal.previousExperiment}</Text>
-            <Text style={styles.toolPreviousLabel}>With</Text>
-            <Text style={styles.toolReplacement}>{toolCall.proposal.replacementExperiment}</Text>
-            <Text style={styles.toolRationale}>{toolCall.proposal.coachRationale}</Text>
-            <Text style={styles.toolReason}>Based on your reason: {toolCall.proposal.userReason}</Text>
-            {toolCall.status === "pending" && !proposalExpired ? (
-              <View style={styles.toolActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={resolving}
-                  onPress={() => onResolveToolCall(toolCall.id, "confirm")}
-                  style={[styles.toolConfirm, resolving && styles.disabled]}
-                >
-                  {resolving ? <ActivityIndicator color={colors.ink} size="small" /> : (
-                    <Text style={styles.toolConfirmText}>Change tonight</Text>
-                  )}
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={resolving}
-                  onPress={() => onResolveToolCall(toolCall.id, "cancel")}
-                  style={[styles.toolCancel, resolving && styles.disabled]}
-                >
-                  <Text style={styles.toolCancelText}>Keep current</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <Text style={styles.toolStatus}>
-                {toolCall.status === "completed" ? "Changed" : toolCall.status === "cancelled"
-                  ? "Not applied" : proposalExpired ? "Proposal expired" : "Unavailable"}
-              </Text>
-            )}
-          </View>
-        )}
-      </View>
-    </View>
+    <ChatBubble
+      animate={animate}
+      content={message.content}
+      role={message.role}
+      thinking={!!message.pending && !message.content}
+    >
+      {toolCall && (
+        <View style={styles.toolCard}>
+          <Text style={styles.toolEyebrow}>PROPOSED EXPERIMENT</Text>
+          <Text style={styles.toolPreviousLabel}>Replace</Text>
+          <Text style={styles.toolPrevious}>{toolCall.proposal.previousExperiment}</Text>
+          <Text style={styles.toolPreviousLabel}>With</Text>
+          <Text style={styles.toolReplacement}>{toolCall.proposal.replacementExperiment}</Text>
+          <Text style={styles.toolRationale}>{toolCall.proposal.coachRationale}</Text>
+          <Text style={styles.toolReason}>Based on your reason: {toolCall.proposal.userReason}</Text>
+          {toolCall.status === "pending" && !proposalExpired ? (
+            <View style={styles.toolActions}>
+              <Pressable
+                accessibilityRole="button"
+                disabled={resolving}
+                onPress={() => onResolveToolCall(toolCall.id, "confirm")}
+                style={[styles.toolConfirm, resolving && styles.disabled]}
+              >
+                {resolving ? <ActivityIndicator color={colors.ink} size="small" /> : (
+                  <Text style={styles.toolConfirmText}>Change tonight</Text>
+                )}
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                disabled={resolving}
+                onPress={() => onResolveToolCall(toolCall.id, "cancel")}
+                style={[styles.toolCancel, resolving && styles.disabled]}
+              >
+                <Text style={styles.toolCancelText}>Keep current</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Text style={styles.toolStatus}>
+              {toolCall.status === "completed" ? "Changed" : toolCall.status === "cancelled"
+                ? "Not applied" : proposalExpired ? "Proposal expired" : "Unavailable"}
+            </Text>
+          )}
+        </View>
+      )}
+    </ChatBubble>
   );
 };
 
@@ -218,7 +164,6 @@ export default function CoachChatScreen({
   const [busyAction, setBusyAction] = useState(false);
   const [resolvingToolCallId, setResolvingToolCallId] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [thinkingIndex, setThinkingIndex] = useState(0);
   const [dailyViewOpen, setDailyViewOpen] = useState(false);
   const [pastDailyDate, setPastDailyDate] = useState<string | null>(null);
   const listRef = useRef<FlatList<CoachMessage>>(null);
@@ -354,12 +299,6 @@ export default function CoachChatScreen({
     void refreshHistory().catch(() => undefined);
     void loadCoachHomeState(user).then(setHomeState).catch(() => setHomeState(null));
   }, [user.id, refreshRequest]);
-
-  useEffect(() => {
-    if (!sending) { setThinkingIndex(0); return; }
-    const timer = setInterval(() => setThinkingIndex(index => (index + 1) % thinkingSteps.length), 1100);
-    return () => clearInterval(timer);
-  }, [sending]);
 
   const beginConversation = async (firstMessage: string) => {
     const id = await createCoachConversation(user, firstMessage);
@@ -513,6 +452,8 @@ export default function CoachChatScreen({
       scrollToLatest();
       return true;
     } catch (sendError) {
+      // The message itself is persisted before the reply streams, so it stays
+      // in the thread; only the reply that never arrived is dropped.
       setMessages(current => current
         .filter(message => message.id !== streamingId)
         .map(message => message.id === optimistic.id ? { ...message, pending: false } : message));
@@ -565,7 +506,6 @@ export default function CoachChatScreen({
       message={message}
       onResolveToolCall={(toolCallId, action) => void handleToolCall(toolCallId, action)}
       resolving={resolvingToolCallId === message.toolCall?.id}
-      thinkingStep={thinkingSteps[thinkingIndex]}
     />
   );
 
@@ -769,14 +709,6 @@ const styles = StyleSheet.create({
     top: -220,
     width: 440,
   },
-  coachLabel: {
-    color: colors.accent,
-    fontSize: 9,
-    fontWeight: "800",
-    letterSpacing: 1.4,
-    marginBottom: 8,
-  },
-  coachMessage: { maxWidth: "94%", paddingVertical: 6 },
   compactGreeting: { paddingHorizontal: 4 },
   compactGreetingText: {
     color: colors.textMuted,
@@ -912,12 +844,7 @@ const styles = StyleSheet.create({
   },
   loading: { alignItems: "center", flex: 1, gap: 12, justifyContent: "center" },
   loadingText: { color: colors.textSubtle, fontSize: 13 },
-  thinking: { alignItems: "center", flexDirection: "row", gap: 9 },
-  thinkingText: { color: colors.textSubtle, fontSize: 12 },
-  message: { maxWidth: "84%" },
-  messageRow: { alignItems: "flex-start", flexDirection: "row", marginBottom: 18 },
-  messages: { paddingBottom: 20, paddingHorizontal: 18, paddingTop: 12 },
-  messageText: { color: colors.text, fontSize: 16, lineHeight: 24 },
+  messages: { gap: 18, paddingBottom: 20, paddingHorizontal: 18, paddingTop: 12 },
   newButton: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -1161,15 +1088,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.7,
     marginTop: 1,
   },
-  userMessage: {
-    backgroundColor: colors.accent,
-    borderRadius: 20,
-    borderTopRightRadius: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  userMessageRow: { justifyContent: "flex-end" },
-  userMessageText: { color: colors.ink },
   welcomeBrief: {
     borderLeftColor: colors.borderSelected,
     borderLeftWidth: 2,
