@@ -22,7 +22,7 @@ import { mockTodayRepository } from './mockTodayRepository';
 import ChatComposer from '../coach/ChatComposer';
 import { interpretTypedCheckinReply } from './checkinReplyRepository';
 import { checkinDraftStorage, checkinStorageKey, localCheckinDate } from './checkinDraftStorage';
-import { answerCheckin, appendCheckinReply, checkinChoices, checkinDraft, initialCheckin, remainingCheckinCharacters, startCheckin, type CheckinConversation } from './checkinConversation';
+import { answerCheckin, appendCheckinReply, checkinChoices, checkinDraft, initialCheckin, remainingCheckinCharacters, startCheckin, type CheckinConversation, type CheckinTurn } from './checkinConversation';
 import type {
   TodayRepository,
   TodaySnapshot,
@@ -34,6 +34,7 @@ type TodayScreenProps = {
   chat?: {
     messages: CoachMessage[];
     renderMessage: (message: CoachMessage) => ReactNode;
+    onCheckinComplete?: (turns: CheckinTurn[]) => void | Promise<void>;
     onSend: (message: string) => Promise<boolean>;
     sending: boolean;
     disabled: boolean;
@@ -304,6 +305,14 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     }
   }, [conversation.turns.length, conversation.step, sleepReviewed, snapshot?.checkin?.completedAt]);
 
+  // Today's flow renders from the device draft. The copy persisted with the
+  // day's thread is the fallback once that draft is gone, such as on a second
+  // device or any later day.
+  const checkinMessages = chat?.messages.filter(message => message.origin === 'checkin') ?? [];
+  const followupMessages = chat?.messages.filter(message => message.origin !== 'checkin') ?? [];
+  const checkinTurns: CheckinTurn[] = conversation.turns.length
+    ? conversation.turns
+    : checkinMessages.map(message => ({ role: message.role, content: message.content }));
   const latestChatMessage = chat?.messages.at(-1);
   useEffect(() => {
     if (!loading && latestChatMessage && followLatest.current) {
@@ -422,6 +431,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
           ? { status: 'manual', score: draft.manualSleepScore, source: 'manual' }
           : sleepData ?? snapshot.sleepData,
       });
+      void chat?.onCheckinComplete?.(finalConversation.turns);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Your check-in was not saved. Please try finishing again.');
     } finally {
@@ -625,10 +635,10 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
           </Pressable>
         )}
 
-        {conversation.step !== 'sleep' && (sleepReviewed || snapshot.checkin) && (
+        {((conversation.step !== 'sleep' && (sleepReviewed || snapshot.checkin)) || (snapshot.checkin && checkinTurns.length > 0)) && (
           <View style={styles.conversation}>
             {!snapshot.checkin && <Text style={styles.promptHint}>Sleep score {sleepData!.score ?? manualSleepScore} · {sleepData!.source === 'apple_health' ? 'Apple Health' : sleepData!.source === 'oura' ? 'Oura' : 'Manual'}</Text>}
-            {conversation.turns.map((turn, index) => (
+            {checkinTurns.map((turn, index) => (
               <View key={index} style={[styles.chatTurn, turn.role === 'user' && styles.userTurn]}>
                 {turn.role === 'assistant' && <Text style={styles.chatCoachLabel}>COACH</Text>}
                 <Text style={styles.chatText}>{turn.content}</Text>
@@ -678,9 +688,9 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
               </View>
             )}
         </View>
-        {!!chat?.messages.length && (
+        {!!followupMessages.length && chat && (
           <View style={styles.followupMessages}>
-            {chat.messages.map(message => <View key={message.id}>{chat.renderMessage(message)}</View>)}
+            {followupMessages.map(message => <View key={message.id}>{chat.renderMessage(message)}</View>)}
           </View>
         )}
       </ScrollView>
