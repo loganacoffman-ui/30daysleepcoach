@@ -19,6 +19,7 @@ import { loadDailyCoaching, type CoachMessage } from '../coach/coachRepository';
 import { colors, layout } from '../design/theme';
 import type { SleepProfile } from '../onboarding/types';
 import { mockTodayRepository } from './mockTodayRepository';
+import ChatBubble, { plainCoachText } from '../coach/ChatBubble';
 import ChatComposer from '../coach/ChatComposer';
 import { interpretTypedCheckinReply } from './checkinReplyRepository';
 import { checkinDraftStorage, checkinStorageKey, localCheckinDate } from './checkinDraftStorage';
@@ -139,9 +140,6 @@ const timeGreeting = () => {
   const hour = new Date().getHours();
   return hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 };
-
-const plainCoachText = (text: string) =>
-  text.replace(/\*\*/g, '').replace(/__/g, '').replace(/`/g, '').trim();
 
 const DailyReport = ({ action, cacheKey, meaning, pattern }: {
   action: string;
@@ -358,16 +356,17 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     if (!text.trim() || savingRef.current || interpretingRef.current) return;
     if (snapshot?.checkin) {
       if (!chat || chat.sending || chat.disabled) return;
-      const request = replyRequestRef.current;
       followLatest.current = true;
+      // The thread keeps the message even when the reply fails, so the composer
+      // clears the way it does anywhere else in the chat.
       setInput('');
-      const sent = await chat.onSend(text.trim());
-      if (!sent && request === replyRequestRef.current) setInput(text);
+      await chat.onSend(text.trim());
       return;
     }
     if (!sleepReviewed || conversation.step === 'sleep' || !sleepContextReady) return;
     setError('');
-    try { appendCheckinReply(conversation, text); } catch (limitError) {
+    let withReply: CheckinConversation;
+    try { withReply = appendCheckinReply(conversation, text); } catch (limitError) {
       setError(limitError instanceof Error ? limitError.message : 'Please shorten this reply.');
       return;
     }
@@ -378,16 +377,21 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     }
     interpretingRef.current = true;
     setInterpreting(true);
+    // The reply reads as sent while the coach interprets it, exactly like any
+    // other message. A failed interpretation returns it to the composer.
+    setConversation(withReply);
+    setInput('');
     const request = ++replyRequestRef.current;
     try {
       const interpretation = await interpretTypedCheckinReply(conversation, text.trim());
       if (request !== replyRequestRef.current) return;
       const next = answerCheckin(conversation, text, undefined, interpretation);
       setConversation(next);
-      setInput('');
       if (interpretation.finish) await submitCheckin('', next);
     } catch (replyError) {
       if (request === replyRequestRef.current) {
+        setConversation(conversation);
+        setInput(text);
         setError(replyError instanceof Error ? replyError.message : 'Your reply is still here. Please try sending again.');
       }
     } finally {
@@ -639,15 +643,9 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
           <View style={styles.conversation}>
             {!snapshot.checkin && <Text style={styles.promptHint}>Sleep score {sleepData!.score ?? manualSleepScore} · {sleepData!.source === 'apple_health' ? 'Apple Health' : sleepData!.source === 'oura' ? 'Oura' : 'Manual'}</Text>}
             {checkinTurns.map((turn, index) => (
-              <View key={index} style={[styles.chatTurn, turn.role === 'user' && styles.userTurn]}>
-                {turn.role === 'assistant' && <Text style={styles.chatCoachLabel}>COACH</Text>}
-                <Text style={styles.chatText}>{turn.content}</Text>
-              </View>
+              <ChatBubble content={turn.content} key={index} role={turn.role} />
             ))}
-            {interpreting && <View style={styles.reportLoadingRow} accessibilityLiveRegion="polite">
-              <ActivityIndicator color={colors.accent} size="small" />
-              <Text style={styles.reportLoadingText}>Reading your reply…</Text>
-            </View>}
+            {interpreting && <ChatBubble role="assistant" thinking />}
             {!snapshot.checkin && (
               <View style={styles.chipRow}>
                 {checkinChoices(conversation.step).map(option => (
@@ -711,10 +709,6 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
 const styles = StyleSheet.create({
   followupMessages: { gap: 18, paddingTop: 18 },
   conversation: { gap: 18, paddingTop: 18 },
-  chatTurn: { alignSelf: 'flex-start', maxWidth: '94%', paddingVertical: 6 },
-  userTurn: { alignSelf: 'flex-end', backgroundColor: colors.surfaceRaised, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12 },
-  chatCoachLabel: { color: colors.accent, fontSize: 9, fontWeight: '800', letterSpacing: 1.4, marginBottom: 8 },
-  chatText: { color: colors.text, fontSize: 16, lineHeight: 25 },
   screen: {
     backgroundColor: colors.canvas,
     flex: 1,
