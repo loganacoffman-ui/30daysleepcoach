@@ -33,6 +33,7 @@ export type CoachMessage = {
   role: 'user' | 'assistant';
   content: string;
   createdAt: string;
+  origin?: 'checkin';
   pending?: boolean;
   toolCall?: CoachToolCall;
 };
@@ -164,6 +165,9 @@ type StoredCoachToolCall = {
   expires_at: string;
 };
 
+const CHECKIN_MESSAGE_SOURCE = 'daily_checkin';
+const MAX_COACH_MESSAGE_LENGTH = 12_000;
+
 const storedToolCallToCoachToolCall = (toolCall: StoredCoachToolCall): CoachToolCall | null => {
   const previousExperiment = toolCall.input.previous_experiment;
   const replacementExperiment = toolCall.input.replacement_experiment;
@@ -199,6 +203,7 @@ const mapCoachMessages = (messages: StoredCoachMessage[], toolCalls: StoredCoach
       role: message.role,
       content: message.content,
       createdAt: message.created_at,
+      origin: message.metadata?.source === CHECKIN_MESSAGE_SOURCE ? 'checkin' as const : undefined,
       toolCall: typeof toolCallId === 'string' ? callsById.get(toolCallId) : undefined,
     };
   });
@@ -291,6 +296,64 @@ const getOrCreateDailyConversationRecord = async (user: User, date: string) => {
     throw created.error ?? new Error('Could not open today’s coaching thread.');
   }
   return created.data.id as string;
+};
+
+export type CheckinTranscriptTurn = { role: 'user' | 'assistant'; content: string };
+
+const coachMessageChunks = (content: string) => {
+  const trimmed = content.trim();
+  const chunks: string[] = [];
+  for (let start = 0; start < trimmed.length; start += MAX_COACH_MESSAGE_LENGTH) {
+    const chunk = trimmed.slice(start, start + MAX_COACH_MESSAGE_LENGTH).trim();
+    if (chunk) chunks.push(chunk);
+  }
+  return chunks;
+};
+
+// Rows inserted in one statement share now(), and history is ordered by
+// created_at, so each turn carries its own timestamp ending at the check-in.
+export const checkinTranscriptRows = (turns: CheckinTranscriptTurn[], completedAt: Date) => {
+  const parts = turns.flatMap((turn, turnIndex) =>
+    coachMessageChunks(turn.content).map(content => ({ content, role: turn.role, turnIndex })));
+  return parts.map((part, index) => ({
+    role: part.role,
+    content: part.content,
+    created_at: new Date(completedAt.getTime() - (parts.length - index) * 1000).toISOString(),
+    metadata: { source: CHECKIN_MESSAGE_SOURCE, turn: part.turnIndex },
+  }));
+};
+
+// The check-in is answered on the device, and its draft is pruned once the day
+// ends. Persisting the turns keeps the whole conversation readable whenever the
+// day's thread is reopened, here or on another device.
+export const saveCheckinTranscript = async (
+  user: User,
+  conversationId: string,
+  turns: CheckinTranscriptTurn[],
+  completedAt = new Date(),
+): Promise<boolean> => {
+  const rows = checkinTranscriptRows(turns, completedAt);
+  if (!rows.length) return false;
+  const existing = await supabase
+    .from('coach_messages')
+    .select('id')
+    .eq('conversation_id', conversationId)
+    .eq('user_id', user.id)
+    .eq('metadata->>source', CHECKIN_MESSAGE_SOURCE)
+    .limit(1)
+    .maybeSingle();
+  if (existing.error) throw existing.error;
+  if (existing.data) return false;
+  const { error } = await supabase
+    .from('coach_messages')
+    .insert(rows.map(row => ({ ...row, conversation_id: conversationId, user_id: user.id })));
+  if (error) throw error;
+  await supabase
+    .from('coach_conversations')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('id', conversationId)
+    .eq('user_id', user.id);
+  return true;
 };
 
 export const listCoachConversations = async (user: User): Promise<CoachConversationSummary[]> => {

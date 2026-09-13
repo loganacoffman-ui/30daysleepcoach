@@ -32,9 +32,15 @@ import {
   localDate,
   listCoachConversations,
   resolveCoachToolCall,
+  saveCheckinTranscript,
   sendCoachMessage,
 } from "./coachRepository";
-import type { CoachConversationSummary, CoachHomeState, CoachMessage } from "./coachRepository";
+import type {
+  CheckinTranscriptTurn,
+  CoachConversationSummary,
+  CoachHomeState,
+  CoachMessage,
+} from "./coachRepository";
 
 const HISTORY_SWIPE_ACTIVATION_DISTANCE = 18;
 const HISTORY_SWIPE_OPEN_DISTANCE = 96;
@@ -65,6 +71,10 @@ const personalizedGreeting = (state: CoachHomeState | null) => {
   }
   return "Add last night’s sleep data to unlock today’s personalized context.";
 };
+
+const dailyDateLabel = (date: string) =>
+  new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" })
+    .format(new Date(`${date}T12:00:00`));
 
 const plainCoachText = (text: string) =>
   text
@@ -210,6 +220,7 @@ export default function CoachChatScreen({
   const [error, setError] = useState("");
   const [thinkingIndex, setThinkingIndex] = useState(0);
   const [dailyViewOpen, setDailyViewOpen] = useState(false);
+  const [pastDailyDate, setPastDailyDate] = useState<string | null>(null);
   const listRef = useRef<FlatList<CoachMessage>>(null);
   const { width: screenWidth } = useWindowDimensions();
   const drawerWidth = screenWidth * HISTORY_DRAWER_WIDTH_RATIO;
@@ -358,6 +369,7 @@ export default function CoachChatScreen({
 
   const showCoachHome = useCallback(() => {
     setDailyViewOpen(false);
+    setPastDailyDate(null);
     setConversationId(null);
     setMessages([]);
     setInput("");
@@ -378,6 +390,7 @@ export default function CoachChatScreen({
       setConversationId(id);
       setMessages(loadedMessages);
       setDailyViewOpen(true);
+      setPastDailyDate(null);
       closeHistory();
       await refreshHistory();
     } catch (loadError) {
@@ -395,6 +408,17 @@ export default function CoachChatScreen({
     if (dailyViewRequest) void openDailyThread();
   }, [dailyViewRequest, openDailyThread]);
 
+  // The saved check-in already lives in Supabase; a failed transcript write only
+  // costs this day's thread its conversation, which the device draft still shows.
+  const persistCheckinTranscript = useCallback(async (turns: CheckinTranscriptTurn[]) => {
+    if (!conversationId) return;
+    try {
+      await saveCheckinTranscript(user, conversationId, turns);
+      setMessages(await loadCoachConversation(user, conversationId));
+      await refreshHistory();
+    } catch { /* Keep the completed check-in view intact. */ }
+  }, [conversationId, refreshHistory, user]);
+
   const openConversation = async (conversation: CoachConversationSummary) => {
     const dailyDate = dailyConversationDate(conversation.title);
     setBusyAction(true);
@@ -404,6 +428,7 @@ export default function CoachChatScreen({
       setConversationId(conversation.id);
       setMessages(loadedMessages);
       setDailyViewOpen(dailyDate === localDate());
+      setPastDailyDate(dailyDate && dailyDate !== localDate() ? dailyDate : null);
       closeHistory();
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "That conversation could not be loaded.");
@@ -532,7 +557,7 @@ export default function CoachChatScreen({
   const conversationLabel = (conversation: CoachConversationSummary) => {
     const dailyDate = dailyConversationDate(conversation.title);
     if (!dailyDate) return conversation.title;
-    return `Your Day · ${new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(`${dailyDate}T12:00:00`))}`;
+    return `Your Day · ${dailyDateLabel(dailyDate)}`;
   };
   const renderMessage = (message: CoachMessage) => (
     <Message
@@ -581,7 +606,15 @@ export default function CoachChatScreen({
               key={conversationId}
               embedded
               refreshRequest={refreshRequest}
-              chat={{ messages, renderMessage, onSend: send, sending, disabled: busyAction || !!resolvingToolCallId, error }}
+              chat={{
+                messages,
+                renderMessage,
+                onCheckinComplete: persistCheckinTranscript,
+                onSend: send,
+                sending,
+                disabled: busyAction || !!resolvingToolCallId,
+                error,
+              }}
               profile={profile}
               repository={repository}
               user={user}
@@ -625,6 +658,12 @@ export default function CoachChatScreen({
                   <View style={styles.loading}>
                     <ActivityIndicator color={colors.accent} />
                     <Text style={styles.loadingText}>Coach is looking at your context…</Text>
+                  </View>
+                ) : pastDailyDate ? (
+                  <View style={styles.loading}>
+                    <Text style={styles.emptyThreadText}>
+                      No conversation was saved for {dailyDateLabel(pastDailyDate)}. Ask your coach about that day below.
+                    </Text>
                   </View>
                 ) : null
               }
@@ -785,6 +824,7 @@ const styles = StyleSheet.create({
   dailyWhy: { color: colors.textSubtle, fontSize: 13, lineHeight: 20, marginTop: 16 },
   disabled: { opacity: 0.55 },
   emptyMessages: { flexGrow: 1 },
+  emptyThreadText: { color: colors.textSubtle, fontSize: 13, lineHeight: 20, textAlign: "center" },
   eyebrow: {
     color: colors.accent,
     fontSize: 9,
