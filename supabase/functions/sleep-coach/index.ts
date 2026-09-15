@@ -27,6 +27,11 @@ import {
   dailyCoachSourceFingerprint,
   isDailyCoachCacheFresh,
 } from "../_shared/coaching-cache.ts";
+import {
+  endAnthropicSpan,
+  startAnthropicSpan,
+  tracedAnthropic,
+} from "../_shared/tracing.ts";
 import { chooseDailyExperiment } from "../_shared/experimentCycle.ts";
 import { interpretCheckinReply } from "../_shared/checkinReply.ts";
 import { parseCheckinReplyRequest } from "../_shared/checkinReplyContract.ts";
@@ -600,28 +605,32 @@ async function callAnthropicText(
   memories: Memory[],
   maxTokens = 500,
 ): Promise<string | null> {
-  const res = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: maxTokens,
-      system: system + formatMemoryContext(memories),
-      messages: [{ role: "user", content: userMessage }],
-      stream: false,
-    }),
-  });
+  const body = {
+    model: "claude-sonnet-4-6",
+    max_tokens: maxTokens,
+    system: system + formatMemoryContext(memories),
+    messages: [{ role: "user", content: userMessage }],
+    stream: false,
+  };
 
-  if (!res.ok) return null;
-  const json = await res.json();
-  return json.content
-    ?.filter((b: { type: string }) => b.type === "text")
-    .map((b: { text: string }) => b.text)
-    .join("\n") ?? "";
+  return tracedAnthropic("callAnthropicText", body, async () => {
+    const res = await fetch(ANTHROPIC_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.content
+      ?.filter((b: { type: string }) => b.type === "text")
+      .map((b: { text: string }) => b.text)
+      .join("\n") ?? "";
+  });
 }
 
 async function callAnthropicConversation(
@@ -635,6 +644,66 @@ async function callAnthropicConversation(
     model?: string;
   } | null
 > {
+  const body = {
+    model: "claude-sonnet-4-6",
+    max_tokens: 350,
+    system: SYSTEM_PROMPT + formatMemoryContext(memories) +
+      `\n\nCURRENT USER CONTEXT:\n${
+        compactJson(coachContext, 10_000)
+      }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
+    messages,
+    tools: COACH_TOOL_DEFINITIONS,
+    tool_choice: { type: "auto", disable_parallel_tool_use: true },
+    stream: false,
+  };
+
+  return tracedAnthropic("callAnthropicConversation", body, async () => {
+    const response = await fetch(ANTHROPIC_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      console.error("Anthropic conversation failed", await response.text());
+      return null;
+    }
+    const json = await response.json();
+    if (!Array.isArray(json.content)) return null;
+    return {
+      content: json.content as AnthropicContentBlock[],
+      stop_reason: typeof json.stop_reason === "string"
+        ? json.stop_reason
+        : null,
+      model: typeof json.model === "string" ? json.model : undefined,
+    };
+  });
+}
+
+// Returns the span alongside the response so the caller can close it once the
+// streamed reply has been fully assembled.
+async function callAnthropicConversationStream(
+  messages: CoachMessage[],
+  coachContext: unknown,
+  memories: Memory[],
+) {
+  const body = {
+    model: "claude-sonnet-4-6",
+    max_tokens: 350,
+    system: SYSTEM_PROMPT + formatMemoryContext(memories) +
+      `\n\nCURRENT USER CONTEXT:\n${
+        compactJson(coachContext, 10_000)
+      }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
+    messages,
+    tools: COACH_TOOL_DEFINITIONS,
+    tool_choice: { type: "auto", disable_parallel_tool_use: true },
+    stream: true,
+  };
+  const span = startAnthropicSpan("callAnthropicConversationStream", body);
   const response = await fetch(ANTHROPIC_URL, {
     method: "POST",
     headers: {
@@ -642,58 +711,9 @@ async function callAnthropicConversation(
       "x-api-key": ANTHROPIC_API_KEY,
       "anthropic-version": "2023-06-01",
     },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 350,
-      system: SYSTEM_PROMPT + formatMemoryContext(memories) +
-        `\n\nCURRENT USER CONTEXT:\n${
-          compactJson(coachContext, 10_000)
-        }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
-      messages,
-      tools: COACH_TOOL_DEFINITIONS,
-      tool_choice: { type: "auto", disable_parallel_tool_use: true },
-      stream: false,
-    }),
+    body: JSON.stringify(body),
   });
-
-  if (!response.ok) {
-    console.error("Anthropic conversation failed", await response.text());
-    return null;
-  }
-  const json = await response.json();
-  if (!Array.isArray(json.content)) return null;
-  return {
-    content: json.content as AnthropicContentBlock[],
-    stop_reason: typeof json.stop_reason === "string" ? json.stop_reason : null,
-    model: typeof json.model === "string" ? json.model : undefined,
-  };
-}
-
-async function callAnthropicConversationStream(
-  messages: CoachMessage[],
-  coachContext: unknown,
-  memories: Memory[],
-): Promise<Response> {
-  return await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 350,
-      system: SYSTEM_PROMPT + formatMemoryContext(memories) +
-        `\n\nCURRENT USER CONTEXT:\n${
-          compactJson(coachContext, 10_000)
-        }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
-      messages,
-      tools: COACH_TOOL_DEFINITIONS,
-      tool_choice: { type: "auto", disable_parallel_tool_use: true },
-      stream: true,
-    }),
-  });
+  return { response, span };
 }
 
 type CoachToolPrepareContext = {
@@ -905,7 +925,11 @@ Deno.serve(async (req: Request) => {
         });
       }
       try {
-        const interpretation = await interpretCheckinReply(request, ANTHROPIC_API_KEY);
+        const interpretation = await tracedAnthropic(
+          "interpretCheckinReply",
+          request,
+          () => interpretCheckinReply(request, ANTHROPIC_API_KEY),
+        );
         return new Response(JSON.stringify({ interpretation }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -1221,12 +1245,14 @@ Deno.serve(async (req: Request) => {
         user.id,
         buildMemoryQuery(memoryMode, chatHistory, sleepData, coachContext),
       );
-      const anthropicResponse = await callAnthropicConversationStream(
-        chatHistory,
-        coachContext,
-        memories,
-      );
+      const { response: anthropicResponse, span: coachSpan } =
+        await callAnthropicConversationStream(
+          chatHistory,
+          coachContext,
+          memories,
+        );
       if (!anthropicResponse.ok || !anthropicResponse.body) {
+        await endAnthropicSpan(coachSpan, null);
         return new Response(
           JSON.stringify({ error: "The coach could not generate a response" }),
           {
@@ -1367,6 +1393,7 @@ Deno.serve(async (req: Request) => {
             });
           } finally {
             controller.close();
+            await endAnthropicSpan(coachSpan, fullText);
           }
         },
       });
@@ -1777,6 +1804,14 @@ Deno.serve(async (req: Request) => {
     }));
 
     // Call Anthropic with streaming
+    const streamBody = {
+      model: "claude-sonnet-4-6",
+      max_tokens: 1024,
+      system: SYSTEM_PROMPT + formatMemoryContext(memories),
+      messages: anthropicMessages,
+      stream: true,
+    };
+    const streamSpan = startAnthropicSpan("streamCoachResponse", streamBody);
     const response = await fetch(ANTHROPIC_URL, {
       method: "POST",
       headers: {
@@ -1784,17 +1819,12 @@ Deno.serve(async (req: Request) => {
         "x-api-key": ANTHROPIC_API_KEY,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1024,
-        system: SYSTEM_PROMPT + formatMemoryContext(memories),
-        messages: anthropicMessages,
-        stream: true,
-      }),
+      body: JSON.stringify(streamBody),
     });
 
     if (!response.ok) {
       const error = await response.text();
+      await endAnthropicSpan(streamSpan, null);
       return new Response(JSON.stringify({ error }), {
         status: response.status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1802,6 +1832,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!response.body) {
+      await endAnthropicSpan(streamSpan, null);
       return new Response(
         JSON.stringify({ error: "Coach response had no body" }),
         {
@@ -1815,8 +1846,9 @@ Deno.serve(async (req: Request) => {
     // long-term memory without changing the SSE contract used by web clients.
     const [clientStream, observerStream] = response.body.tee();
     runInBackground((async () => {
+      let fullText = "";
       try {
-        const fullText = await collectAnthropicText(observerStream);
+        fullText = await collectAnthropicText(observerStream);
 
         // Write to cache with 24-hour TTL
         if (cacheKey && fullText.length > 0) {
@@ -1855,6 +1887,8 @@ Deno.serve(async (req: Request) => {
         );
       } catch (e) {
         console.error("Coach stream observation failed:", e);
+      } finally {
+        await endAnthropicSpan(streamSpan, fullText);
       }
     })());
 
