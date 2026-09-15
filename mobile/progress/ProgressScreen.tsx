@@ -11,6 +11,7 @@ import { supabase } from '../supabase';
 import { normalizeMorningFeeling } from '../today/feeling';
 import { addDays, experimentInsights, mergeSleepPoints, rankSleepSignals, rollingDeltas, sleepProfileSummary } from './progressInsights';
 import type { ProgressCheckin, ProgressCommitment, SleepPoint } from './progressInsights';
+import { journeyEntries, type JourneyCheckin } from './journey';
 
 const daysAgo = (count: number) => { const date = new Date(); date.setDate(date.getDate() - count); return localDate(date); };
 const localDate = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -29,16 +30,22 @@ export default function ProgressScreen({ profile, user }: { profile: SleepProfil
   const [aiProfile, setAiProfile] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [historyExpanded, setHistoryExpanded] = useState(false);
+  const [journey, setJourney] = useState<JourneyCheckin[]>([]);
+  const [journeyError, setJourneyError] = useState('');
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
-    const [checkinResult, commitmentResult, appleResult, preferred, ouraResult] = await Promise.all([
+    const [checkinResult, commitmentResult, appleResult, preferred, ouraResult, journeyResult] = await Promise.all([
       supabase.from('daily_checkins').select('checkin_date, morning_feeling, feeling, manual_sleep_score, suspected_factor, note').eq('user_id', user.id).order('checkin_date', { ascending: false }).limit(60),
       supabase.from('behavior_commitments').select('behavior_date, behavior, status').eq('user_id', user.id).order('behavior_date', { ascending: false }).limit(90),
       supabase.from('sleep_nights').select('sleep_date, sleep_score').eq('user_id', user.id).eq('provider', 'apple_health').gte('sleep_date', daysAgo(35)),
       loadPreferredSleepSource(user.id),
       supabase.functions.invoke<{data?: Array<{day:string;score?:number}>}>('oura-proxy', { body: { endpoint: 'daily_sleep', start_date: daysAgo(35), end_date: localDate() } }),
+      supabase.from('daily_checkins').select('checkin_date, completed_at, manual_sleep_score').eq('user_id', user.id).not('completed_at', 'is', null).order('checkin_date', { ascending: true }).limit(30),
     ]);
+    setJourneyError(journeyResult.error ? 'Your journey could not be loaded. Please try again.' : '');
+    setJourney(journeyEntries(journeyResult.data ?? []));
     if (checkinResult.error || commitmentResult.error) setError(checkinResult.error?.message ?? commitmentResult.error?.message ?? 'Progress could not be loaded.');
     const normalized = (checkinResult.data ?? []).map(row => ({ checkin_date: row.checkin_date, manual_sleep_score: row.manual_sleep_score, morningFeeling: normalizeMorningFeeling(row.morning_feeling, row.feeling), note: row.note, suspected_factor: row.suspected_factor }));
     const sources: Array<{day:string;score:number;source:'apple_health'|'oura'}> = [];
@@ -66,10 +73,9 @@ export default function ProgressScreen({ profile, user }: { profile: SleepProfil
   const ledger = deltas.filter(item => item.delta !== null).slice(-14).reverse();
   const rankedSignals = useMemo(() => rankSleepSignals(checkins, commitments, points), [checkins, commitments, points]);
   const visibleLedger = historyExpanded ? ledger : ledger.slice(0, 3);
-  const completedDates = new Set(checkins.map(row => row.checkin_date));
-  const earliestDate = checkins.length ? [...checkins].sort((a, b) => a.checkin_date.localeCompare(b.checkin_date))[0].checkin_date : localDate();
-  const journeyDates = Array.from({ length: 30 }, (_, index) => addDays(earliestDate, index));
-  const completedCount = journeyDates.filter(date => completedDates.has(date)).length;
+  const selectedEntry = selectedDay === null ? undefined : journey[selectedDay];
+  const selectedScore = selectedEntry ? points.find(point => point.date === selectedEntry.checkin_date)?.score ?? selectedEntry.manual_sleep_score : null;
+  const selectedExperiment = selectedEntry ? commitments.find(item => item.behavior_date === selectedEntry.checkin_date) : undefined;
   const signalObservation = (date: string, positive: boolean) => {
     const checkin = checkins.find(row => row.checkin_date === date);
     const factor = factorLabel(checkin?.suspected_factor ?? null);
@@ -89,8 +95,15 @@ export default function ProgressScreen({ profile, user }: { profile: SleepProfil
     <Text style={styles.eyebrow}>PROGRESS</Text><Text style={styles.title}>What we’re learning</Text><Text style={styles.subtitle}>Your signals become more useful as patterns repeat.</Text>
     {loading ? <ActivityIndicator color={colors.accent} style={styles.loader}/> : <>
       <View style={styles.journeyCard}>
-        <View style={styles.cardHeader}><View><Text style={styles.cardEyebrow}>YOUR 30-DAY JOURNEY</Text><Text style={styles.cardTitle}>Small steps, adding up</Text></View><Text style={styles.average}>{completedCount} of 30</Text></View>
-        <View style={styles.journeyGrid}>{journeyDates.map((date, index) => <View accessibilityLabel={`Day ${index + 1}${completedDates.has(date) ? ', check-in complete' : ', no check-in'}`} key={date} style={[styles.journeySquare, completedDates.has(date) && styles.journeySquareComplete, date > localDate() && styles.journeySquareFuture]}/>)}</View>
+        <View style={styles.cardHeader}><View><Text style={styles.cardEyebrow}>Your 30 Day Journey</Text><Text style={styles.cardTitle}>Small steps, adding up</Text></View><Text style={styles.average}>{journeyError ? '—' : `${journey.length} of 30`}</Text></View>
+        {journeyError ? <Pressable accessibilityRole="button" onPress={() => void load()}><Text style={styles.error}>{journeyError}</Text></Pressable> : <>
+          <Text style={styles.sectionSubtitle}>{journey.length === 30 ? '30 check-ins complete. Keep checking in to continue learning.' : `${journey.length} of 30 check-ins · Go at your pace.`}{journey[0] ? ` Started ${dateLabel(journey[0].checkin_date)}.` : ''}</Text>
+          <View style={styles.journeyGrid}>{Array.from({ length: 30 }, (_, index) => {
+            const entry = journey[index];
+            return <Pressable accessibilityRole="button" accessibilityState={{ disabled: !entry, selected: selectedDay === index }} disabled={!entry} accessibilityLabel={`Check-in ${index + 1}${entry ? `, ${entry.checkin_date}, complete. Show details` : ', still to come'}`} key={index} onPress={() => setSelectedDay(current => current === index ? null : index)} style={[styles.journeySquare, entry ? styles.journeySquareComplete : styles.journeySquareFuture, selectedDay === index && { borderColor: colors.text, borderWidth: 2 }]}/>;
+          })}</View>
+          {selectedEntry && <View style={{ marginTop: 14 }}><Text style={styles.cardTitle}>Check-in {selectedDay! + 1} · {selectedEntry.checkin_date}</Text><Text style={styles.profileCopy}>{selectedScore == null ? 'Sleep score unavailable in loaded history.' : `Sleep score: ${selectedScore}`}</Text><Text style={styles.profileCopy}>{selectedExperiment ? `That night’s experiment: ${selectedExperiment.behavior}` : 'No experiment available in loaded history.'}</Text></View>}
+        </>}
       </View>
 
       <Section title="SLEEP SCORE" subtitle="Past 7 days" open={sleepScoreOpen} onPress={() => setSleepScoreOpen(value => !value)}>
@@ -108,14 +121,6 @@ export default function ProgressScreen({ profile, user }: { profile: SleepProfil
         </View>
       </Section>
 
-      <Section title="SLEEP SIGNALS" subtitle="What appears to matter—not every fluctuation" open={ledgerOpen} onPress={() => setLedgerOpen(value => !value)}>
-        <View style={styles.signalBlock}><Text style={styles.signalHeading}>WHAT APPEARS TO MATTER</Text>
-          {rankedSignals.length ? rankedSignals.map(signal => { const positive = signal.averageDelta > 0; const label = signal.kind === 'factor' ? factorLabel(signal.label) : signal.label; return <View key={signal.key} style={styles.patternRow}><View style={styles.patternHeader}><Text style={styles.patternTitle}>{label}</Text><Text style={[styles.patternDelta, positive ? styles.positive : styles.negative]}>{positive ? '+' : '−'}{Math.abs(signal.averageDelta)} avg</Text></View><Text style={styles.patternCopy}>Across {signal.count} nights, your sleep averaged {Math.abs(signal.averageDelta)} points {positive ? 'higher' : 'lower'} than its comparison. This pattern may be worth watching.</Text><Text style={styles.confidence}>{signal.confidence.toUpperCase()}</Text></View>; }) : <Text style={styles.signalEmpty}>No repeatable signal is strong enough yet. Keep checking in and your patterns will become clearer.</Text>}
-        </View>
-        <View style={styles.historyHeader}><Text style={styles.signalHeading}>RECENT NIGHTS</Text><Text style={styles.historyHint}>{ledger.length} observed</Text></View>
-        {visibleLedger.length ? visibleLedger.map(item => { const positive = item.delta! >= 0; const meaningful = Math.abs(item.delta!) >= 5; return <View key={item.date} style={styles.ledgerRow}><Text style={[styles.delta, meaningful ? positive ? styles.positive : styles.negative : styles.neutral]}>{positive ? '+' : '−'}{Math.abs(item.delta!)}</Text><View style={styles.ledgerCopy}><Text style={styles.ledgerTitle}>{dateLabel(item.date)} · {meaningful ? `Sleep moved ${positive ? 'up' : 'down'}` : 'No meaningful change'}</Text><Text style={styles.ledgerNote}>{signalObservation(item.date, positive)}</Text><Text style={styles.ledgerDate}>Compared with your {item.comparison}</Text></View></View>; }) : <Text style={styles.empty}>{points.length === 1 ? 'Day 1 establishes your starting point. Your first signal will appear after the next sleep score.' : 'Add two sleep scores to begin your signal history.'}</Text>}
-        {ledger.length > 3 && <Pressable accessibilityRole="button" onPress={() => setHistoryExpanded(value => !value)} style={styles.historyButton}><Text style={styles.historyButtonText}>{historyExpanded ? 'Show recent only' : `View all ${ledger.length} nights`}</Text></Pressable>}
-      </Section>
     </>}
     {!!error && <Text style={styles.error}>{error}</Text>}
   </ScrollView>;

@@ -121,8 +121,6 @@ const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
         onResponderMove={(event) => updateFromPageX(event.nativeEvent.pageX)}
         onResponderRelease={(event) => updateFromPageX(event.nativeEvent.pageX)}
         onResponderTerminate={() => measureTrack()}
-        // Let iOS finish the gesture cleanly when the finger leaves the slider.
-        // The history responder only captures deliberate horizontal swipes.
         onResponderTerminationRequest={() => true}
         onStartShouldSetResponder={() => !disabled}
         style={styles.sleepScoreTrackTouch}

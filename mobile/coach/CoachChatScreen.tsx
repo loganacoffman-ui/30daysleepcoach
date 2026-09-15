@@ -248,6 +248,7 @@ export default function CoachChatScreen({
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponderCapture: (_, gesture) =>
+          !dailyViewOpen &&
           !drawerOpenRef.current &&
           gesture.dx >= HISTORY_SWIPE_ACTIVATION_DISTANCE &&
           gesture.dx > Math.abs(gesture.dy) * 1.25,
@@ -291,6 +292,7 @@ export default function CoachChatScreen({
       drawerBackdropOpacity,
       drawerTranslateX,
       drawerWidth,
+      dailyViewOpen,
       refreshHistory,
     ],
   );
@@ -490,11 +492,6 @@ export default function CoachChatScreen({
   };
 
   const isCoachHome = !dailyViewOpen && !conversationId && messages.length === 0;
-  // Your Day already has a dedicated entry point. Only offer to resume an
-  // actual standalone Coach conversation here.
-  const recentConversation = conversations.find(
-    conversation => !dailyConversationDate(conversation.title),
-  ) ?? null;
   const conversationLabel = (conversation: CoachConversationSummary) => {
     const dailyDate = dailyConversationDate(conversation.title);
     if (!dailyDate) return conversation.title;
@@ -570,9 +567,6 @@ export default function CoachChatScreen({
                 </View>
                 <Text style={styles.dailyEntryArrow}>›</Text>
               </Pressable>
-              {recentConversation && <Pressable accessibilityRole="button" onPress={() => void openConversation(recentConversation)} style={({ pressed }) => [styles.resumeAction, pressed && styles.suggestionPressed]}>
-                <View style={styles.resumeDot}/><View style={styles.resumeCopy}><Text style={styles.resumeLabel}>Continue recent conversation</Text><Text numberOfLines={1} style={styles.resumeDescription}>{conversationLabel(recentConversation)}</Text></View><Text style={styles.resumeArrow}>›</Text>
-              </Pressable>}
               <View style={styles.suggestions}>
                 {[
                   "How is my sleep trending?",
@@ -957,26 +951,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 4,
   },
-  resumeAction: {
-    alignItems: "center",
-    backgroundColor: colors.surfaceAccent,
-    borderColor: colors.borderSelected,
-    borderRadius: 18,
-    borderWidth: 1,
-    flexDirection: "row",
-    minHeight: 68,
-    padding: 14,
-  },
-  resumeArrow: { color: colors.accent, fontSize: 17, fontWeight: "700" },
-  resumeCopy: { flex: 1, marginLeft: 11 },
-  resumeDescription: { color: colors.textSubtle, fontSize: 10, marginTop: 3 },
-  resumeDot: {
-    backgroundColor: colors.success,
-    borderRadius: 5,
-    height: 8,
-    width: 8,
-  },
-  resumeLabel: { color: colors.accentSoft, fontSize: 14, fontWeight: "700" },
   screen: { backgroundColor: colors.canvas, flex: 1, overflow: "hidden" },
   spark: {
     alignItems: "center",
