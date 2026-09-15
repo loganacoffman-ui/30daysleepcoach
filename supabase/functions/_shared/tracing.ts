@@ -11,7 +11,9 @@ const apiKey = (() => {
   }
 })();
 
-const logger = apiKey ? initLogger({ projectName: "My Project", apiKey }) : null;
+const logger = apiKey
+  ? initLogger({ projectName: "30-day-sleep-coach", apiKey })
+  : null;
 
 /**
  * An Anthropic Messages request. `messages` is logged as the span input when
