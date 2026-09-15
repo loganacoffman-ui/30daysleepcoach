@@ -121,14 +121,6 @@ export default function ProgressScreen({ profile, user }: { profile: SleepProfil
         </View>
       </Section>
 
-      <Section title="SLEEP SIGNALS" subtitle="What appears to matter—not every fluctuation" open={ledgerOpen} onPress={() => setLedgerOpen(value => !value)}>
-        <View style={styles.signalBlock}><Text style={styles.signalHeading}>WHAT APPEARS TO MATTER</Text>
-          {rankedSignals.length ? rankedSignals.map(signal => { const positive = signal.averageDelta > 0; const label = signal.kind === 'factor' ? factorLabel(signal.label) : signal.label; return <View key={signal.key} style={styles.patternRow}><View style={styles.patternHeader}><Text style={styles.patternTitle}>{label}</Text><Text style={[styles.patternDelta, positive ? styles.positive : styles.negative]}>{positive ? '+' : '−'}{Math.abs(signal.averageDelta)} avg</Text></View><Text style={styles.patternCopy}>Across {signal.count} nights, your sleep averaged {Math.abs(signal.averageDelta)} points {positive ? 'higher' : 'lower'} than its comparison. This pattern may be worth watching.</Text><Text style={styles.confidence}>{signal.confidence.toUpperCase()}</Text></View>; }) : <Text style={styles.signalEmpty}>No repeatable signal is strong enough yet. Keep checking in and your patterns will become clearer.</Text>}
-        </View>
-        <View style={styles.historyHeader}><Text style={styles.signalHeading}>RECENT NIGHTS</Text><Text style={styles.historyHint}>{ledger.length} observed</Text></View>
-        {visibleLedger.length ? visibleLedger.map(item => { const positive = item.delta! >= 0; const meaningful = Math.abs(item.delta!) >= 5; return <View key={item.date} style={styles.ledgerRow}><Text style={[styles.delta, meaningful ? positive ? styles.positive : styles.negative : styles.neutral]}>{positive ? '+' : '−'}{Math.abs(item.delta!)}</Text><View style={styles.ledgerCopy}><Text style={styles.ledgerTitle}>{dateLabel(item.date)} · {meaningful ? `Sleep moved ${positive ? 'up' : 'down'}` : 'No meaningful change'}</Text><Text style={styles.ledgerNote}>{signalObservation(item.date, positive)}</Text><Text style={styles.ledgerDate}>Compared with your {item.comparison}</Text></View></View>; }) : <Text style={styles.empty}>{points.length === 1 ? 'Day 1 establishes your starting point. Your first signal will appear after the next sleep score.' : 'Add two sleep scores to begin your signal history.'}</Text>}
-        {ledger.length > 3 && <Pressable accessibilityRole="button" onPress={() => setHistoryExpanded(value => !value)} style={styles.historyButton}><Text style={styles.historyButtonText}>{historyExpanded ? 'Show recent only' : `View all ${ledger.length} nights`}</Text></Pressable>}
-      </Section>
     </>}
     {!!error && <Text style={styles.error}>{error}</Text>}
   </ScrollView>;
