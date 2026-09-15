@@ -1,6 +1,13 @@
 // Braintrust tracing for the coach's Anthropic calls.
 // In production: supabase secrets set BRAINTRUST_API_KEY=...
-import { initLogger, NOOP_SPAN, type Span } from "npm:braintrust@3.32.0";
+// Imported from esm.sh rather than npm: the npm package ships ~23MB of optional
+// `bt` CLI binaries that push the deployed function past Supabase's size limit.
+// edge-light is the build meant for this runtime.
+import {
+  initLogger,
+  NOOP_SPAN,
+  type Span,
+} from "https://esm.sh/braintrust@3.32.0/edge-light";
 
 // Without a key, tracing stays off and the coach behaves exactly as before.
 const apiKey = (() => {
