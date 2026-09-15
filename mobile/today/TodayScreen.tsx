@@ -121,8 +121,9 @@ const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
         onResponderMove={(event) => updateFromPageX(event.nativeEvent.pageX)}
         onResponderRelease={(event) => updateFromPageX(event.nativeEvent.pageX)}
         onResponderTerminate={() => measureTrack()}
-        // Keep an active slider drag; the parent history swipe must not steal it.
-        onResponderTerminationRequest={() => false}
+        // Let iOS finish the gesture cleanly when the finger leaves the slider.
+        // The history responder only captures deliberate horizontal swipes.
+        onResponderTerminationRequest={() => true}
         onStartShouldSetResponder={() => !disabled}
         style={styles.sleepScoreTrackTouch}
       >
@@ -291,10 +292,15 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     if (!snapshot || !draftLoaded) return;
     // Keep only today's conversation; storage also serializes logout cleanup.
     if (snapshot.checkin && conversation.turns.length === 0) return;
-    void checkinDraftStorage.save(draftOwner, snapshot.date, {
-      conversation, input: snapshot.checkin ? '' : input, manualSleepScore,
-      manualSleepFallback, sleepReviewed, reviewedSleepData,
-    }).catch(() => setError('Your latest changes couldn’t be saved on this device.'));
+    // Slider movement can produce dozens of state updates in a second. Debounce
+    // draft persistence so Continue never waits behind a queue of stale scores.
+    const timer = setTimeout(() => {
+      void checkinDraftStorage.save(draftOwner, snapshot.date, {
+        conversation, input: snapshot.checkin ? '' : input, manualSleepScore,
+        manualSleepFallback, sleepReviewed, reviewedSleepData,
+      }).catch(() => setError('Your latest changes couldn’t be saved on this device.'));
+    }, 250);
+    return () => clearTimeout(timer);
   }, [draftKey, draftLoaded, conversation, input, manualSleepScore, manualSleepFallback, sleepReviewed, reviewedSleepData, snapshot?.checkin]);
 
   useEffect(() => {
