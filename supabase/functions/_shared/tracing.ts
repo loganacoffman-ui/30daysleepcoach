@@ -23,15 +23,29 @@ const logger = apiKey
   : null;
 
 /**
- * An Anthropic Messages request. `messages` is logged as the span input when
- * present, otherwise the whole payload is.
+ * An Anthropic Messages request. The conversation is logged as the span input
+ * when `messages` is present, otherwise the whole payload is.
  */
 type AnthropicRequest = {
   model?: string;
   max_tokens?: number;
+  system?: unknown;
   messages?: unknown;
+  tools?: unknown;
+  tool_choice?: unknown;
   [key: string]: unknown;
 };
+
+/**
+ * Anthropic carries the system prompt outside `messages`, so it has to be
+ * folded back in as a leading system turn for Braintrust to render it.
+ */
+function spanInput(request: AnthropicRequest): unknown {
+  if (!Array.isArray(request.messages)) return request;
+  return typeof request.system === "string"
+    ? [{ role: "system", content: request.system }, ...request.messages]
+    : request.messages;
+}
 
 /**
  * Open an LLM span for an Anthropic Messages request. Streaming callers hold the
@@ -45,8 +59,13 @@ export function startAnthropicSpan(
     name,
     type: "llm",
     event: {
-      input: request.messages ?? request,
-      metadata: { model: request.model, max_tokens: request.max_tokens },
+      input: spanInput(request),
+      metadata: {
+        model: request.model,
+        max_tokens: request.max_tokens,
+        tools: request.tools,
+        tool_choice: request.tool_choice,
+      },
     },
   }) ?? NOOP_SPAN;
 }
