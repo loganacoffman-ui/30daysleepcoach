@@ -694,7 +694,7 @@ const styles = StyleSheet.create({
     top: 0,
   },
   ambientViolet: {
-    backgroundColor: "#244e67",
+    backgroundColor: "#C0573C",
     borderRadius: 220,
     height: 440,
     opacity: 0.16,

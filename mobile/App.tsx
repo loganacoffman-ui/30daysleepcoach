@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Alert,
+  Appearance,
   AppState,
   KeyboardAvoidingView,
   Platform,
@@ -91,6 +92,10 @@ const wait = (delayMs: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, delayMs));
 
 function AppContent() {
+  useEffect(() => {
+    Appearance.setColorScheme('light');
+    return () => Appearance.setColorScheme('unspecified');
+  }, []);
   const incomingUrl = Linking.useLinkingURL();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -471,7 +476,7 @@ function AppContent() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator color={colors.accent} size="large" />
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
       </View>
     );
   }
@@ -481,7 +486,7 @@ function AppContent() {
       return (
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={colors.accent} size="large" />
-          <StatusBar style="light" />
+          <StatusBar style="dark" />
         </View>
       );
     }
@@ -687,7 +692,7 @@ function AppContent() {
           <Text style={styles.privacyLink}>Privacy Policy</Text>
         </Pressable>
       </ScrollView>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
     </KeyboardAvoidingView>
   );
 }
