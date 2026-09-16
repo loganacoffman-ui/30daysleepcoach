@@ -248,7 +248,6 @@ export default function CoachChatScreen({
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponderCapture: (_, gesture) =>
-          !dailyViewOpen &&
           !drawerOpenRef.current &&
           gesture.dx >= HISTORY_SWIPE_ACTIVATION_DISTANCE &&
           gesture.dx > Math.abs(gesture.dy) * 1.25,
@@ -292,7 +291,6 @@ export default function CoachChatScreen({
       drawerBackdropOpacity,
       drawerTranslateX,
       drawerWidth,
-      dailyViewOpen,
       refreshHistory,
     ],
   );
