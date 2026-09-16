@@ -738,10 +738,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   title: {
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     color: colors.text,
     fontSize: 30,
-    fontWeight: '400',
+    fontWeight: '500',
     letterSpacing: -0.8,
   },
   date: {

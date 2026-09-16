@@ -524,7 +524,6 @@ export default function CoachChatScreen({
               <Text style={styles.historyButtonText}>☰</Text>
             </Pressable>
             <View>
-              <Text style={styles.eyebrow}>30 DAY SLEEP COACH</Text>
               <Text style={styles.title}>Coach</Text>
             </View>
             <Pressable accessibilityRole="button" onPress={() => {
@@ -852,24 +851,23 @@ const styles = StyleSheet.create({
     paddingTop: 26,
   },
   newChatTitle: {
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     color: colors.text,
     fontSize: 25,
-    fontWeight: "400",
+    fontWeight: "500",
     letterSpacing: -0.5,
     lineHeight: 32,
   },
   personalizedNote: {
     color: colors.textMuted,
     fontSize: 15,
-    lineHeight: 22,
+    lineHeight: 24,
     marginTop: 12,
   },
   dailyEntry: {
     alignItems: "center",
     backgroundColor: colors.surface,
-    borderColor: colors.borderSelected,
-    borderRadius: 18,
+    borderColor: colors.border,
+    borderRadius: 14,
     borderWidth: 1,
     flexDirection: "row",
     marginTop: 22,
@@ -878,15 +876,15 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   dailyEntryCopy: { flex: 1 },
-  dailyEntryEyebrow: { color: colors.accent, fontSize: 10, fontWeight: "800", letterSpacing: 1.3 },
-  dailyEntryTitle: { color: colors.text, fontSize: 16, fontWeight: "800", marginTop: 5 },
+  dailyEntryEyebrow: { color: colors.textSubtle, fontSize: 10, fontWeight: "500", letterSpacing: 1.3 },
+  dailyEntryTitle: { color: colors.text, fontSize: 16, fontWeight: "500", marginTop: 5 },
   dailyEntryArrow: { color: colors.accent, fontSize: 28, marginLeft: 12 },
   suggestions: { gap: 8, marginTop: "auto", paddingTop: 48 },
   swipeArea: { flex: 1 },
   suggestion: {
     alignItems: "center",
     borderBottomColor: colors.border,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0,
     flexDirection: "row",
     justifyContent: "space-between",
     minHeight: 46,
@@ -1054,10 +1052,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   title: {
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     color: colors.text,
-    fontSize: 30,
-    fontWeight: "400",
+    fontSize: 22,
+    fontWeight: "500",
     letterSpacing: -0.7,
     marginTop: 1,
   },
