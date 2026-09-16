@@ -17,6 +17,7 @@ import type { User } from "@supabase/supabase-js";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors, layout } from "../design/theme";
+import { horizontalDragClaimed } from "../gestures";
 import type { SleepProfile } from "../onboarding/types";
 import ChatBubble from "./ChatBubble";
 import ChatComposer from "./ChatComposer";
@@ -257,8 +258,13 @@ export default function CoachChatScreen({
   const historySwipeResponder = useMemo(
     () =>
       PanResponder.create({
+        // This capture runs before the control under the touch is given the
+        // move, so a control that reads sideways drags — the sleep score slider
+        // — has to be honoured by its touch-start claim rather than by asking it
+        // to give the gesture up.
         onMoveShouldSetPanResponderCapture: (_, gesture) =>
           !drawerOpenRef.current &&
+          !horizontalDragClaimed() &&
           gesture.dx >= HISTORY_SWIPE_ACTIVATION_DISTANCE &&
           gesture.dx > Math.abs(gesture.dy) * 1.25,
         onPanResponderGrant: () => {
