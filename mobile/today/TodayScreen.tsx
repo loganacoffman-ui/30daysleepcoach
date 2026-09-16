@@ -16,6 +16,7 @@ import type { User } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { screenCache } from '../cache/screenCache';
+import { claimHorizontalDrag, releaseHorizontalDrag } from '../gestures';
 import { loadDailyCoaching, type CoachMessage, type DailyCoaching } from '../coach/coachRepository';
 import { Skeleton, SkeletonLines } from '../design/Skeleton';
 import { colors, layout } from '../design/theme';
@@ -97,26 +98,15 @@ const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
       }
     });
   };
-  const dragOrigin = useRef<{ x: number; y: number } | null>(null);
-  const draggingHorizontally = useRef(false);
+  // Scoring is itself a sideways drag, so the track claims the touch up front to
+  // keep the coach history swipe from capturing it part way through.
   const beginDrag = (event: GestureResponderEvent) => {
-    dragOrigin.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY };
-    draggingHorizontally.current = false;
+    claimHorizontalDrag();
     measureTrack(event.nativeEvent.pageX);
   };
-  const continueDrag = (event: GestureResponderEvent) => {
-    const origin = dragOrigin.current;
-    if (origin) {
-      const dx = event.nativeEvent.pageX - origin.x;
-      const dy = event.nativeEvent.pageY - origin.y;
-      if (Math.abs(dx) > 4 && Math.abs(dx) > Math.abs(dy)) draggingHorizontally.current = true;
-    }
-    updateFromPageX(event.nativeEvent.pageX);
-  };
-  const endDrag = () => {
-    dragOrigin.current = null;
-    draggingHorizontally.current = false;
-  };
+  // The check-in can advance past the slider mid-drag, which leaves no release
+  // to clear the claim.
+  useEffect(() => releaseHorizontalDrag, []);
   const adjust = (amount: number) => onChange?.(clampSleepScore((value ?? 50) + amount));
 
   return (
@@ -142,19 +132,18 @@ const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
         }}
         onMoveShouldSetResponder={() => !disabled}
         onResponderGrant={beginDrag}
-        onResponderMove={continueDrag}
+        onResponderMove={(event) => updateFromPageX(event.nativeEvent.pageX)}
         onResponderRelease={(event) => {
           updateFromPageX(event.nativeEvent.pageX);
-          endDrag();
+          releaseHorizontalDrag();
         }}
         onResponderTerminate={() => {
-          endDrag();
+          releaseHorizontalDrag();
           measureTrack();
         }}
-        // Scoring is itself a sideways drag, so hold the gesture once it turns
-        // horizontal; otherwise the coach history swipe captures it. Vertical
-        // drags stay releasable so the scroll view can still take over.
-        onResponderTerminationRequest={() => !draggingHorizontally.current}
+        // A vertical drag belongs to the scroll view, which only asks once it is
+        // actually scrolling.
+        onResponderTerminationRequest={() => true}
         onStartShouldSetResponder={() => !disabled}
         style={styles.sleepScoreTrackTouch}
       >
