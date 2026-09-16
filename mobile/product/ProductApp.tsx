@@ -9,6 +9,7 @@ import { syncAppleHealthForDate } from '../healthkit/appleHealth';
 import type { SleepProfile } from '../onboarding/types';
 import { createSupabaseTodayRepository } from '../today/supabaseTodayRepository';
 import CoachChatScreen from '../coach/CoachChatScreen';
+import { invalidateCoachContext } from '../coach/coachRepository';
 import { SettingsScreen } from './InfoScreens';
 import ProgressScreen from '../progress/ProgressScreen';
 import { supabase } from '../supabase';
@@ -23,6 +24,16 @@ const tabs:{key:Tab;icon:string;label:string}[]=[{key:'coach',icon:'✦',label:'
 
 export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccount}:{session:Session;profile:SleepProfile;busy:boolean;onSignOut:()=>void;onDeleteAccount:()=>void}){
   const [tab,setTab]=useState<Tab>('coach');
+  // Each tab is mounted the first time it is opened and then kept, so switching
+  // tabs preserves scroll position, open sections, and loaded data instead of
+  // rebuilding the screen. Settings and Progress stay unmounted until visited so
+  // launch still pays for the Coach tab only.
+  const [visited,setVisited]=useState<Record<Tab,boolean>>({coach:true,progress:false,settings:false});
+  const selectTab=(next:Tab)=>{
+    if(next!=='coach')Keyboard.dismiss();
+    setVisited(current=>current[next]?current:{...current,[next]:true});
+    setTab(next);
+  };
   const [refreshKey,setRefreshKey]=useState(0);
   const [dailyViewRequest,setDailyViewRequest]=useState(0);
   const repository=useMemo(()=>createSupabaseTodayRepository(session.user,profile.displayName,profile.primaryConcern),[session.user,profile.displayName,profile.primaryConcern]);
@@ -44,7 +55,9 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
     return()=>subscription.remove();
   },[]);
   useEffect(()=>{
-    const sync=()=>{void syncAppleHealthForDate(session.user.id).then(r=>{if(r.status==='synced')setRefreshKey(k=>k+1);}).catch(()=>undefined);};
+    // A synced night is new evidence for the coach, so the shared context window
+    // has to be dropped before the screens below refresh against it.
+    const sync=()=>{void syncAppleHealthForDate(session.user.id).then(r=>{if(r.status==='synced'){invalidateCoachContext(session.user.id);setRefreshKey(k=>k+1);}}).catch(()=>undefined);};
     sync();
     const subscription=AppState.addEventListener('change',state=>{if(state==='active')sync();});
     return()=>subscription.remove();
@@ -52,17 +65,21 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
   return (
     <View style={styles.screen}>
       <View style={styles.body}>
-        {tab === 'progress' && <ProgressScreen profile={profile} user={session.user} />}
-        <View style={tab === 'coach' ? styles.coachPane : styles.hiddenPane}>
+        {visited.progress && <View style={tab === 'progress' ? styles.pane : styles.hiddenPane}>
+          <ProgressScreen active={tab === 'progress'} profile={profile} refreshRequest={refreshKey} user={session.user} />
+        </View>}
+        <View style={tab === 'coach' ? styles.pane : styles.hiddenPane}>
           <CoachChatScreen dailyViewRequest={dailyViewRequest} refreshRequest={refreshKey} profile={profile} repository={repository} user={session.user} />
         </View>
-        {tab === 'settings' && <SettingsScreen busy={busy} onDeleteAccount={onDeleteAccount} onSignOut={onSignOut} profile={profile} user={session.user} />}
+        {visited.settings && <View style={tab === 'settings' ? styles.pane : styles.hiddenPane}>
+          <SettingsScreen busy={busy} onDeleteAccount={onDeleteAccount} onSignOut={onSignOut} profile={profile} user={session.user} />
+        </View>}
       </View>
       <View style={styles.tabs}>
-        {tabs.map(item => <Pressable accessibilityRole="tab" accessibilityState={{selected:tab===item.key}} key={item.key} onPress={()=>{if(item.key!=='coach')Keyboard.dismiss();setTab(item.key);}} style={styles.tab}><Text style={[styles.icon,tab===item.key&&styles.selected]}>{item.icon}</Text><Text style={[styles.label,tab===item.key&&styles.selected]}>{item.label}</Text></Pressable>)}
+        {tabs.map(item => <Pressable accessibilityRole="tab" accessibilityState={{selected:tab===item.key}} key={item.key} onPress={()=>selectTab(item.key)} style={styles.tab}><Text style={[styles.icon,tab===item.key&&styles.selected]}>{item.icon}</Text><Text style={[styles.label,tab===item.key&&styles.selected]}>{item.label}</Text></Pressable>)}
       </View>
       <StatusBar style="light" />
     </View>
   );
 }
-const styles=StyleSheet.create({screen:{backgroundColor:colors.canvas,flex:1},body:{flex:1},coachPane:{flex:1},hiddenPane:{display:'none'},tabs:{backgroundColor:colors.surfaceMuted,borderTopColor:colors.border,borderTopWidth:1,flexDirection:'row',paddingBottom:20,paddingTop:9},tab:{alignItems:'center',flex:1},icon:{color:colors.textFaint,fontSize:19,fontWeight:'800',height:22,lineHeight:22,textAlign:'center'},label:{color:colors.textSubtle,fontSize:10,fontWeight:'700',lineHeight:12,marginTop:3},selected:{color:colors.accent}});
+const styles=StyleSheet.create({screen:{backgroundColor:colors.canvas,flex:1},body:{flex:1},pane:{flex:1},hiddenPane:{display:'none'},tabs:{backgroundColor:colors.surfaceMuted,borderTopColor:colors.border,borderTopWidth:1,flexDirection:'row',paddingBottom:20,paddingTop:9},tab:{alignItems:'center',flex:1},icon:{color:colors.textFaint,fontSize:19,fontWeight:'800',height:22,lineHeight:22,textAlign:'center'},label:{color:colors.textSubtle,fontSize:10,fontWeight:'700',lineHeight:12,marginTop:3},selected:{color:colors.accent}});

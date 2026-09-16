@@ -15,7 +15,9 @@ import {
 import type { User } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { loadDailyCoaching, type CoachMessage } from '../coach/coachRepository';
+import { screenCache } from '../cache/screenCache';
+import { loadDailyCoaching, type CoachMessage, type DailyCoaching } from '../coach/coachRepository';
+import { Skeleton, SkeletonLines } from '../design/Skeleton';
 import { colors, layout } from '../design/theme';
 import type { SleepProfile } from '../onboarding/types';
 import { mockTodayRepository } from './mockTodayRepository';
@@ -56,6 +58,11 @@ const formatLongDate = (date: string) => {
 };
 
 const clampSleepScore = (score: number) => Math.max(0, Math.min(100, Math.round(score)));
+
+const TODAY_CACHE_NAME = 'today-snapshot';
+// Bump when TodaySnapshot changes shape so a released build never renders a
+// cached entry it can no longer read.
+const TODAY_CACHE_VERSION = 1;
 
 const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
   disabled?: boolean;
@@ -205,6 +212,10 @@ const DailyReport = ({ action, cacheKey, meaning, pattern }: {
 
 export default function TodayScreen({ embedded = false, chat, profile, refreshRequest, repository = mockTodayRepository, user }: TodayScreenProps) {
   const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
+  // Read by background refreshes, which need what is on screen right now rather
+  // than the snapshot captured when the refresh started.
+  const snapshotRef = useRef<TodaySnapshot | null>(null);
+  useEffect(() => { snapshotRef.current = snapshot; }, [snapshot]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -225,29 +236,60 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
   const [manualSleepFallback, setManualSleepFallback] = useState(false);
   const [manualSleepScore, setManualSleepScore] = useState<number | null>(null);
   const [manualSleepSaving, setManualSleepSaving] = useState(false);
-  const [dailyCoaching, setDailyCoaching] = useState<{
-    pattern: string;
-    meaning: string;
-    action: string;
-    generatedAt: string;
-  } | null>(null);
+  const [coachingBusy, setCoachingBusy] = useState(false);
+  const [coachingError, setCoachingError] = useState('');
 
-  const loadToday = useCallback(async () => {
-    setLoading(true);
-    setError('');
+  const draftOwner = user?.id ?? 'demo';
+  const dailyCoaching = snapshot?.dailyCoaching ?? null;
 
+  const loadToday = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) {
+      setError('');
+      setLoading(true);
+    }
     try {
       const nextSnapshot = await repository.loadToday();
-      setSnapshot(nextSnapshot);
+      // Today's coaching is a fixed artifact once written, so a refresh that has
+      // not yet observed it must never clear what is already on screen — nor
+      // store a day without it, which the next launch would try to fill.
+      const shown = snapshotRef.current;
+      const merged = nextSnapshot.dailyCoaching || !shown?.dailyCoaching || shown.date !== nextSnapshot.date
+        ? nextSnapshot
+        : { ...nextSnapshot, dailyCoaching: shown.dailyCoaching };
+      setSnapshot(merged);
+      void screenCache.write(draftOwner, TODAY_CACHE_NAME, TODAY_CACHE_VERSION, merged).catch(() => undefined);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Today could not be loaded.');
+      // A background refresh leaves the visible day alone; only a load with
+      // nothing to show reports the failure.
+      if (!silent) setError(loadError instanceof Error ? loadError.message : 'Today could not be loaded.');
     } finally {
       setLoading(false);
     }
-  }, [repository]);
+  }, [draftOwner, repository]);
+
+  // Last night's day renders from storage first, so reopening Your Day shows the
+  // same content it had rather than a spinner while the request is in flight.
+  useEffect(() => {
+    let active = true;
+    void screenCache.read<TodaySnapshot>(draftOwner, TODAY_CACHE_NAME, TODAY_CACHE_VERSION)
+      .then(entry => {
+        if (!active || !entry || entry.value?.date !== localCheckinDate()) return;
+        setSnapshot(current => current ?? entry.value);
+        setLoading(false);
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [draftOwner]);
 
   useEffect(() => {
     void loadToday();
+  }, [loadToday]);
+
+  const handledRefreshRequest = useRef(refreshRequest);
+  useEffect(() => {
+    if (refreshRequest === handledRefreshRequest.current) return;
+    handledRefreshRequest.current = refreshRequest;
+    void loadToday({ silent: true });
   }, [loadToday, refreshRequest]);
 
   useEffect(() => {
@@ -257,28 +299,53 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     return () => subscription.remove();
   }, [loadToday, snapshot?.date]);
 
-  useEffect(() => {
-    if (!user || !profile || !snapshot?.checkin || snapshot.sleepData.status === 'missing') {
-      setDailyCoaching(null);
-      return;
-    }
-    let active = true;
-    void loadDailyCoaching(user, profile)
-      .then(async coaching => {
-        if (!active) return;
-        setDailyCoaching(coaching);
-        const refreshed = await repository.loadToday();
-        if (active) setSnapshot(refreshed);
-      })
-      .catch(() => {
-        if (active) setDailyCoaching(null);
-      });
-    return () => {
-      active = false;
-    };
-  }, [profile, snapshot?.checkin?.completedAt, snapshot?.sleepData.status, snapshot?.sleepData.score, user]);
+  const applyCoaching = useCallback((coaching: DailyCoaching) => {
+    setSnapshot(current => (current ? {
+      ...current,
+      dailyCoaching: {
+        pattern: coaching.pattern,
+        meaning: coaching.meaning,
+        action: coaching.action,
+        generatedAt: coaching.generatedAt,
+      },
+    } : current));
+    // Generating coaching also commits tonight's experiment, so pick that up
+    // without disturbing the report the user is already reading.
+    void loadToday({ silent: true });
+  }, [loadToday]);
 
-  const draftOwner = user?.id ?? 'demo';
+  // Non-null only while the day has earned coaching but has none stored yet.
+  // Once the report exists this is null, so no later visit can regenerate it.
+  const pendingCoachingFor = snapshot && !snapshot.dailyCoaching && snapshot.checkin
+    && snapshot.sleepData.status !== 'missing' && user && profile
+    ? `${snapshot.date}:${snapshot.checkin.id}`
+    : null;
+
+  useEffect(() => {
+    if (!pendingCoachingFor || !user || !profile) return;
+    let active = true;
+    setCoachingBusy(true);
+    setCoachingError('');
+    void loadDailyCoaching(user, profile)
+      .then(coaching => { if (active) applyCoaching(coaching); })
+      .catch(() => { if (active) setCoachingError('Today’s coaching isn’t ready yet.'); })
+      .finally(() => { if (active) setCoachingBusy(false); });
+    return () => { active = false; };
+  }, [applyCoaching, pendingCoachingFor, profile, user]);
+
+  const regenerateCoaching = useCallback(async () => {
+    if (!user || !profile || coachingBusy) return;
+    setCoachingBusy(true);
+    setCoachingError('');
+    try {
+      applyCoaching(await loadDailyCoaching(user, profile, { refresh: true }));
+    } catch {
+      setCoachingError('Today’s coaching could not be rewritten. Please try again.');
+    } finally {
+      setCoachingBusy(false);
+    }
+  }, [applyCoaching, coachingBusy, profile, user]);
+
   const draftKey = snapshot ? checkinStorageKey(draftOwner, snapshot.date) : null;
   const draftLoaded = draftKey !== null && loadedDraftKey === draftKey;
   useEffect(() => {
@@ -457,14 +524,16 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
         await repository.updateCommitmentStatus(snapshot.previousCommitment.id, finalConversation.adherence);
       }
       const checkin = await repository.saveCheckin(draft);
-      setSnapshot({
+      const saved: TodaySnapshot = {
         ...snapshot,
         checkin,
         previousCommitment: finalConversation.adherence ? null : snapshot.previousCommitment,
         sleepData: typeof draft.manualSleepScore === 'number'
           ? { status: 'manual', score: draft.manualSleepScore, source: 'manual' }
           : sleepData ?? snapshot.sleepData,
-      });
+      };
+      setSnapshot(saved);
+      void screenCache.write(draftOwner, TODAY_CACHE_NAME, TODAY_CACHE_VERSION, saved).catch(() => undefined);
       void chat?.onCheckinComplete?.(finalConversation.turns);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Your check-in was not saved. Please try finishing again.');
@@ -480,7 +549,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     setError('');
     try {
       await repository.saveManualSleepScore(manualSleepScore);
-      setSnapshot(await repository.loadToday());
+      await loadToday({ silent: true });
       setManualSleepFallback(false);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Your manual sleep score was not saved.');
@@ -489,15 +558,24 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     }
   };
 
-  if (loading) {
+  if (loading && !snapshot) {
     return (
-      <View style={styles.centeredState}>
-        <View style={styles.moonMark}>
-          <Text style={styles.moonMarkText}>☾</Text>
+      <View style={[styles.content, embedded && styles.embeddedContent]}>
+        <View style={styles.embeddedHeading}>
+          <View style={styles.skeletonHeadingCopy}>
+            <Skeleton height={10} width={78} />
+            <Skeleton height={15} style={styles.skeletonHeadingDate} width={190} />
+          </View>
+          <Skeleton height={52} radius={18} width={56} />
         </View>
-        <ActivityIndicator color={colors.accent} size="large" />
-        <Text style={styles.stateTitle}>Preparing today</Text>
-        <Text style={styles.stateCopy}>Pulling together your check-in and tonight’s focus.</Text>
+        <View style={styles.skeletonScore}>
+          <Skeleton height={11} width={92} />
+          <Skeleton height={32} style={styles.skeletonScoreValue} width={62} />
+          <Skeleton height={6} radius={4} style={styles.skeletonScoreTrack} />
+        </View>
+        <View style={styles.skeletonReport}>
+          <SkeletonLines count={4} />
+        </View>
       </View>
     );
   }
@@ -702,18 +780,38 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
 
         <View style={styles.dailyReport}>
             {dailyCoaching && user && (
-              <DailyReport
-                action={dailyCoaching.action}
-                cacheKey={`sleep-coach:daily-report-seen:${user.id}:${snapshot.date}:${dailyCoaching.generatedAt}`}
-                meaning={dailyCoaching.meaning}
-                pattern={dailyCoaching.pattern}
-              />
+              <>
+                <DailyReport
+                  action={dailyCoaching.action}
+                  cacheKey={`sleep-coach:daily-report-seen:${user.id}:${snapshot.date}:${dailyCoaching.generatedAt}`}
+                  meaning={dailyCoaching.meaning}
+                  pattern={dailyCoaching.pattern}
+                />
+                {profile && (
+                  <Pressable
+                    accessibilityLabel="Rewrite today’s coaching"
+                    accessibilityRole="button"
+                    disabled={coachingBusy}
+                    hitSlop={10}
+                    onPress={() => void regenerateCoaching()}
+                    style={({ pressed }) => [styles.regenerate, pressed && styles.pressed]}
+                  >
+                    {coachingBusy
+                      ? <ActivityIndicator color={colors.textFaint} size="small" />
+                      : <Text style={styles.regenerateIcon}>↻</Text>}
+                  </Pressable>
+                )}
+              </>
             )}
-            {snapshot.checkin && sleepData!.status !== 'missing' && !dailyCoaching && (
-              <View style={styles.reportLoadingRow}>
-                <ActivityIndicator color={colors.accent} size="small" />
-                <Text style={styles.reportLoadingText}>Preparing today’s coaching…</Text>
+            {!dailyCoaching && (coachingBusy || (snapshot.checkin && sleepData!.status !== 'missing')) && (
+              <View style={styles.skeletonReport}>
+                <SkeletonLines count={4} />
               </View>
+            )}
+            {!!coachingError && (
+              <Pressable accessibilityRole="button" onPress={() => void regenerateCoaching()}>
+                <Text style={styles.reportLoadingText}>{coachingError} Tap to try again.</Text>
+              </Pressable>
             )}
         </View>
         {!!followupMessages.length && chat && (
@@ -808,16 +906,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  reportLoadingRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 9,
-    marginTop: 20,
-  },
   reportLoadingText: {
     color: colors.textSubtle,
     fontSize: 13,
+    lineHeight: 20,
+    marginTop: 16,
   },
+  regenerate: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    height: 30,
+    justifyContent: 'center',
+    marginTop: 12,
+    width: 30,
+  },
+  regenerateIcon: {
+    color: colors.textFaint,
+    fontSize: 17,
+    lineHeight: 20,
+  },
+  skeletonHeadingCopy: { gap: 8 },
+  skeletonHeadingDate: { marginTop: 2 },
+  skeletonReport: { gap: 9, marginTop: 22 },
+  skeletonScore: { gap: 10, marginTop: 18 },
+  skeletonScoreTrack: { marginTop: 8 },
+  skeletonScoreValue: { alignSelf: 'flex-end' },
   dayBadge: {
     alignItems: 'center',
     backgroundColor: colors.surfaceAccent,
@@ -1186,19 +1299,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     padding: 32,
-  },
-  moonMark: {
-    alignItems: 'center',
-    backgroundColor: colors.surfaceAccent,
-    borderRadius: 30,
-    height: 60,
-    justifyContent: 'center',
-    marginBottom: 20,
-    width: 60,
-  },
-  moonMarkText: {
-    color: colors.accentSoft,
-    fontSize: 32,
   },
   stateEyebrow: {
     color: colors.accentSoft,

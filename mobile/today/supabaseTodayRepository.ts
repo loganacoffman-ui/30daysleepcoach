@@ -1,4 +1,6 @@
 import type { User } from '@supabase/supabase-js';
+import { markCheckinSaved } from '../cache/checkinRevision';
+import { invalidateCoachContext } from '../coach/coachRepository';
 import { syncAppleHealthForDate } from '../healthkit/appleHealth';
 import type { PrimaryConcern } from '../onboarding/types';
 import { selectWearableSleepForDate } from '../sleep/sourceSelection';
@@ -31,7 +33,7 @@ export const createSupabaseTodayRepository = (user: User, greetingName: string |
       supabase.from('daily_checkins').select('id, checkin_date, morning_feeling, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, note, completed_at').eq('user_id', user.id).eq('checkin_date', date).maybeSingle(),
       supabase.from('behavior_commitments').select('id, behavior_date, behavior, status').eq('user_id', user.id).eq('behavior_date', date).maybeSingle(),
       supabase.from('behavior_commitments').select('id, behavior_date, behavior, status').eq('user_id', user.id).lt('behavior_date', date).order('behavior_date', { ascending: false }).limit(7),
-      supabase.from('coach_recommendations').select('action, why').eq('user_id', user.id).eq('recommendation_date', date).maybeSingle(),
+      supabase.from('coach_recommendations').select('pattern, meaning, action, why, generated_at').eq('user_id', user.id).eq('recommendation_date', date).maybeSingle(),
       supabase.functions.invoke<{ data?: OuraSleepDay[] }>('oura-proxy', {
         body: { endpoint: 'daily_sleep', start_date: date, end_date: date },
       }),
@@ -83,12 +85,19 @@ export const createSupabaseTodayRepository = (user: User, greetingName: string |
     const manualScore = typeof checkin?.manual_sleep_score === 'number'
       ? checkin.manual_sleep_score
       : null;
+    const recommendation = recommendationResult.data;
     return {
       date,
       dayNumber: Math.max(openDaysResult.count ?? 1, 1),
       greetingName,
       coachingMessage: current ? 'One focused experiment, tracked long enough to learn from it.' : undefined,
       checkin: checkin ? { id:checkin.id, checkinDate:checkin.checkin_date, morningFeeling:normalizeMorningFeeling(checkin.morning_feeling, checkin.feeling) ?? 'okay', manualSleepScore:manualScore ?? undefined, suspectedFactor:checkin.suspected_factor || undefined, note:checkin.note || undefined, completedAt:checkin.completed_at } : null,
+      dailyCoaching: recommendation?.pattern && recommendation.meaning && recommendation.action ? {
+        pattern: recommendation.pattern,
+        meaning: recommendation.meaning,
+        action: recommendation.action,
+        generatedAt: recommendation.generated_at,
+      } : null,
       sleepData: wearable
         ? { status: 'wearable', score: wearable.score, source: wearable.source }
         : typeof manualScore === 'number' && checkin?.manual_sleep_submitted_at
@@ -98,7 +107,7 @@ export const createSupabaseTodayRepository = (user: User, greetingName: string |
         id: current.id,
         behaviorDate: current.behavior_date,
         behavior: current.behavior,
-        why: recommendationResult.data?.action === current.behavior ? recommendationResult.data?.why : undefined,
+        why: recommendation?.action === current.behavior ? recommendation?.why : undefined,
         status: current.status,
         runDay: Math.min(3, previousRunNights + 1),
         runLength: 3,
@@ -111,6 +120,11 @@ export const createSupabaseTodayRepository = (user: User, greetingName: string |
     const manualSleep = typeof draft.manualSleepScore === 'number';
     const {data,error}=await supabase.from('daily_checkins').upsert({user_id:user.id,checkin_date:date,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC',morning_feeling:draft.morningFeeling,manual_sleep_score:manualSleep?draft.manualSleepScore:null,manual_sleep_submitted_at:manualSleep?completedAt:null,suspected_factor:draft.suspectedFactor||null,note:draft.note?.trim()||null,completed_at:completedAt,updated_at:completedAt},{onConflict:'user_id,checkin_date'}).select('id, checkin_date, morning_feeling, manual_sleep_score, suspected_factor, note, completed_at').single();
     if(error) throw error;
+    // Today's coaching and the evolving profile are both generated from this
+    // check-in, so the cached window must not answer the next request and
+    // Progress has to treat what it already loaded as stale.
+    invalidateCoachContext(user.id);
+    markCheckinSaved();
     return {id:data.id,checkinDate:data.checkin_date,morningFeeling:data.morning_feeling,manualSleepScore:data.manual_sleep_score??undefined,suspectedFactor:data.suspected_factor||undefined,note:data.note||undefined,completedAt:data.completed_at};
   },
   async saveManualSleepScore(score) {
@@ -122,6 +136,8 @@ export const createSupabaseTodayRepository = (user: User, greetingName: string |
       updated_at: submittedAt,
     }).eq('user_id', user.id).eq('checkin_date', date);
     if (error) throw error;
+    invalidateCoachContext(user.id);
+    markCheckinSaved();
   },
   async updateCommitmentStatus(id,status) {
     const updatedAt=new Date().toISOString();

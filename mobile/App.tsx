@@ -26,6 +26,7 @@ import {
   isTransientAuthError,
   shouldClearPersistedSession,
 } from './auth/sessionPolicy';
+import { screenCache } from './cache/screenCache';
 import { colors } from './design/theme';
 import { clearDailyCheckInReminder } from './notifications';
 import { Onboarding } from './Onboarding';
@@ -116,12 +117,16 @@ function AppContent() {
     const acceptSession = (nextSession: Session | null) => {
       const nextUserId = nextSession?.user.id ?? null;
       if (activeUserId && activeUserId !== nextUserId) {
-        void checkinDraftStorage.clearUser(activeUserId).catch(() => {
+        void Promise.all([
+          checkinDraftStorage.clearUser(activeUserId),
+          screenCache.clearUser(activeUserId),
+        ]).catch(() => {
           if (mounted) setMessage('Local check-in history could not be cleared. Please try signing out again.');
         });
       }
       if (nextUserId && activeUserId !== nextUserId) {
         checkinDraftStorage.allowUser(nextUserId);
+        screenCache.allowUser(nextUserId);
         void checkinDraftStorage.pruneUser(nextUserId, localCheckinDate()).catch(() => undefined);
       }
       activeUserId = nextUserId;
@@ -135,6 +140,7 @@ function AppContent() {
       if (error || !data.session) {
         storedSessionValidated = true;
         void checkinDraftStorage.clearSignedOutDrafts().catch(() => undefined);
+        void screenCache.clearSignedOutCaches().catch(() => undefined);
         acceptSession(null);
         if (error) setMessage(error.message);
         setInitializing(false);
@@ -419,12 +425,18 @@ function AppContent() {
   const signOut = () =>
     runAuthAction(async () => {
       const userId = session?.user.id;
-      if (userId) await checkinDraftStorage.clearUser(userId);
+      if (userId) {
+        await checkinDraftStorage.clearUser(userId);
+        await screenCache.clearUser(userId);
+      }
       await clearDailyCheckInReminder();
       const { error } = await supabase.auth.signOut();
 
       if (error) {
-        if (userId) checkinDraftStorage.allowUser(userId);
+        if (userId) {
+          checkinDraftStorage.allowUser(userId);
+          screenCache.allowUser(userId);
+        }
         throw error;
       }
     });
@@ -447,7 +459,10 @@ function AppContent() {
               }
 
               try {
-                if (session?.user.id) await checkinDraftStorage.clearUser(session.user.id);
+                if (session?.user.id) {
+                  await checkinDraftStorage.clearUser(session.user.id);
+                  await screenCache.clearUser(session.user.id);
+                }
                 await clearDailyCheckInReminder();
               } finally {
                 await supabase.auth.signOut({ scope: 'local' });

@@ -23,9 +23,15 @@ import {
   type MemoryMessage,
 } from "../_shared/memory.ts";
 import {
+  coachSummaryText,
   DAILY_COACH_PROMPT_VERSION,
+  dailyCoachRecommendationBody,
   dailyCoachSourceFingerprint,
-  isDailyCoachCacheFresh,
+  isDailyCoachCacheReusable,
+  isSleepProfileCacheFresh,
+  SLEEP_PROFILE_PROMPT_VERSION,
+  sleepProfileResponseBody,
+  sleepProfileSourceFingerprint,
 } from "../_shared/coaching-cache.ts";
 import {
   endAnthropicSpan,
@@ -890,6 +896,7 @@ Deno.serve(async (req: Request) => {
       toolCallId,
       action,
     } = body;
+    const forceRegenerate = body.refresh === true;
     const messages = normalizeMessages(body.messages);
     const memoryMode = typeof mode === "string"
       ? mode
@@ -1410,6 +1417,35 @@ Deno.serve(async (req: Request) => {
 
     // ─── EVOLVING SLEEP PROFILE (scores + journals + experiments + memory) ─
     if (mode === "sleep_profile") {
+      const profileFingerprint = await sleepProfileSourceFingerprint(
+        coachContext,
+      );
+      const { data: storedProfile } = await supabase
+        .from("coach_profile_summaries")
+        .select("summary, source_fingerprint, prompt_version, generated_at")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (
+        !forceRegenerate &&
+        isSleepProfileCacheFresh(storedProfile, profileFingerprint)
+      ) {
+        return new Response(
+          JSON.stringify(sleepProfileResponseBody(
+            storedProfile!.summary,
+            storedProfile!.generated_at,
+            true,
+          )),
+          {
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+              "X-Cache": "HIT",
+            },
+          },
+        );
+      }
+
       const memories = await recallCoachMemory(
         user.id,
         buildMemoryQuery(memoryMode, messages, sleepData, coachContext),
@@ -1421,16 +1457,56 @@ Deno.serve(async (req: Request) => {
         memories,
         350,
       );
-      const summary = generated ? plainCoachText(generated) : "";
+      const summary = coachSummaryText(generated ? plainCoachText(generated) : "");
       if (!summary) {
+        // A stale summary is more useful than an error the user cannot act on,
+        // and clients older than the regenerate button have no way to retry.
+        if (coachSummaryText(storedProfile?.summary)) {
+          return new Response(
+            JSON.stringify(sleepProfileResponseBody(
+              storedProfile!.summary,
+              storedProfile!.generated_at,
+              true,
+            )),
+            {
+              headers: {
+                ...corsHeaders,
+                "Content-Type": "application/json",
+                "X-Cache": "STALE",
+              },
+            },
+          );
+        }
         return new Response(JSON.stringify({ status: "generation_failed" }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ status: "ok", summary }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const profileGeneratedAt = new Date().toISOString();
+      const { error: profileSaveError } = await supabase
+        .from("coach_profile_summaries")
+        .upsert({
+          user_id: user.id,
+          summary,
+          source_fingerprint: profileFingerprint,
+          prompt_version: SLEEP_PROFILE_PROMPT_VERSION,
+          model: "claude-sonnet-4-6",
+          generated_at: profileGeneratedAt,
+        }, { onConflict: "user_id" });
+      // A failed write only costs the next view its cache hit.
+      if (profileSaveError) {
+        console.error("sleep_profile cache write failed", profileSaveError);
+      }
+      return new Response(
+        JSON.stringify(sleepProfileResponseBody(summary, profileGeneratedAt, false)),
+        {
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+            "X-Cache": "MISS",
+          },
+        },
+      );
     }
 
     // ─── NATIVE DAILY COACH (persistent one-per-calendar-day artifact) ─
@@ -1457,12 +1533,12 @@ Deno.serve(async (req: Request) => {
 
       const { data: existing } = await supabase
         .from("coach_recommendations")
-        .select("pattern, meaning, action, why, generated_at, prompt_version, source_context")
+        .select("pattern, meaning, action, why, generated_at, prompt_version")
         .eq("user_id", user.id)
         .eq("recommendation_date", recommendationDate)
         .maybeSingle();
 
-      if (isDailyCoachCacheFresh(existing, sourceFingerprint)) {
+      if (!forceRegenerate && isDailyCoachCacheReusable(existing)) {
         const commitmentError = await syncDailyExperimentCommitment(
           supabase,
           user.id,
@@ -1480,7 +1556,7 @@ Deno.serve(async (req: Request) => {
         return new Response(
           JSON.stringify({
             status: "ok",
-            recommendation: existing,
+            recommendation: dailyCoachRecommendationBody(existing!),
           }),
           {
             headers: {
@@ -1594,7 +1670,10 @@ Deno.serve(async (req: Request) => {
       ));
 
       return new Response(
-        JSON.stringify({ status: "ok", recommendation: saved }),
+        JSON.stringify({
+          status: "ok",
+          recommendation: dailyCoachRecommendationBody(saved),
+        }),
         {
           headers: {
             ...corsHeaders,

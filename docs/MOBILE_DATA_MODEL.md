@@ -43,6 +43,7 @@ quiz changes require an `intake_version` increment and backward-compatible reade
 | `sleep_nights` | Read/write normalized Apple Health sleep metrics | No current product dependency | May read only with the caller's JWT |
 | `behavior_commitments` | Read/write the signed-in user's experiment | Existing web behavior remains supported | May read only with the caller's JWT |
 | `coach_recommendations` | Requests and reads the daily artifact | No current product dependency | `sleep-coach` creates or returns the caller's artifact |
+| `coach_profile_summaries` | Reads the evolving sleep profile | No current product dependency | `sleep-coach` returns the stored summary until its evidence changes |
 | `entries` | No dependency | Legacy web read/write | Legacy input only; not canonical |
 | `oura_connections` | Accesses Oura through Edge Functions | Accesses Oura through Edge Functions | Owns provider credentials and API access |
 | `ai_cache` | No direct access | No product-record dependency | Internal generation optimization only |
@@ -150,6 +151,22 @@ Persist the user-visible coaching artifact separately from transport cache.
 
 `ai_cache` remains an internal optimization. It is not the product record and should not be the only place a recommendation exists.
 
+Once a date has coaching the user may already have read, that row is what every later request returns. A wearable sync arriving later does not rewrite it; only a new `prompt_version` or an explicit regenerate does.
+
+### `coach_profile_summaries`
+
+Persist the evolving sleep profile so viewing it is a read rather than a generation. One row per user.
+
+| Column | Type | Notes |
+|---|---|---|
+| `user_id` | uuid PK | |
+| `summary` | text | The user-visible profile |
+| `source_fingerprint` | text | Hash of the check-ins, experiments, wearable nights, and intake behind the summary. Deliberately excludes the date, so a new day alone does not make the profile stale |
+| `prompt_version` | text | |
+| `model` | text | Optional |
+| `generated_at` | timestamptz | |
+| `created_at` | timestamptz | |
+
 ## Shared infrastructure retained
 
 - `auth.users`: shared identity for web and mobile.
@@ -186,6 +203,7 @@ The initial mobile launch does not require migrating the small legacy dataset. C
 3. `behavior_commitments`: retained as the shared experiment/adherence record.
 4. `coach_recommendations`: implemented for persistent daily coaching.
 5. `sleep_nights`: implemented for normalized Apple Health sync.
-6. Legacy `entries` import: defer until canonical mobile writes are proven and preserving the small web dataset is worth the migration effort.
+6. `coach_profile_summaries`: implemented so the evolving profile is generated on new evidence rather than on every view.
+7. Legacy `entries` import: defer until canonical mobile writes are proven and preserving the small web dataset is worth the migration effort.
 
 This sequencing avoids speculative tables while preventing each screen from inventing its own storage contract.
