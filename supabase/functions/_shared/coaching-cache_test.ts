@@ -3,11 +3,17 @@ import {
   assertNotEquals,
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
+  coachSummaryText,
   DAILY_COACH_PROMPT_VERSION,
+  dailyCoachRecommendationBody,
   dailyCoachSourceFingerprint,
-  isDailyCoachCacheFresh,
+  isDailyCoachCacheReusable,
+  isSleepProfileCacheFresh,
   latestWearableSummary,
   hasWearableSleepForDate,
+  SLEEP_PROFILE_PROMPT_VERSION,
+  sleepProfileResponseBody,
+  sleepProfileSourceFingerprint,
 } from "./coaching-cache.ts";
 
 Deno.test("wearable readiness requires a scored row for the requested day", () => {
@@ -64,27 +70,129 @@ Deno.test("new or corrected wearable data invalidates daily coaching", async () 
   assertNotEquals(original, newer);
 });
 
-Deno.test("cache hits only for the current prompt and unchanged source", async () => {
-  const fingerprint = await dailyCoachSourceFingerprint(context);
+Deno.test("today's coaching is reused for the date, even after new wearable data", () => {
   assertEquals(
-    isDailyCoachCacheFresh({
+    isDailyCoachCacheReusable({
       prompt_version: DAILY_COACH_PROMPT_VERSION,
-      source_context: { source_fingerprint: fingerprint },
+      action: "Dim the lights an hour before bed",
+    }),
+    true,
+  );
+  assertEquals(
+    isDailyCoachCacheReusable({
+      prompt_version: "native-daily-v3-concise-weekly",
+      action: "Dim the lights an hour before bed",
+    }),
+    false,
+  );
+  assertEquals(
+    isDailyCoachCacheReusable({
+      prompt_version: DAILY_COACH_PROMPT_VERSION,
+      action: "",
+    }),
+    false,
+  );
+  assertEquals(isDailyCoachCacheReusable(null), false);
+});
+
+Deno.test("the sleep profile stays cached across days until its evidence changes", async () => {
+  const fingerprint = await sleepProfileSourceFingerprint(context);
+  assertEquals(
+    await sleepProfileSourceFingerprint({ ...context, date: "2026-09-14" }),
+    fingerprint,
+  );
+  assertNotEquals(
+    await sleepProfileSourceFingerprint({
+      ...context,
+      subjective_checkins: [
+        { checkin_date: "2026-08-28", feeling: 61 },
+        ...context.subjective_checkins,
+      ],
+    }),
+    fingerprint,
+  );
+  const summary = "You sleep better on the nights you wind down earlier.";
+  assertEquals(
+    isSleepProfileCacheFresh({
+      summary,
+      source_fingerprint: fingerprint,
+      prompt_version: SLEEP_PROFILE_PROMPT_VERSION,
     }, fingerprint),
     true,
   );
   assertEquals(
-    isDailyCoachCacheFresh({
-      prompt_version: DAILY_COACH_PROMPT_VERSION,
-      source_context: { source_fingerprint: "sha256:stale" },
+    isSleepProfileCacheFresh({
+      summary,
+      source_fingerprint: "sha256:stale",
+      prompt_version: SLEEP_PROFILE_PROMPT_VERSION,
     }, fingerprint),
     false,
   );
   assertEquals(
-    isDailyCoachCacheFresh({
-      prompt_version: "native-daily-v3-concise-weekly",
-      source_context: { source_fingerprint: fingerprint },
+    isSleepProfileCacheFresh({
+      summary: "",
+      source_fingerprint: fingerprint,
+      prompt_version: SLEEP_PROFILE_PROMPT_VERSION,
     }, fingerprint),
+    false,
+  );
+  assertEquals(
+    isSleepProfileCacheFresh({
+      summary,
+      source_fingerprint: fingerprint,
+      prompt_version: "native-profile-v0",
+    }, fingerprint),
+    false,
+  );
+});
+
+// The function deploys ahead of the App Store, so every shipped build keeps
+// calling it. Those builds read `recommendation.{pattern,meaning,action,why,
+// generated_at}` and `summary`, and throw rather than degrade when a field is
+// missing or blank. These tests fail if a response ever stops carrying them.
+Deno.test("the daily artifact keeps one wire shape for reused and fresh rows", () => {
+  const row = {
+    pattern: "You wake earlier after late meals",
+    meaning: "Digestion is fragmenting your second half of the night",
+    action: "Finish dinner three hours before bed",
+    why: "It gives digestion time to settle",
+    generated_at: "2026-09-16T13:04:00.000Z",
+  };
+  assertEquals(dailyCoachRecommendationBody(row), row);
+  // Columns the clients never read stay out of the response.
+  const storedRow = { ...row, prompt_version: "x", source_context: {} };
+  assertEquals(dailyCoachRecommendationBody(storedRow), row);
+  // A row missing optional prose still answers with every field present.
+  assertEquals(dailyCoachRecommendationBody({ action: row.action }), {
+    pattern: "",
+    meaning: "",
+    action: row.action,
+    why: "",
+    generated_at: null,
+  });
+});
+
+Deno.test("a sleep profile response always carries a usable summary", () => {
+  assertEquals(
+    sleepProfileResponseBody("  You settle faster on wind-down nights. ", "2026-09-16T13:04:00.000Z", true),
+    {
+      status: "ok",
+      summary: "You settle faster on wind-down nights.",
+      generated_at: "2026-09-16T13:04:00.000Z",
+      cached: true,
+    },
+  );
+  assertEquals(sleepProfileResponseBody("A picture is forming.", null, false).generated_at, null);
+  // Whitespace is not a summary, and a stored blank must not pass as a cache hit
+  // that a client without a regenerate button could never recover from.
+  assertEquals(coachSummaryText("   "), "");
+  assertEquals(coachSummaryText(undefined), "");
+  assertEquals(
+    isSleepProfileCacheFresh({
+      summary: "   ",
+      source_fingerprint: "sha256:same",
+      prompt_version: SLEEP_PROFILE_PROMPT_VERSION,
+    }, "sha256:same"),
     false,
   );
 });

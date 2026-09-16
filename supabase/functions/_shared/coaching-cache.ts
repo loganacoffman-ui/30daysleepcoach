@@ -1,4 +1,5 @@
 export const DAILY_COACH_PROMPT_VERSION = "native-daily-v6-experiment-loop";
+export const SLEEP_PROFILE_PROMPT_VERSION = "native-profile-v1-evolving";
 
 type JsonObject = Record<string, unknown>;
 
@@ -37,18 +38,97 @@ export function dailyCoachSourceSnapshot(coachContext: unknown): JsonObject {
   };
 }
 
-export async function dailyCoachSourceFingerprint(
-  coachContext: unknown,
-): Promise<string> {
-  const canonical = JSON.stringify(
-    stableValue(dailyCoachSourceSnapshot(coachContext)),
-  );
+async function fingerprint(snapshot: JsonObject): Promise<string> {
+  const canonical = JSON.stringify(stableValue(snapshot));
   const bytes = new TextEncoder().encode(canonical);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   const hex = [...new Uint8Array(digest)]
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
   return `sha256:${hex}`;
+}
+
+export function dailyCoachSourceFingerprint(
+  coachContext: unknown,
+): Promise<string> {
+  return fingerprint(dailyCoachSourceSnapshot(coachContext));
+}
+
+// The evolving profile describes the user rather than a single day, so a new
+// calendar date alone must not make it stale. Only the check-ins, experiments,
+// wearable nights, and intake profile behind it do.
+export function sleepProfileSourceSnapshot(coachContext: unknown): JsonObject {
+  const { date: _date, ...rest } = dailyCoachSourceSnapshot(coachContext);
+  return rest;
+}
+
+export function sleepProfileSourceFingerprint(
+  coachContext: unknown,
+): Promise<string> {
+  return fingerprint(sleepProfileSourceSnapshot(coachContext));
+}
+
+// Mobile builds in the field reject a profile whose summary is empty once
+// trimmed, and throw rather than degrade. Normalizing in one place keeps a
+// blank-but-present summary from being stored, matched, or returned as an answer.
+export function coachSummaryText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+export function isSleepProfileCacheFresh(
+  existing: {
+    prompt_version?: unknown;
+    source_fingerprint?: unknown;
+    summary?: unknown;
+  } | null,
+  sourceFingerprint: string,
+): boolean {
+  if (!existing || !coachSummaryText(existing.summary)) return false;
+  return existing.prompt_version === SLEEP_PROFILE_PROMPT_VERSION &&
+    existing.source_fingerprint === sourceFingerprint;
+}
+
+// Every shipped client reads `status` plus `summary` and ignores the rest, so
+// each success path is built here and none can answer with a different shape.
+export function sleepProfileResponseBody(
+  summary: unknown,
+  generatedAt: unknown,
+  cached: boolean,
+): { status: "ok"; summary: string; generated_at: string | null; cached: boolean } {
+  return {
+    status: "ok",
+    summary: coachSummaryText(summary),
+    generated_at: typeof generatedAt === "string" ? generatedAt : null,
+    cached,
+  };
+}
+
+// The daily artifact has one wire shape for both the reused row and a freshly
+// generated one. Shipped clients read exactly these five fields off
+// `recommendation`, so they are projected here rather than at each return.
+export function dailyCoachRecommendationBody(
+  row: {
+    pattern?: unknown;
+    meaning?: unknown;
+    action?: unknown;
+    why?: unknown;
+    generated_at?: unknown;
+  },
+): {
+  pattern: string;
+  meaning: string;
+  action: string;
+  why: string;
+  generated_at: string | null;
+} {
+  const text = (value: unknown) => typeof value === "string" ? value : "";
+  return {
+    pattern: text(row.pattern),
+    meaning: text(row.meaning),
+    action: text(row.action),
+    why: text(row.why),
+    generated_at: typeof row.generated_at === "string" ? row.generated_at : null,
+  };
 }
 
 export function latestWearableSummary(coachContext: unknown): {
@@ -98,16 +178,14 @@ export function hasWearableSleepForDate(
   });
 }
 
-export function isDailyCoachCacheFresh(
-  existing: { prompt_version?: unknown; source_context?: unknown } | null,
-  sourceFingerprint: string,
+// Today's coaching is a fixed artifact. Once a date has advice the user may
+// already have read, a later wearable sync must not silently rewrite it; only an
+// explicit regenerate or a new prompt version replaces it.
+export function isDailyCoachCacheReusable(
+  existing: { prompt_version?: unknown; action?: unknown } | null,
 ): boolean {
-  if (!existing || existing.prompt_version !== DAILY_COACH_PROMPT_VERSION) {
+  if (!existing || typeof existing.action !== "string" || !existing.action) {
     return false;
   }
-  const sourceContext = existing.source_context &&
-      typeof existing.source_context === "object"
-    ? existing.source_context as JsonObject
-    : {};
-  return sourceContext.source_fingerprint === sourceFingerprint;
+  return existing.prompt_version === DAILY_COACH_PROMPT_VERSION;
 }

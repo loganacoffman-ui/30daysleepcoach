@@ -1,6 +1,7 @@
 import type { User } from '@supabase/supabase-js';
 import { fetch as expoFetch } from 'expo/fetch';
 
+import { createAsyncMemo } from '../cache/asyncMemo';
 import { syncAppleHealthForDate } from '../healthkit/appleHealth';
 import type { SleepProfile } from '../onboarding/types';
 import {
@@ -38,13 +39,6 @@ export type CoachMessage = {
   toolCall?: CoachToolCall;
 };
 export type CoachConversationSummary = { id: string; title: string; updatedAt: string };
-export type CoachExperience = {
-  conversationId: string;
-  messages: CoachMessage[];
-  dailyCoaching: DailyCoaching | null;
-  hasCheckedInToday: boolean;
-  hasWearableData: boolean;
-};
 export type CoachHomeState = {
   hasCheckedInToday: boolean;
   morningFeeling: MorningFeeling | null;
@@ -71,7 +65,24 @@ const daysAgo = (count: number) => {
   return localDate(date);
 };
 
-const loadWearableSleep = async (user: User, dayCount: number): Promise<WearableSleep[]> => {
+// Opening Your Day generates coaching, greets you with today's score, and may
+// send a message, each of which needs the same recent history. One shared
+// window keeps that to a single HealthKit sync and a single Oura request.
+const COACH_CONTEXT_TTL_MS = 60_000;
+const wearableSleepMemo = createAsyncMemo<WearableSleep[]>(COACH_CONTEXT_TTL_MS);
+const coachContextMemo = createAsyncMemo<CoachContext>(COACH_CONTEXT_TTL_MS);
+
+// Called after a check-in or manual score is saved, so the next coaching request
+// reads the data the user just entered rather than the pre-check-in window.
+export const invalidateCoachContext = (userId: string) => {
+  wearableSleepMemo.invalidate(`${userId}:`);
+  coachContextMemo.invalidate(`${userId}:`);
+};
+
+const loadWearableSleep = (user: User, dayCount: number): Promise<WearableSleep[]> =>
+  wearableSleepMemo.run(`${user.id}:${dayCount}`, () => fetchWearableSleep(user, dayCount));
+
+const fetchWearableSleep = async (user: User, dayCount: number): Promise<WearableSleep[]> => {
   await syncAppleHealthForDate(user.id).catch(() => undefined);
   const [appleResult, preferredSleepSource, ouraResult] = await Promise.all([
     supabase
@@ -209,7 +220,10 @@ const mapCoachMessages = (messages: StoredCoachMessage[], toolCalls: StoredCoach
   });
 };
 
-const loadCoachContext = async (user: User, profile: SleepProfile): Promise<CoachContext> => {
+const loadCoachContext = (user: User, profile: SleepProfile): Promise<CoachContext> =>
+  coachContextMemo.run(`${user.id}:${localDate()}`, () => fetchCoachContext(user, profile));
+
+const fetchCoachContext = async (user: User, profile: SleepProfile): Promise<CoachContext> => {
   const [checkinsResult, commitmentsResult, wearableSleep] = await Promise.all([
     supabase.from('daily_checkins').select('checkin_date, morning_feeling, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, note, completed_at').eq('user_id', user.id).order('checkin_date', { ascending: false }).limit(14),
     supabase.from('behavior_commitments').select('behavior_date, behavior, status').eq('user_id', user.id).order('behavior_date', { ascending: false }).limit(14),
@@ -232,15 +246,6 @@ const loadCoachContext = async (user: User, profile: SleepProfile): Promise<Coac
     experiment_adherence: commitmentsResult.data ?? [],
     wearable_sleep: wearableSleep,
   };
-};
-
-const ensureConversation = async (user: User) => {
-  const existing = await supabase.from('coach_conversations').select('id').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(1).maybeSingle();
-  if (existing.error) throw existing.error;
-  if (existing.data) return existing.data.id as string;
-  const created = await supabase.from('coach_conversations').insert({ user_id: user.id, title: 'Sleep coaching' }).select('id').single();
-  if (created.error || !created.data) throw created.error ?? new Error('Could not start your coaching conversation.');
-  return created.data.id as string;
 };
 
 export const createCoachConversation = async (user: User, firstMessage?: string) => {
@@ -406,12 +411,21 @@ export const loadCoachConversation = async (user: User, conversationId: string):
   return mapCoachMessages(messages, toolCalls);
 };
 
-export const loadDailyCoaching = async (user: User, profile: SleepProfile, context?: CoachContext): Promise<DailyCoaching> => {
-  const coachContext = context ?? await loadCoachContext(user, profile);
+// The server keeps one recommendation per date and reuses it, so this only
+// generates when the day has no coaching yet. `refresh` is the manual override.
+export const loadDailyCoaching = async (
+  user: User,
+  profile: SleepProfile,
+  options: { refresh?: boolean } = {},
+): Promise<DailyCoaching> => {
+  if (options.refresh) invalidateCoachContext(user.id);
+  const coachContext = await loadCoachContext(user, profile);
   const { data, error } = await supabase.functions.invoke<{
     status?: string;
     recommendation?: { pattern: string; meaning: string; action: string; why: string; generated_at: string };
-  }>('sleep-coach', { body: { mode: 'daily_coach', cacheKey: `daily_coach_${localDate()}`, coachContext } });
+  }>('sleep-coach', {
+    body: { mode: 'daily_coach', coachContext, refresh: options.refresh === true },
+  });
   if (error || data?.status !== 'ok' || !data.recommendation) throw error ?? new Error('Your daily coaching could not be generated.');
   return {
     pattern: data.recommendation.pattern,
@@ -422,28 +436,36 @@ export const loadDailyCoaching = async (user: User, profile: SleepProfile, conte
   };
 };
 
-export const loadSleepProfileSummary = async (user: User, profile: SleepProfile): Promise<string> => {
-  const { data, error } = await supabase.functions.invoke<{ status?: string; summary?: string }>('sleep-coach', {
-    body: { mode: 'sleep_profile', coachContext: await loadCoachContext(user, profile) },
+export type SleepProfileSummary = { summary: string; generatedAt: string; cached: boolean };
+
+// The server returns its stored summary unchanged until the check-ins,
+// experiments, or wearable nights behind it change, so calling this on every
+// visit costs one request rather than one Anthropic generation.
+export const loadSleepProfileSummary = async (
+  user: User,
+  profile: SleepProfile,
+  options: { refresh?: boolean } = {},
+): Promise<SleepProfileSummary> => {
+  if (options.refresh) invalidateCoachContext(user.id);
+  const { data, error } = await supabase.functions.invoke<{
+    status?: string;
+    summary?: string;
+    generated_at?: string;
+    cached?: boolean;
+  }>('sleep-coach', {
+    body: {
+      mode: 'sleep_profile',
+      coachContext: await loadCoachContext(user, profile),
+      refresh: options.refresh === true,
+    },
   });
   if (error || data?.status !== 'ok' || !data.summary?.trim()) {
     throw error ?? new Error('Your sleep profile could not be refreshed.');
   }
-  return data.summary.trim();
-};
-
-export const loadCoachExperience = async (user: User, profile: SleepProfile): Promise<CoachExperience> => {
-  const [conversationId, context] = await Promise.all([ensureConversation(user), loadCoachContext(user, profile)]);
-  const messagesResult = await supabase.from('coach_messages').select('id, role, content, created_at').eq('conversation_id', conversationId).order('created_at', { ascending: true }).limit(100);
-  if (messagesResult.error) throw messagesResult.error;
-  let dailyCoaching: DailyCoaching | null = null;
-  try { dailyCoaching = await loadDailyCoaching(user, profile, context); } catch { /* Chat remains useful if today's artifact is unavailable. */ }
   return {
-    conversationId,
-    messages: (messagesResult.data ?? []).map(message => ({ id: message.id, role: message.role as CoachMessage['role'], content: message.content, createdAt: message.created_at })),
-    dailyCoaching,
-    hasCheckedInToday: context.subjective_checkins.some(checkin => typeof checkin === 'object' && checkin !== null && 'checkin_date' in checkin && checkin.checkin_date === localDate()),
-    hasWearableData: context.wearable_sleep.length > 0,
+    summary: data.summary.trim(),
+    generatedAt: typeof data.generated_at === 'string' ? data.generated_at : new Date().toISOString(),
+    cached: data.cached === true,
   };
 };
 

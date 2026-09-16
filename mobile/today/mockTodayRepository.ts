@@ -31,6 +31,7 @@ export const mockTodayRepository: TodayRepository = {
       },
       previousCommitment: null,
       checkin: savedCheckin,
+      dailyCoaching: null,
       sleepData: typeof savedCheckin?.manualSleepScore === 'number'
         ? { status: 'manual', score: savedCheckin.manualSleepScore, source: 'manual' }
         : { status: 'missing', score: null, source: null },

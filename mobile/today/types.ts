@@ -29,6 +29,13 @@ export type DailyCheckin = {
   completedAt: string;
 };
 
+export type DailyCoachingReport = {
+  pattern: string;
+  meaning: string;
+  action: string;
+  generatedAt: string;
+};
+
 export type TodaySnapshot = {
   date: string;
   dayNumber: number;
@@ -37,6 +44,9 @@ export type TodaySnapshot = {
   commitment: BehaviorCommitment | null;
   previousCommitment: BehaviorCommitment | null;
   checkin: DailyCheckin | null;
+  // Today's coaching once it exists. Reading the stored artifact here is what
+  // keeps revisiting Your Day from asking the coach to write it again.
+  dailyCoaching: DailyCoachingReport | null;
   sleepData: {
     status: 'wearable' | 'manual' | 'missing';
     score: number | null;

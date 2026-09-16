@@ -153,6 +153,13 @@ export default function CoachChatScreen({
 }) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<CoachMessage[]>([]);
+  // Threads already read this session reopen from here, so returning to a
+  // conversation paints its history before the refresh comes back. Held in a ref
+  // because reopening a thread is what renders it, not the cache growing.
+  const threadCache = useRef<Record<string, CoachMessage[]>>({});
+  // Tracked with its date so a session that outlives midnight opens the new
+  // day's thread instead of reusing yesterday's.
+  const [dailyConversation, setDailyConversation] = useState<{ id: string; date: string } | null>(null);
   const [conversations, setConversations] = useState<CoachConversationSummary[]>([]);
   const [homeState, setHomeState] = useState<CoachHomeState | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -167,6 +174,9 @@ export default function CoachChatScreen({
   const [dailyViewOpen, setDailyViewOpen] = useState(false);
   const [pastDailyDate, setPastDailyDate] = useState<string | null>(null);
   const listRef = useRef<FlatList<CoachMessage>>(null);
+  // Identifies which thread the user asked for last, so a slow read cannot
+  // deliver its messages into a conversation they have already left.
+  const openRequestRef = useRef(0);
   const { width: screenWidth } = useWindowDimensions();
   const drawerWidth = screenWidth * HISTORY_DRAWER_WIDTH_RATIO;
   const drawerTranslateX = useRef(new Animated.Value(-drawerWidth)).current;
@@ -300,6 +310,13 @@ export default function CoachChatScreen({
     void loadCoachHomeState(user).then(setHomeState).catch(() => setHomeState(null));
   }, [user.id, refreshRequest]);
 
+  // Mirror each settled thread so reopening it never starts from an empty list.
+  // Skipped mid-send so a streaming reply is only cached once it is complete.
+  useEffect(() => {
+    if (!conversationId || sending) return;
+    threadCache.current[conversationId] = messages;
+  }, [conversationId, messages, sending]);
+
   const beginConversation = async (firstMessage: string) => {
     const id = await createCoachConversation(user, firstMessage);
     setConversationId(id);
@@ -307,6 +324,8 @@ export default function CoachChatScreen({
   };
 
   const showCoachHome = useCallback(() => {
+    // Any thread read still in flight belongs to the view being left.
+    openRequestRef.current += 1;
     setDailyViewOpen(false);
     setPastDailyDate(null);
     setConversationId(null);
@@ -321,30 +340,60 @@ export default function CoachChatScreen({
   const startNewChat = showCoachHome;
 
   const openDailyThread = useCallback(async () => {
-    setBusyAction(true);
     setError("");
-    try {
-      const id = await getOrCreateDailyConversation(user);
-      const loadedMessages = await loadCoachConversation(user, id);
+    const request = ++openRequestRef.current;
+    const showDaily = (id: string) => {
       setConversationId(id);
-      setMessages(loadedMessages);
       setDailyViewOpen(true);
       setPastDailyDate(null);
       closeHistory();
+    };
+    // Today's thread stays in memory once opened, so coming back to Your Day is
+    // immediate and the reconciling read happens behind the visible content.
+    const cached = dailyConversation?.date === localDate() ? dailyConversation.id : null;
+    if (cached && threadCache.current[cached]) {
+      setMessages(threadCache.current[cached]);
+      showDaily(cached);
+      void loadCoachConversation(user, cached)
+        .then(loaded => {
+          // A newer open or an in-flight reply owns the thread now.
+          if (request === openRequestRef.current && !sendingRef.current) setMessages(loaded);
+        })
+        .catch(() => undefined);
+      return;
+    }
+    setBusyAction(true);
+    try {
+      const id = await getOrCreateDailyConversation(user);
+      const loadedMessages = await loadCoachConversation(user, id);
+      if (request !== openRequestRef.current) return;
+      setDailyConversation({ id, date: localDate() });
+      setMessages(loadedMessages);
+      showDaily(id);
       await refreshHistory();
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Today’s coaching thread could not be opened.");
+      if (request === openRequestRef.current) {
+        setError(loadError instanceof Error ? loadError.message : "Today’s coaching thread could not be opened.");
+      }
     } finally {
-      setBusyAction(false);
+      if (request === openRequestRef.current) setBusyAction(false);
     }
-  }, [closeHistory, refreshHistory, user]);
+  }, [closeHistory, dailyConversation, refreshHistory, user]);
 
+  // Both are counters bumped by the caller. Compare against the value already
+  // handled so a new callback identity cannot replay the last navigation.
+  const handledHomeRequest = useRef(homeRequest);
   useEffect(() => {
-    if (homeRequest) showCoachHome();
+    if (!homeRequest || homeRequest === handledHomeRequest.current) return;
+    handledHomeRequest.current = homeRequest;
+    showCoachHome();
   }, [homeRequest, showCoachHome]);
 
+  const handledDailyViewRequest = useRef(dailyViewRequest);
   useEffect(() => {
-    if (dailyViewRequest) void openDailyThread();
+    if (!dailyViewRequest || dailyViewRequest === handledDailyViewRequest.current) return;
+    handledDailyViewRequest.current = dailyViewRequest;
+    void openDailyThread();
   }, [dailyViewRequest, openDailyThread]);
 
   // The saved check-in already lives in Supabase; a failed transcript write only
@@ -360,19 +409,29 @@ export default function CoachChatScreen({
 
   const openConversation = async (conversation: CoachConversationSummary) => {
     const dailyDate = dailyConversationDate(conversation.title);
-    setBusyAction(true);
+    if (dailyDate === localDate()) return openDailyThread();
     setError("");
+    const request = ++openRequestRef.current;
+    // A thread read earlier this session reopens without a loading state; the
+    // read below only reconciles what another device may have added.
+    const cached = threadCache.current[conversation.id];
+    // Cleared when there is nothing cached, so the thread being left is never
+    // shown under the new title and never mirrored into the new thread's cache.
+    setMessages(cached ?? []);
+    setConversationId(conversation.id);
+    setDailyViewOpen(false);
+    setPastDailyDate(dailyDate ?? null);
+    closeHistory();
+    setBusyAction(!cached);
     try {
-      const loadedMessages = await loadCoachConversation(user, conversation.id);
-      setConversationId(conversation.id);
-      setMessages(loadedMessages);
-      setDailyViewOpen(dailyDate === localDate());
-      setPastDailyDate(dailyDate && dailyDate !== localDate() ? dailyDate : null);
-      closeHistory();
+      const loaded = await loadCoachConversation(user, conversation.id);
+      if (request === openRequestRef.current) setMessages(loaded);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "That conversation could not be loaded.");
+      if (!cached && request === openRequestRef.current) {
+        setError(loadError instanceof Error ? loadError.message : "That conversation could not be loaded.");
+      }
     } finally {
-      setBusyAction(false);
+      if (request === openRequestRef.current) setBusyAction(false);
     }
   };
 
@@ -490,6 +549,11 @@ export default function CoachChatScreen({
   };
 
   const isCoachHome = !dailyViewOpen && !conversationId && messages.length === 0;
+  // While another thread is on screen the mounted Your Day reads its own history
+  // from the cache, so its transcript never shows someone else's conversation.
+  const dailyMessages = dailyConversation
+    ? (conversationId === dailyConversation.id ? messages : threadCache.current[dailyConversation.id] ?? [])
+    : [];
   const conversationLabel = (conversation: CoachConversationSummary) => {
     const dailyDate = dailyConversationDate(conversation.title);
     if (!dailyDate) return conversation.title;
@@ -533,25 +597,32 @@ export default function CoachChatScreen({
             </Pressable>
           </View>
 
-          {dailyViewOpen ? (
-            <TodayScreen
-              key={conversationId}
-              embedded
-              refreshRequest={refreshRequest}
-              chat={{
-                messages,
-                renderMessage,
-                onCheckinComplete: persistCheckinTranscript,
-                onSend: send,
-                sending,
-                disabled: busyAction || !!resolvingToolCallId,
-                error,
-              }}
-              profile={profile}
-              repository={repository}
-              user={user}
-            />
-          ) : !conversationId && messages.length === 0 ? (
+          {/* Your Day stays mounted once opened. Its check-in, sleep score, and
+              coaching report survive every trip to Coach home or another thread,
+              so none of it reloads or regenerates on the way back. */}
+          {dailyConversation && (
+            <View style={dailyViewOpen ? styles.dailyPane : styles.hiddenPane}>
+              <TodayScreen
+                key={dailyConversation.id}
+                embedded
+                refreshRequest={refreshRequest}
+                chat={{
+                  messages: dailyMessages,
+                  renderMessage,
+                  onCheckinComplete: persistCheckinTranscript,
+                  onSend: send,
+                  sending,
+                  disabled: busyAction || !!resolvingToolCallId,
+                  error,
+                }}
+                profile={profile}
+                repository={repository}
+                user={user}
+              />
+            </View>
+          )}
+
+          {!dailyViewOpen && (!conversationId && messages.length === 0 ? (
             <View style={styles.newChat}>
               <Text style={styles.newChatTitle}>What would you like to explore?</Text>
               <Text style={styles.personalizedNote}>{personalizedGreeting(homeState)}</Text>
@@ -606,7 +677,7 @@ export default function CoachChatScreen({
               renderItem={({ item }) => renderMessage(item)}
               showsVerticalScrollIndicator={false}
             />
-          )}
+          ))}
         </View>
 
         {!dailyViewOpen && <ChatComposer
@@ -878,6 +949,8 @@ const styles = StyleSheet.create({
   dailyEntryEyebrow: { color: colors.textSubtle, fontSize: 10, fontWeight: "500", letterSpacing: 1.3 },
   dailyEntryTitle: { color: colors.text, fontSize: 16, fontWeight: "500", marginTop: 5 },
   dailyEntryArrow: { color: colors.accent, fontSize: 28, marginLeft: 12 },
+  dailyPane: { flex: 1 },
+  hiddenPane: { display: "none" },
   suggestions: { gap: 8, marginTop: "auto", paddingTop: 48 },
   swipeArea: { flex: 1 },
   suggestion: {
