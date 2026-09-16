@@ -90,8 +90,25 @@ const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
       }
     });
   };
+  const dragOrigin = useRef<{ x: number; y: number } | null>(null);
+  const draggingHorizontally = useRef(false);
   const beginDrag = (event: GestureResponderEvent) => {
+    dragOrigin.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY };
+    draggingHorizontally.current = false;
     measureTrack(event.nativeEvent.pageX);
+  };
+  const continueDrag = (event: GestureResponderEvent) => {
+    const origin = dragOrigin.current;
+    if (origin) {
+      const dx = event.nativeEvent.pageX - origin.x;
+      const dy = event.nativeEvent.pageY - origin.y;
+      if (Math.abs(dx) > 4 && Math.abs(dx) > Math.abs(dy)) draggingHorizontally.current = true;
+    }
+    updateFromPageX(event.nativeEvent.pageX);
+  };
+  const endDrag = () => {
+    dragOrigin.current = null;
+    draggingHorizontally.current = false;
   };
   const adjust = (amount: number) => onChange?.(clampSleepScore((value ?? 50) + amount));
 
@@ -118,10 +135,19 @@ const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
         }}
         onMoveShouldSetResponder={() => !disabled}
         onResponderGrant={beginDrag}
-        onResponderMove={(event) => updateFromPageX(event.nativeEvent.pageX)}
-        onResponderRelease={(event) => updateFromPageX(event.nativeEvent.pageX)}
-        onResponderTerminate={() => measureTrack()}
-        onResponderTerminationRequest={() => true}
+        onResponderMove={continueDrag}
+        onResponderRelease={(event) => {
+          updateFromPageX(event.nativeEvent.pageX);
+          endDrag();
+        }}
+        onResponderTerminate={() => {
+          endDrag();
+          measureTrack();
+        }}
+        // Scoring is itself a sideways drag, so hold the gesture once it turns
+        // horizontal; otherwise the coach history swipe captures it. Vertical
+        // drags stay releasable so the scroll view can still take over.
+        onResponderTerminationRequest={() => !draggingHorizontally.current}
         onStartShouldSetResponder={() => !disabled}
         style={styles.sleepScoreTrackTouch}
       >
