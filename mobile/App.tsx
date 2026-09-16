@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Alert,
+  Appearance,
   AppState,
   KeyboardAvoidingView,
   Platform,
@@ -91,6 +92,10 @@ const wait = (delayMs: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, delayMs));
 
 function AppContent() {
+  useEffect(() => {
+    Appearance.setColorScheme('dark');
+    return () => Appearance.setColorScheme('unspecified');
+  }, []);
   const incomingUrl = Linking.useLinkingURL();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

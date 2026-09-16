@@ -740,7 +740,7 @@ const styles = StyleSheet.create({
   title: {
     color: colors.text,
     fontSize: 30,
-    fontWeight: '800',
+    fontWeight: '500',
     letterSpacing: -0.8,
   },
   date: {

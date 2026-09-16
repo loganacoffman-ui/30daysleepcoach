@@ -40,7 +40,7 @@ export default function ChatComposer({ value, onChangeText, onSend, disabled = f
 
 const styles = StyleSheet.create({
   area: { backgroundColor: colors.canvas, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8 },
-  composer: { alignItems: 'flex-end', backgroundColor: colors.surface, borderColor: colors.borderStrong, borderRadius: 24, borderWidth: 1, flexDirection: 'row', gap: 8, minHeight: 52, padding: 6, paddingLeft: 17 },
+  composer: { alignItems: 'flex-end', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 24, borderWidth: 1, flexDirection: 'row', gap: 8, minHeight: 52, padding: 6, paddingLeft: 17 },
   input: { color: colors.text, flex: 1, fontSize: 16, lineHeight: 22, maxHeight: 110, minHeight: 38, paddingVertical: 8 },
   send: { alignItems: 'center', backgroundColor: colors.accent, borderRadius: 20, height: 40, justifyContent: 'center', width: 40 },
   disabled: { opacity: 0.35 },
