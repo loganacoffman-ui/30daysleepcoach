@@ -52,6 +52,12 @@ export type TodaySnapshot = {
     score: number | null;
     source: 'apple_health' | 'oura' | 'manual' | null;
   };
+  // What the wearable reported for the night, kept alongside sleepData so a day
+  // the user scored themselves can still show, and go back to, the synced number.
+  syncedSleep: {
+    score: number;
+    source: 'apple_health' | 'oura';
+  } | null;
 };
 
 export type DailyCheckinDraft = {
@@ -65,6 +71,8 @@ export interface TodayRepository {
   loadToday(): Promise<TodaySnapshot>;
   saveCheckin(draft: DailyCheckinDraft): Promise<DailyCheckin>;
   saveManualSleepScore(score: number): Promise<void>;
+  // Drops the user's own score for today, handing the night back to the wearable.
+  clearManualSleepScore(): Promise<void>;
   updateCommitmentStatus(id: string, status: Exclude<CommitmentStatus, 'committed'>): Promise<void>;
 }
 import type { MorningFeeling } from './feeling';

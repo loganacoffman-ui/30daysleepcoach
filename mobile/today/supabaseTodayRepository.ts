@@ -98,11 +98,14 @@ export const createSupabaseTodayRepository = (user: User, greetingName: string |
         action: recommendation.action,
         generatedAt: recommendation.generated_at,
       } : null,
-      sleepData: wearable
-        ? { status: 'wearable', score: wearable.score, source: wearable.source }
-        : typeof manualScore === 'number' && checkin?.manual_sleep_submitted_at
-          ? { status: 'manual', score: manualScore, source: 'manual' }
+      // A score the user submitted themselves is their correction of the night,
+      // so it outranks whatever the wearable reported for the same date.
+      sleepData: typeof manualScore === 'number' && checkin?.manual_sleep_submitted_at
+        ? { status: 'manual', score: manualScore, source: 'manual' }
+        : wearable
+          ? { status: 'wearable', score: wearable.score, source: wearable.source }
           : { status: 'missing', score: null, source: null },
+      syncedSleep: wearable ? { score: wearable.score, source: wearable.source } : null,
       commitment: current ? {
         id: current.id,
         behaviorDate: current.behavior_date,
@@ -134,6 +137,18 @@ export const createSupabaseTodayRepository = (user: User, greetingName: string |
       manual_sleep_score: score,
       manual_sleep_submitted_at: submittedAt,
       updated_at: submittedAt,
+    }).eq('user_id', user.id).eq('checkin_date', date);
+    if (error) throw error;
+    invalidateCoachContext(user.id);
+    markCheckinSaved();
+  },
+  async clearManualSleepScore() {
+    const date = localDate();
+    const updatedAt = new Date().toISOString();
+    const { error } = await supabase.from('daily_checkins').update({
+      manual_sleep_score: null,
+      manual_sleep_submitted_at: null,
+      updated_at: updatedAt,
     }).eq('user_id', user.id).eq('checkin_date', date);
     if (error) throw error;
     invalidateCoachContext(user.id);

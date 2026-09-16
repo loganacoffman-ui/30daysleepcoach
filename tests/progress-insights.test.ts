@@ -3,13 +3,25 @@ import { describe, expect, it } from 'vitest';
 import { experimentInsights, feelingTrend, mergeSleepPoints, rankSleepSignals, rollingDeltas, weeklyFeeling } from '../mobile/progress/progressInsights';
 
 describe('progress intelligence', () => {
-  it('prefers wearable scores and falls back to manual scores', () => {
+  it('lets a score the user submitted replace the wearable reading for that night', () => {
     const points = mergeSleepPoints([
       { checkin_date: '2026-09-01', manual_sleep_score: 71, morningFeeling: 'tired', note: null, suspected_factor: null },
       { checkin_date: '2026-09-02', manual_sleep_score: 82, morningFeeling: 'rested', note: null, suspected_factor: null },
     ], [{ date: '2026-09-02', score: 88, source: 'oura' }]);
     expect(points.map(point => [point.date, point.score, point.source])).toEqual([
-      ['2026-09-01', 71, 'manual'], ['2026-09-02', 88, 'oura'],
+      ['2026-09-01', 71, 'manual'], ['2026-09-02', 82, 'manual'],
+    ]);
+  });
+
+  it('keeps the wearable reading for nights the user did not score', () => {
+    const points = mergeSleepPoints([
+      { checkin_date: '2026-09-02', manual_sleep_score: null, morningFeeling: 'rested', note: null, suspected_factor: null },
+    ], [
+      { date: '2026-09-01', score: 74, source: 'apple_health' },
+      { date: '2026-09-02', score: 88, source: 'oura' },
+    ]);
+    expect(points.map(point => [point.date, point.score, point.source])).toEqual([
+      ['2026-09-01', 74, 'apple_health'], ['2026-09-02', 88, 'oura'],
     ]);
   });
 

@@ -25,7 +25,9 @@ export type NormalizedHealthSleepNight = {
   remMinutes: number;
   deepMinutes: number;
   coreMinutes: number;
-  efficiency: number;
+  // Null for a night whose source logged no awake time, where efficiency cannot
+  // be told apart from a perfect one.
+  efficiency: number | null;
   sourceName: string;
   sourceBundleIdentifier: string;
   providerRecordId: string;
@@ -196,7 +198,7 @@ export function aggregateSleepNight(
     remMinutes: Math.round(remMinutes),
     deepMinutes: Math.round(deepMinutes),
     coreMinutes: Math.round(coreMinutes),
-    efficiency: Math.round(score.efficiency * 1000) / 1000,
+    efficiency: score.efficiency === null ? null : Math.round(score.efficiency * 1000) / 1000,
     sourceName: source.sourceName,
     sourceBundleIdentifier: source.sourceBundleIdentifier,
     providerRecordId: session.map(item => item.uuid).sort().join(','),

@@ -96,6 +96,10 @@ Previous-behavior adherence remains on `behavior_commitments`; the check-in upda
 
 The native iOS app reads sleep stages from HealthKit, derives a versioned Sleep Coach score on-device, and stores normalized metrics here. Apple does not expose its proprietary Sleep Score through HealthKit. Oura remains an on-demand provider through `oura-proxy`; the app resolves one preferred wearable score per day and falls back to the other connected source.
 
+A score the user submitted for a date — `daily_checkins.manual_sleep_score` with a `manual_sleep_submitted_at` — is their correction of that night and outranks whatever any wearable reported for it. That holds everywhere the day is read: Your Day, Progress, and the context sent to the coach, which omits the wearable reading for corrected nights so the model is never given two scores for one night. Clearing the manual score hands the night back to the wearable.
+
+Efficiency is only scored when the night's source recorded awake time or an in-bed period. Without either, asleep-over-asleep would read as a flawless night nobody measured, so efficiency is left out and the remaining components are renormalized.
+
 One normalized objective sleep record per user, provider, and sleep date.
 
 | Column | Type | Notes |

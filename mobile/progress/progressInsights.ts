@@ -22,10 +22,12 @@ export const addDays = (date: string, count: number) => {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
 };
 
+// A score the user submitted for a date is their correction of that night, so it
+// replaces the wearable's rather than only filling a night it never reported.
 export function mergeSleepPoints(checkins: ProgressCheckin[], wearable: SleepPoint[]) {
   const byDate = new Map(wearable.map(point => [point.date, point]));
   for (const row of checkins) {
-    if (!byDate.has(row.checkin_date) && typeof row.manual_sleep_score === 'number') {
+    if (typeof row.manual_sleep_score === 'number') {
       byDate.set(row.checkin_date, { date: row.checkin_date, score: row.manual_sleep_score, source: 'manual' });
     }
   }

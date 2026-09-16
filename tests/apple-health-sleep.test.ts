@@ -114,6 +114,52 @@ describe('Sleep Coach score', () => {
       stagedMinutes: 0,
     }).score).toBeNull();
   });
+
+  // A six-hour night with good stages, described three ways. Only the awake and
+  // in-bed minutes differ, and they are what efficiency is measured from.
+  const sixHourNight = { asleepMinutes: 360, remMinutes: 72, deepMinutes: 47, stagedMinutes: 360 };
+
+  it('reports no efficiency for a night whose source never logged awake time', () => {
+    const result = calculateSleepCoachScore({ ...sixHourNight, awakeMinutes: 0, inBedMinutes: 360 });
+    expect(result.efficiency).toBeNull();
+    expect(result.components.efficiency).toBeNull();
+  });
+
+  it('scores an unmeasured efficiency out of the average instead of as a perfect one', () => {
+    // Weighted over duration, REM, and deep alone. Crediting the unmeasurable
+    // quarter of the score as flawless used to read 90 here.
+    expect(calculateSleepCoachScore({
+      ...sixHourNight,
+      awakeMinutes: 0,
+      inBedMinutes: 360,
+    }).score).toBe(87);
+  });
+
+  it('scores a measured, imperfect efficiency below one that was never measured', () => {
+    const measured = calculateSleepCoachScore({ ...sixHourNight, awakeMinutes: 40, inBedMinutes: 400 });
+    const unmeasured = calculateSleepCoachScore({ ...sixHourNight, awakeMinutes: 0, inBedMinutes: 360 });
+    expect(measured.efficiency).toBeCloseTo(0.9);
+    expect(measured.score).toBe(85);
+    expect(measured.score!).toBeLessThan(unmeasured.score!);
+  });
+
+  it('still gives full credit to an efficiency the night actually earned', () => {
+    expect(calculateSleepCoachScore({
+      ...sixHourNight,
+      awakeMinutes: 10,
+      inBedMinutes: 370,
+    }).score).toBe(90);
+  });
+
+  it('measures efficiency from a recorded in-bed period even without awake samples', () => {
+    const result = calculateSleepCoachScore({
+      ...sixHourNight,
+      awakeMinutes: 0,
+      inBedMinutes: 450,
+    });
+    expect(result.efficiency).toBeCloseTo(0.8);
+    expect(result.components.efficiency).toBeCloseTo(0.4);
+  });
 });
 
 describe('wearable source selection', () => {
