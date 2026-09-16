@@ -35,6 +35,7 @@ export const mockTodayRepository: TodayRepository = {
       sleepData: typeof savedCheckin?.manualSleepScore === 'number'
         ? { status: 'manual', score: savedCheckin.manualSleepScore, source: 'manual' }
         : { status: 'missing', score: null, source: null },
+      syncedSleep: null,
     };
 
     return snapshot;
@@ -57,6 +58,9 @@ export const mockTodayRepository: TodayRepository = {
   },
   async saveManualSleepScore(score) {
     if (savedCheckin) savedCheckin = { ...savedCheckin, manualSleepScore: score };
+  },
+  async clearManualSleepScore() {
+    if (savedCheckin) savedCheckin = { ...savedCheckin, manualSleepScore: undefined };
   },
   async updateCommitmentStatus() {},
 };

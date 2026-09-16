@@ -17,7 +17,6 @@ import type { User } from "@supabase/supabase-js";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors, layout } from "../design/theme";
-import { horizontalDragClaimed } from "../gestures";
 import type { SleepProfile } from "../onboarding/types";
 import ChatBubble from "./ChatBubble";
 import ChatComposer from "./ChatComposer";
@@ -165,6 +164,10 @@ export default function CoachChatScreen({
   const [homeState, setHomeState] = useState<CoachHomeState | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerOpenRef = useRef(false);
+  // Bumped by every open and close. A close animation only reports its outcome
+  // while it is still the newest request, so an interrupted close cannot leave
+  // the drawer layer mounted over a screen it is no longer covering.
+  const drawerRequest = useRef(0);
   const [revealingMessageId, setRevealingMessageId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -188,6 +191,12 @@ export default function CoachChatScreen({
     setConversations(history);
   }, [user]);
 
+  const showDrawer = useCallback(() => {
+    drawerRequest.current += 1;
+    drawerOpenRef.current = true;
+    setDrawerOpen(true);
+  }, []);
+
   const animateHistoryOpen = useCallback((duration: number) => {
     Animated.parallel([
       Animated.timing(drawerTranslateX, {
@@ -209,6 +218,11 @@ export default function CoachChatScreen({
   ]);
 
   const animateHistoryClosed = useCallback((duration: number) => {
+    const request = ++drawerRequest.current;
+    // The completion callback runs whether or not the animation reached its end.
+    // A close interrupted by a reopen, or by a newer close, is no longer the
+    // newest request and leaves the outcome to whatever replaced it. Every other
+    // close has to unmount the drawer rather than leave an invisible layer up.
     Animated.parallel([
       Animated.timing(drawerTranslateX, {
         duration,
@@ -222,8 +236,10 @@ export default function CoachChatScreen({
         toValue: 0,
         useNativeDriver: true,
       }),
-    ]).start(({ finished }) => {
-      if (finished) { drawerOpenRef.current = false; setDrawerOpen(false); }
+    ]).start(() => {
+      if (drawerRequest.current !== request) return;
+      drawerOpenRef.current = false;
+      setDrawerOpen(false);
     });
   }, [
     drawerBackdropOpacity,
@@ -232,12 +248,13 @@ export default function CoachChatScreen({
   ]);
 
   const openHistory = useCallback(() => {
+    // Claimed before anything is stopped, so a close interrupted below can tell
+    // it no longer owns the drawer.
+    showDrawer();
     drawerTranslateX.stopAnimation();
     drawerBackdropOpacity.stopAnimation();
     drawerTranslateX.setValue(-drawerWidth);
     drawerBackdropOpacity.setValue(0);
-    drawerOpenRef.current = true;
-    setDrawerOpen(true);
     void refreshHistory().catch(() => undefined);
     requestAnimationFrame(() =>
       animateHistoryOpen(HISTORY_DRAWER_OPEN_DURATION),
@@ -248,6 +265,7 @@ export default function CoachChatScreen({
     drawerTranslateX,
     drawerWidth,
     refreshHistory,
+    showDrawer,
   ]);
 
   const closeHistory = useCallback(() => {
@@ -258,22 +276,19 @@ export default function CoachChatScreen({
   const historySwipeResponder = useMemo(
     () =>
       PanResponder.create({
-        // This capture runs before the control under the touch is given the
-        // move, so a control that reads sideways drags — the sleep score slider
-        // — has to be honoured by its touch-start claim rather than by asking it
-        // to give the gesture up.
+        // A control already holding the touch is asked to hand it over before
+        // this capture takes effect, so the sleep score slider keeps the sideways
+        // drags it owns and this only ever runs for the rest of the screen.
         onMoveShouldSetPanResponderCapture: (_, gesture) =>
           !drawerOpenRef.current &&
-          !horizontalDragClaimed() &&
           gesture.dx >= HISTORY_SWIPE_ACTIVATION_DISTANCE &&
           gesture.dx > Math.abs(gesture.dy) * 1.25,
         onPanResponderGrant: () => {
+          showDrawer();
           drawerTranslateX.stopAnimation();
           drawerBackdropOpacity.stopAnimation();
           drawerTranslateX.setValue(-drawerWidth);
           drawerBackdropOpacity.setValue(0);
-          drawerOpenRef.current = true;
-          setDrawerOpen(true);
         },
         onPanResponderMove: (_, gesture) => {
           const distance = Math.min(Math.max(gesture.dx, 0), drawerWidth);
@@ -308,6 +323,7 @@ export default function CoachChatScreen({
       drawerTranslateX,
       drawerWidth,
       refreshHistory,
+      showDrawer,
     ],
   );
 
@@ -697,7 +713,11 @@ export default function CoachChatScreen({
 
       </KeyboardAvoidingView>
       {drawerOpen && (
-        <View style={styles.drawerLayer}>
+        // box-none keeps this container from being a touch target of its own. A
+        // faded-out backdrop is not hit-testable, so were the layer ever to
+        // outlive the drawer it would let the screen through instead of sitting
+        // over it invisibly and swallowing every touch.
+        <View pointerEvents="box-none" style={styles.drawerLayer}>
           <Animated.View
             style={[
               styles.drawerBackdrop,

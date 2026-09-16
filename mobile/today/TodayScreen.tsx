@@ -16,7 +16,6 @@ import type { User } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { screenCache } from '../cache/screenCache';
-import { claimHorizontalDrag, releaseHorizontalDrag } from '../gestures';
 import { loadDailyCoaching, type CoachMessage, type DailyCoaching } from '../coach/coachRepository';
 import { Skeleton, SkeletonLines } from '../design/Skeleton';
 import { colors, layout } from '../design/theme';
@@ -26,6 +25,12 @@ import ChatBubble, { plainCoachText } from '../coach/ChatBubble';
 import ChatComposer from '../coach/ChatComposer';
 import { interpretTypedCheckinReply } from './checkinReplyRepository';
 import { checkinDraftStorage, checkinStorageKey, localCheckinDate } from './checkinDraftStorage';
+import {
+  clampSleepScore,
+  dragIsHorizontal,
+  scoreForTouch,
+  trackLeftFromTouch,
+} from './sleepScoreGesture';
 import { answerCheckin, appendCheckinReply, checkinChoices, checkinDraft, initialCheckin, remainingCheckinCharacters, startCheckin, type CheckinConversation, type CheckinTurn } from './checkinConversation';
 import type {
   TodayRepository,
@@ -58,12 +63,10 @@ const formatLongDate = (date: string) => {
   }).format(parsed);
 };
 
-const clampSleepScore = (score: number) => Math.max(0, Math.min(100, Math.round(score)));
-
 const TODAY_CACHE_NAME = 'today-snapshot';
 // Bump when TodaySnapshot changes shape so a released build never renders a
 // cached entry it can no longer read.
-const TODAY_CACHE_VERSION = 1;
+const TODAY_CACHE_VERSION = 2;
 
 const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
   disabled?: boolean;
@@ -71,43 +74,66 @@ const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
   source?: 'Apple Health' | 'Oura' | 'Manual';
   value: number | null;
 }) => {
-  const [trackWidth, setTrackWidth] = useState(0);
-  const trackLeft = useRef(0);
   const trackRef = useRef<View>(null);
-  const valueRef = useRef(value);
-  valueRef.current = value;
-  const displayValue = value ?? 50;
-  const updateFromPageX = (pageX: number) => {
-    if (disabled || !onChange || trackWidth <= 0) return;
-    const nextScore = clampSleepScore(((pageX - trackLeft.current) / trackWidth) * 100);
-    if (nextScore !== valueRef.current) {
-      valueRef.current = nextScore;
-      onChange(nextScore);
-    }
+  // Where the track sits in window coordinates. `left` is recovered from the
+  // touch that starts each drag as pageX - locationX, so the first move already
+  // maps to the right score instead of being scored against a measurement that
+  // has not come back yet — which is what pinned the score to an edge.
+  const geometry = useRef({ left: 0, width: 0 });
+  const drag = useRef<{ startX: number; startY: number; x: number; y: number } | null>(null);
+  // The score under the finger. Kept here so dragging re-renders this control
+  // instead of the whole day; the parent hears the result once, on release.
+  const [dragScore, setDragScore] = useState<number | null>(null);
+  const shown = dragScore ?? value;
+  const displayValue = shown ?? 50;
+
+  const scoreAt = (pageX: number) => scoreForTouch(geometry.current, pageX);
+
+  const trackTo = (pageX: number) => {
+    const next = scoreAt(pageX);
+    if (next !== null) setDragScore(next);
   };
-  const measureTrack = (pageX?: number) => {
-    trackRef.current?.measureInWindow((x, _y, width) => {
-      trackLeft.current = x;
-      if (width > 0) setTrackWidth(width);
-      if (pageX !== undefined && width > 0 && onChange && !disabled) {
-        const nextScore = clampSleepScore(((pageX - x) / width) * 100);
-        if (nextScore !== valueRef.current) {
-          valueRef.current = nextScore;
-          onChange(nextScore);
-        }
-      }
+
+  const settle = (score: number | null) => {
+    drag.current = null;
+    setDragScore(null);
+    if (score !== null && score !== value) onChange?.(score);
+  };
+
+  const beginDrag = (event: GestureResponderEvent) => {
+    const { locationX, pageX, pageY } = event.nativeEvent;
+    drag.current = { startX: pageX, startY: pageY, x: pageX, y: pageY };
+    // The bar and thumb are not touch targets, so the touch landed on the view
+    // held in trackRef and locationX is an offset inside it.
+    const left = trackLeftFromTouch({ locationX, pageX, width: geometry.current.width });
+    if (left !== null) {
+      geometry.current.left = left;
+      trackTo(pageX);
+      return;
+    }
+    trackRef.current?.measureInWindow((x, _y, measuredWidth) => {
+      if (measuredWidth <= 0) return;
+      geometry.current = { left: x, width: measuredWidth };
+      // The drag can already be over by the time this lands.
+      if (drag.current) trackTo(pageX);
     });
   };
-  // Scoring is itself a sideways drag, so the track claims the touch up front to
-  // keep the coach history swipe from capturing it part way through.
-  const beginDrag = (event: GestureResponderEvent) => {
-    claimHorizontalDrag();
-    measureTrack(event.nativeEvent.pageX);
+
+  const dragTravel = (event: GestureResponderEvent) => {
+    const start = drag.current;
+    if (!start) return null;
+    const { pageX, pageY } = event.nativeEvent;
+    return {
+      x: Math.abs((Number.isFinite(pageX) ? pageX : start.x) - start.startX),
+      y: Math.abs((Number.isFinite(pageY) ? pageY : start.y) - start.startY),
+    };
   };
-  // The check-in can advance past the slider mid-drag, which leaves no release
-  // to clear the claim.
-  useEffect(() => releaseHorizontalDrag, []);
-  const adjust = (amount: number) => onChange?.(clampSleepScore((value ?? 50) + amount));
+
+  const adjust = (amount: number) => {
+    const next = clampSleepScore((shown ?? 50) + amount);
+    setDragScore(null);
+    if (next !== value) onChange?.(next);
+  };
 
   return (
     <View style={styles.sleepScoreControl}>
@@ -116,7 +142,7 @@ const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
           <Text style={styles.sleepScoreLabel}>SLEEP SCORE</Text>
           {source && <Text style={styles.sleepScoreSource}>{source}</Text>}
         </View>
-        <Text style={styles.sleepScoreValue}>{value ?? '—'}</Text>
+        <Text style={styles.sleepScoreValue}>{shown ?? '—'}</Text>
       </View>
       <View
         ref={trackRef}
@@ -124,32 +150,40 @@ const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
         accessibilityActions={disabled ? undefined : [{ name: 'increment' }, { name: 'decrement' }]}
         accessibilityLabel="Sleep score"
         accessibilityRole="adjustable"
-        accessibilityValue={{ min: 0, max: 100, now: value ?? undefined, text: value === null ? 'Not selected' : `${value} out of 100` }}
+        accessibilityValue={{ min: 0, max: 100, now: shown ?? undefined, text: shown === null ? 'Not selected' : `${shown} out of 100` }}
         onAccessibilityAction={(event) => adjust(event.nativeEvent.actionName === 'increment' ? 1 : -1)}
         onLayout={(event: LayoutChangeEvent) => {
-          setTrackWidth(event.nativeEvent.layout.width);
-          measureTrack();
+          geometry.current.width = event.nativeEvent.layout.width;
+          trackRef.current?.measureInWindow((x, _y, width) => {
+            if (width > 0) geometry.current = { left: x, width };
+          });
         }}
-        onMoveShouldSetResponder={() => !disabled}
         onResponderGrant={beginDrag}
-        onResponderMove={(event) => updateFromPageX(event.nativeEvent.pageX)}
-        onResponderRelease={(event) => {
-          updateFromPageX(event.nativeEvent.pageX);
-          releaseHorizontalDrag();
+        onResponderMove={(event) => {
+          const { pageX, pageY } = event.nativeEvent;
+          if (drag.current) {
+            drag.current.x = pageX;
+            drag.current.y = pageY;
+          }
+          trackTo(pageX);
         }}
-        onResponderTerminate={() => {
-          releaseHorizontalDrag();
-          measureTrack();
+        onResponderRelease={(event) => settle(scoreAt(event.nativeEvent.pageX) ?? dragScore)}
+        // Scoring is itself a sideways drag, so the coach history swipe must not
+        // take one over once it has a horizontal direction. A downward drag is
+        // the scroll view's, and is handed over. Refusing every hand-off is what
+        // used to leave the screen unable to scroll.
+        onResponderTerminationRequest={(event) => !dragIsHorizontal(dragTravel(event))}
+        onResponderTerminate={(event) => {
+          // Keep a score the finger had genuinely dragged to; discard where a
+          // touch that turned into a scroll happened to land.
+          settle(dragIsHorizontal(dragTravel(event)) ? dragScore : null);
         }}
-        // A vertical drag belongs to the scroll view, which only asks once it is
-        // actually scrolling.
-        onResponderTerminationRequest={() => true}
         onStartShouldSetResponder={() => !disabled}
         style={styles.sleepScoreTrackTouch}
       >
-        <View style={styles.sleepScoreTrack}>
+        <View pointerEvents="none" style={styles.sleepScoreTrack}>
           <View style={[styles.sleepScoreTrackFill, { width: `${displayValue}%` }]} />
-          <View style={[styles.sleepScoreThumb, { left: `${displayValue}%` }, value === null && styles.sleepScoreThumbUnset]} />
+          <View style={[styles.sleepScoreThumb, { left: `${displayValue}%` }, shown === null && styles.sleepScoreThumbUnset]} />
         </View>
       </View>
       {!disabled && <View style={styles.sleepScoreScale}><Text style={styles.sleepScoreScaleText}>0</Text><Text style={styles.sleepScoreScaleText}>100</Text></View>}
@@ -405,17 +439,32 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
   }, [loading, chat?.messages.length, latestChatMessage?.id, latestChatMessage?.content]);
 
   // A score already reviewed today remains usable if a later wearable sync is
-  // temporarily unavailable. A newly synced score takes precedence.
-  const sleepData = snapshot?.sleepData.status === 'missing' && sleepReviewed && reviewedSleepData
+  // temporarily unavailable, and a score the user set for themselves stays theirs.
+  // Any other newly synced score takes precedence.
+  const sleepData = sleepReviewed && reviewedSleepData
+    && (reviewedSleepData.status === 'manual' || snapshot?.sleepData.status === 'missing')
     ? reviewedSleepData : snapshot?.sleepData;
   const sleepContextReady = !!sleepData && (sleepData.status !== 'missing' ||
     (manualSleepFallback && manualSleepScore !== null));
+  // The user is scoring the night themselves — because nothing synced, or because
+  // what did sync was wrong. Either way their number is the one the day uses.
+  const usingOwnScore = manualSleepFallback && manualSleepScore !== null;
+  const syncedSleepLabel = snapshot?.syncedSleep
+    ? snapshot.syncedSleep.source === 'apple_health' ? 'Apple Health' : 'Oura'
+    : null;
+  // Opens with whatever the day currently reads, so the user nudges a number
+  // rather than starting from nothing.
+  const startOwnScore = () => {
+    setManualSleepScore(current => current ?? sleepData?.score ?? snapshot?.syncedSleep?.score ?? 50);
+    setManualSleepFallback(true);
+  };
 
   const continueCheckin = async () => {
     if (!snapshot || !sleepContextReady || !draftLoaded || continuing) return;
     const next = conversation.step === 'sleep'
       ? startCheckin(snapshot.previousCommitment?.behavior, snapshot.previousCommitment?.id) : conversation;
-    const acceptedSleepData: TodaySnapshot['sleepData'] = snapshot.sleepData.status === 'missing'
+    const acceptedSleepData: TodaySnapshot['sleepData'] = usingOwnScore
+      || snapshot.sleepData.status === 'missing'
       ? { status: 'manual', source: 'manual', score: manualSleepScore } : snapshot.sleepData;
     const request = replyRequestRef.current;
     setContinuing(true);
@@ -496,8 +545,9 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     let draft;
     try {
       finalConversation = appendCheckinReply(baseConversation, finalText);
-      draft = checkinDraft(finalConversation, sleepData?.status === 'manual'
-        ? sleepData.score ?? undefined : sleepData?.status === 'missing' ? manualSleepScore ?? undefined : undefined);
+      draft = checkinDraft(finalConversation, usingOwnScore
+        ? manualSleepScore ?? undefined
+        : sleepData?.status === 'manual' ? sleepData.score ?? undefined : undefined);
     } catch (limitError) {
       setError(limitError instanceof Error ? limitError.message : 'Please shorten this reply.');
       return;
@@ -542,6 +592,24 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
       setManualSleepFallback(false);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Your manual sleep score was not saved.');
+    } finally {
+      setManualSleepSaving(false);
+    }
+  };
+
+  // Hands the night back to the wearable. Only the saved score needs clearing;
+  // before the check-in is submitted nothing has left the device yet.
+  const useSyncedSleep = async () => {
+    setError('');
+    setManualSleepFallback(false);
+    setManualSleepScore(null);
+    if (snapshot?.sleepData.status !== 'manual' || !snapshot.checkin) return;
+    setManualSleepSaving(true);
+    try {
+      await repository.clearManualSleepScore();
+      await loadToday({ silent: true });
+    } catch (clearError) {
+      setError(clearError instanceof Error ? clearError.message : 'Your score could not be handed back to your wearable.');
     } finally {
       setManualSleepSaving(false);
     }
@@ -685,12 +753,57 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
         {sleepData!.status !== 'missing' && (!sleepReviewed || snapshot.checkin) && (
           <View style={styles.dailyReport}>
             <SleepScoreSlider
-              disabled
-              source={sleepData!.status === 'wearable'
-                ? sleepData!.source === 'apple_health' ? 'Apple Health' : 'Oura'
-                : 'Manual'}
-              value={sleepData!.score ?? null}
+              disabled={!manualSleepFallback}
+              onChange={manualSleepFallback ? setManualSleepScore : undefined}
+              source={manualSleepFallback ? 'Manual'
+                : sleepData!.status === 'wearable'
+                  ? sleepData!.source === 'apple_health' ? 'Apple Health' : 'Oura'
+                  : 'Manual'}
+              value={manualSleepFallback ? manualSleepScore : sleepData!.score ?? null}
             />
+            {manualSleepFallback ? (
+              <View style={styles.ownScoreArea}>
+                <Text style={styles.promptHint}>
+                  {syncedSleepLabel
+                    ? `Your score is used for last night instead of the ${syncedSleepLabel} score of ${snapshot.syncedSleep!.score}.`
+                    : 'Slide to your best estimate from 0–100.'}
+                </Text>
+                <View style={styles.sleepDataActions}>
+                  {syncedSleepLabel && (
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={manualSleepSaving}
+                      onPress={() => void useSyncedSleep()}
+                      style={styles.sleepDataSecondaryButton}
+                    >
+                      <Text style={styles.sleepDataSecondaryText}>Use {syncedSleepLabel} score</Text>
+                    </Pressable>
+                  )}
+                  {snapshot.checkin && (
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={manualSleepScore === null || manualSleepSaving}
+                      onPress={() => void saveManualSleep()}
+                      style={[styles.sleepDataPrimaryButton, manualSleepScore === null && styles.primaryButtonDisabled]}
+                    >
+                      {manualSleepSaving
+                        ? <ActivityIndicator color={colors.ink} />
+                        : <Text style={styles.sleepDataPrimaryText}>Save my score</Text>}
+                    </Pressable>
+                  )}
+                </View>
+              </View>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                onPress={startOwnScore}
+                style={({ pressed }) => [styles.ownScoreLink, pressed && styles.pressed]}
+              >
+                <Text style={styles.ownScoreLinkText}>
+                  {sleepData!.status === 'manual' ? 'Change my score' : 'Doesn’t match your night? Score it yourself'}
+                </Text>
+              </Pressable>
+            )}
             {snapshot.checkin && (
               <View style={styles.checkinCompleteRow}>
                 <Text style={styles.checkinCompleteMark}>✓</Text>
@@ -1019,6 +1132,9 @@ const styles = StyleSheet.create({
   },
   sleepDataPrimaryText: { color: colors.ink, fontSize: 12, fontWeight: '800' },
   manualSleepArea: { marginTop: 4 },
+  ownScoreArea: { marginTop: 4 },
+  ownScoreLink: { alignSelf: 'flex-start', marginTop: 10, paddingVertical: 4 },
+  ownScoreLinkText: { color: colors.accent, fontSize: 12, fontWeight: '700' },
   sleepDataReadyRow: {
     alignItems: 'center',
     flexDirection: 'row',
