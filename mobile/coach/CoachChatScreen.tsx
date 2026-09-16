@@ -524,6 +524,7 @@ export default function CoachChatScreen({
               <Text style={styles.historyButtonText}>☰</Text>
             </Pressable>
             <View>
+              <Text style={styles.eyebrow}>30 DAY SLEEP COACH</Text>
               <Text style={styles.title}>Coach</Text>
             </View>
             <Pressable accessibilityRole="button" onPress={() => {
@@ -750,7 +751,7 @@ const styles = StyleSheet.create({
   eyebrow: {
     color: colors.accent,
     fontSize: 9,
-    fontWeight: "800",
+    fontWeight: "500",
     letterSpacing: 1.4,
   },
   header: {
