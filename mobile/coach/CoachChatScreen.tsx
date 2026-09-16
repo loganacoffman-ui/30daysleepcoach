@@ -508,9 +508,6 @@ export default function CoachChatScreen({
 
   return (
     <SafeAreaView edges={["top"]} style={styles.screen}>
-      <View pointerEvents="none" style={styles.ambient}>
-        <View style={styles.ambientViolet} />
-      </View>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={8}
@@ -855,9 +852,10 @@ const styles = StyleSheet.create({
     paddingTop: 26,
   },
   newChatTitle: {
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     color: colors.text,
     fontSize: 25,
-    fontWeight: "700",
+    fontWeight: "400",
     letterSpacing: -0.5,
     lineHeight: 32,
   },
@@ -1056,9 +1054,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   title: {
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     color: colors.text,
     fontSize: 30,
-    fontWeight: "700",
+    fontWeight: "400",
     letterSpacing: -0.7,
     marginTop: 1,
   },

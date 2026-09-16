@@ -93,7 +93,7 @@ const wait = (delayMs: number) =>
 
 function AppContent() {
   useEffect(() => {
-    Appearance.setColorScheme('light');
+    Appearance.setColorScheme('dark');
     return () => Appearance.setColorScheme('unspecified');
   }, []);
   const incomingUrl = Linking.useLinkingURL();
@@ -476,7 +476,7 @@ function AppContent() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator color={colors.accent} size="large" />
-        <StatusBar style="dark" />
+        <StatusBar style="light" />
       </View>
     );
   }
@@ -486,7 +486,7 @@ function AppContent() {
       return (
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={colors.accent} size="large" />
-          <StatusBar style="dark" />
+          <StatusBar style="light" />
         </View>
       );
     }
@@ -692,7 +692,7 @@ function AppContent() {
           <Text style={styles.privacyLink}>Privacy Policy</Text>
         </Pressable>
       </ScrollView>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
     </KeyboardAvoidingView>
   );
 }

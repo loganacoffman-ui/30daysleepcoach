@@ -61,7 +61,7 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
       <View style={styles.tabs}>
         {tabs.map(item => <Pressable accessibilityRole="tab" accessibilityState={{selected:tab===item.key}} key={item.key} onPress={()=>{if(item.key!=='coach')Keyboard.dismiss();setTab(item.key);}} style={styles.tab}><Text style={[styles.icon,tab===item.key&&styles.selected]}>{item.icon}</Text><Text style={[styles.label,tab===item.key&&styles.selected]}>{item.label}</Text></Pressable>)}
       </View>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
     </View>
   );
 }
