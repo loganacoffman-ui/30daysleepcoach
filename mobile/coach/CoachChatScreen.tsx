@@ -4,6 +4,7 @@ import {
   Animated,
   Easing,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   PanResponder,
   Platform,
@@ -20,6 +21,8 @@ import { colors, layout } from "../design/theme";
 import type { SleepProfile } from "../onboarding/types";
 import ChatBubble from "./ChatBubble";
 import ChatComposer from "./ChatComposer";
+import JumpToLatest from "./JumpToLatest";
+import { useChatScroll } from "./useChatScroll";
 import TodayScreen from "../today/TodayScreen";
 import { feelingLabel } from "../today/feeling";
 import type { TodayRepository } from "../today/types";
@@ -178,6 +181,15 @@ export default function CoachChatScreen({
   const [dailyViewOpen, setDailyViewOpen] = useState(false);
   const [pastDailyDate, setPastDailyDate] = useState<string | null>(null);
   const listRef = useRef<FlatList<CoachMessage>>(null);
+  const { scrollProps, scrollToLatest, reset: resetScroll, showLatest } = useChatScroll({
+    scrollTo: (offset, animated) => listRef.current?.scrollToOffset({ offset, animated }),
+    scrollToEnd: animated => {
+      const nativeScroll = listRef.current?.getScrollResponder();
+      if (nativeScroll && 'scrollToEnd' in nativeScroll && typeof nativeScroll.scrollToEnd === 'function') {
+        nativeScroll.scrollToEnd({ animated });
+      } else listRef.current?.scrollToEnd({ animated });
+    },
+  });
   // Identifies which thread the user asked for last, so a slow read cannot
   // deliver its messages into a conversation they have already left.
   const openRequestRef = useRef(0);
@@ -192,6 +204,7 @@ export default function CoachChatScreen({
   }, [user]);
 
   const showDrawer = useCallback(() => {
+    Keyboard.dismiss();
     drawerRequest.current += 1;
     drawerOpenRef.current = true;
     setDrawerOpen(true);
@@ -346,6 +359,8 @@ export default function CoachChatScreen({
   };
 
   const showCoachHome = useCallback(() => {
+    Keyboard.dismiss();
+    resetScroll();
     // Any thread read still in flight belongs to the view being left.
     openRequestRef.current += 1;
     setDailyViewOpen(false);
@@ -357,7 +372,7 @@ export default function CoachChatScreen({
     setRevealingMessageId(null);
     closeHistory();
     void loadCoachHomeState(user).then(setHomeState).catch(() => undefined);
-  }, [closeHistory, user]);
+  }, [closeHistory, resetScroll, user]);
 
   const startNewChat = showCoachHome;
 
@@ -433,6 +448,7 @@ export default function CoachChatScreen({
     const dailyDate = dailyConversationDate(conversation.title);
     if (dailyDate === localDate()) return openDailyThread();
     setError("");
+    resetScroll();
     const request = ++openRequestRef.current;
     // A thread read earlier this session reopens without a loading state; the
     // read below only reconciles what another device may have added.
@@ -455,10 +471,6 @@ export default function CoachChatScreen({
     } finally {
       if (request === openRequestRef.current) setBusyAction(false);
     }
-  };
-
-  const scrollToLatest = () => {
-    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
   };
 
   const send = async (suggested?: string): Promise<boolean> => {
@@ -510,7 +522,6 @@ export default function CoachChatScreen({
           ? { ...message, content: visible, pending: false }
           : message;
       }));
-      scrollToLatest();
     }, 18);
 
     try {
@@ -530,7 +541,6 @@ export default function CoachChatScreen({
           : message
       ));
       await refreshHistory().catch(() => undefined);
-      scrollToLatest();
       return true;
     } catch (sendError) {
       // The message itself is persisted before the reply streams, so it stays
@@ -593,8 +603,7 @@ export default function CoachChatScreen({
   return (
     <SafeAreaView edges={["top"]} style={styles.screen}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={8}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboard}
       >
         <View style={styles.swipeArea} {...historySwipeResponder.panHandlers}>
@@ -675,6 +684,10 @@ export default function CoachChatScreen({
             </View>
           ) : (
             <FlatList
+              key={conversationId ?? "new-chat"}
+              {...scrollProps}
+              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+              keyboardShouldPersistTaps="handled"
               ListEmptyComponent={
                 busyAction ? (
                   <View style={styles.loading}>
@@ -700,6 +713,7 @@ export default function CoachChatScreen({
               showsVerticalScrollIndicator={false}
             />
           ))}
+          {!dailyViewOpen && !isCoachHome && showLatest && <JumpToLatest onPress={scrollToLatest} />}
         </View>
 
         {!dailyViewOpen && <ChatComposer

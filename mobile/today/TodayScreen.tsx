@@ -23,6 +23,8 @@ import type { SleepProfile } from '../onboarding/types';
 import { mockTodayRepository } from './mockTodayRepository';
 import ChatBubble, { plainCoachText } from '../coach/ChatBubble';
 import ChatComposer from '../coach/ChatComposer';
+import JumpToLatest from '../coach/JumpToLatest';
+import { useChatScroll } from '../coach/useChatScroll';
 import { interpretTypedCheckinReply } from './checkinReplyRepository';
 import { checkinDraftStorage, checkinStorageKey, localCheckinDate } from './checkinDraftStorage';
 import {
@@ -230,7 +232,7 @@ const DailyReport = ({ action, cacheKey, meaning, pattern }: {
     };
   }, [cacheKey, report]);
 
-  return <Text style={styles.dailyReportText}>{visible}</Text>;
+  return <Text selectable style={styles.dailyReportText}>{visible}</Text>;
 };
 
 export default function TodayScreen({ embedded = false, chat, profile, refreshRequest, repository = mockTodayRepository, user }: TodayScreenProps) {
@@ -255,7 +257,11 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
   const replyRequestRef = useRef(0);
   useEffect(() => () => { replyRequestRef.current += 1; }, []);
   const scrollRef = useRef<ScrollView>(null);
-  const followLatest = useRef(true);
+  const { scrollProps, scrollToLatest, showLatest } = useChatScroll({
+    scrollTo: (y, animated) => scrollRef.current?.scrollTo({ y, animated }),
+    scrollToEnd: animated => scrollRef.current?.scrollToEnd({ animated }),
+    initiallyFollowing: false,
+  });
   const [manualSleepFallback, setManualSleepFallback] = useState(false);
   const [manualSleepScore, setManualSleepScore] = useState<number | null>(null);
   const [manualSleepSaving, setManualSleepSaving] = useState(false);
@@ -417,12 +423,6 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     return () => clearTimeout(timer);
   }, [draftKey, draftLoaded, conversation, input, manualSleepScore, manualSleepFallback, sleepReviewed, reviewedSleepData, snapshot?.checkin]);
 
-  useEffect(() => {
-    if (conversation.step !== 'sleep' && (sleepReviewed || snapshot?.checkin)) {
-      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
-    }
-  }, [conversation.turns.length, conversation.step, sleepReviewed, snapshot?.checkin?.completedAt]);
-
   // Today's flow renders from the device draft. The copy persisted with the
   // day's thread is the fallback once that draft is gone, such as on a second
   // device or any later day.
@@ -433,13 +433,6 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
   const checkinTurns: CheckinTurn[] = conversation.turns.length
     ? conversation.turns
     : checkinMessages.map(message => ({ role: message.role, content: message.content }));
-  const latestChatMessage = chat?.messages.at(-1);
-  useEffect(() => {
-    if (!loading && latestChatMessage && followLatest.current) {
-      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
-    }
-  }, [loading, chat?.messages.length, latestChatMessage?.id, latestChatMessage?.content]);
-
   // A score already reviewed today remains usable if a later wearable sync is
   // temporarily unavailable, and a score the user set for themselves stays theirs.
   // Any other newly synced score takes precedence.
@@ -482,6 +475,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
       setConversation(next);
       setReviewedSleepData(acceptedSleepData);
       setSleepReviewed(true);
+      scrollToLatest();
     } catch {
       setError('Your sleep score couldn’t be saved on this device. Please try again.');
     } finally {
@@ -493,7 +487,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     if (!text.trim() || savingRef.current || interpretingRef.current) return;
     if (snapshot?.checkin) {
       if (!chat || chat.sending || chat.disabled) return;
-      followLatest.current = true;
+      scrollToLatest();
       // The thread keeps the message even when the reply fails, so the composer
       // clears the way it does anywhere else in the chat.
       setInput('');
@@ -507,6 +501,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
       setError(limitError instanceof Error ? limitError.message : 'Please shorten this reply.');
       return;
     }
+    scrollToLatest();
     if (choice) {
       setConversation(current => current.step === conversation.step ? answerCheckin(current, text, choice) : current);
       setInput('');
@@ -528,7 +523,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     } catch (replyError) {
       if (request === replyRequestRef.current) {
         setConversation(conversation);
-        setInput(text);
+        setInput(current => current ? `${text}\n${current}` : text);
         setError(replyError instanceof Error ? replyError.message : 'Your reply is still here. Please try sending again.');
       }
     } finally {
@@ -555,11 +550,12 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
       return;
     }
     if (!draft) return;
+    if (finalText.trim()) scrollToLatest();
     savingRef.current = true;
     setSaving(true);
     setError('');
     setConversation(finalConversation);
-    setInput('');
+    if (finalText.trim()) setInput('');
     try {
       if (snapshot.previousCommitment && snapshot.previousCommitment.id === finalConversation.commitmentId && finalConversation.adherence) {
         await repository.updateCommitmentStatus(snapshot.previousCommitment.id, finalConversation.adherence);
@@ -654,15 +650,15 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
 
   return (
     <KeyboardAvoidingView
-      behavior={!embedded && Platform.OS === 'ios' ? 'padding' : undefined}
+      enabled={!embedded}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.screen}
     >
+      <View style={styles.screen}>
       <ScrollView
         ref={scrollRef}
-        onScroll={({ nativeEvent }) => {
-          followLatest.current = nativeEvent.contentSize.height - nativeEvent.layoutMeasurement.height - nativeEvent.contentOffset.y < 100;
-        }}
-        scrollEventThrottle={16}
+        {...scrollProps}
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         contentContainerStyle={[styles.content, embedded && styles.embeddedContent]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -924,6 +920,8 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
           </View>
         )}
       </ScrollView>
+      {showLatest && <JumpToLatest onPress={scrollToLatest} />}
+      </View>
       <ChatComposer
         value={input}
         maxLength={snapshot.checkin ? 4000 : Math.min(4000, remainingCheckinCharacters(conversation))}

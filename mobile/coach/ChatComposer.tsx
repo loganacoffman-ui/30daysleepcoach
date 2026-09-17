@@ -19,11 +19,12 @@ export default function ChatComposer({ value, onChangeText, onSend, disabled = f
         <TextInput
           accessibilityLabel="Message your sleep coach"
           autoCorrect
-          editable={!disabled && !sending}
+          editable={!disabled}
           maxLength={maxLength}
           multiline
           onChangeText={onChangeText}
-          onSubmitEditing={onSend}
+          submitBehavior="newline"
+          textAlignVertical="top"
           placeholder={placeholder}
           placeholderTextColor={colors.textFaint}
           style={styles.input}
@@ -42,7 +43,7 @@ const styles = StyleSheet.create({
   area: { backgroundColor: colors.canvas, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8 },
   composer: { alignItems: 'flex-end', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 24, borderWidth: 1, flexDirection: 'row', gap: 8, minHeight: 52, padding: 6, paddingLeft: 17 },
   input: { color: colors.text, flex: 1, fontSize: 16, lineHeight: 22, maxHeight: 110, minHeight: 38, paddingVertical: 8 },
-  send: { alignItems: 'center', backgroundColor: colors.accent, borderRadius: 20, height: 40, justifyContent: 'center', width: 40 },
+  send: { alignItems: 'center', backgroundColor: colors.accent, borderRadius: 22, height: 44, justifyContent: 'center', width: 44 },
   disabled: { opacity: 0.35 },
   arrow: { color: colors.ink, fontSize: 24, fontWeight: '700' },
   error: { color: colors.danger, fontSize: 12, lineHeight: 17, marginBottom: 8 },
