@@ -434,12 +434,14 @@ export default function CoachChatScreen({
     showCoachHome();
   }, [homeRequest, showCoachHome]);
 
-  const handledDailyViewRequest = useRef(dailyViewRequest);
+  // A cold-start notification may already be pending on the first render. Keep
+  // it pending while a coach reply is sending, since openDailyThread waits for it.
+  const handledDailyViewRequest = useRef(0);
   useEffect(() => {
-    if (!dailyViewRequest || dailyViewRequest === handledDailyViewRequest.current) return;
+    if (!dailyViewRequest || dailyViewRequest === handledDailyViewRequest.current || sending) return;
     handledDailyViewRequest.current = dailyViewRequest;
     void openDailyThread();
-  }, [dailyViewRequest, openDailyThread]);
+  }, [dailyViewRequest, openDailyThread, sending]);
 
   // The saved check-in already lives in Supabase; a failed transcript write only
   // costs this day's thread its conversation, which the device draft still shows.

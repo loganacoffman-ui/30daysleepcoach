@@ -88,15 +88,26 @@ clarifications stay in the separate local conversation cache.
 ## Daily check-in notifications
 
 The onboarding reminder registers the signed-in device with Expo Push Service
-and stores its token, timezone, and preferred reminder time in Supabase. A local
-recurring notification is retained only as an offline fallback if remote token
-registration is temporarily unavailable. The permission prompt appears only
+and stores its token, timezone, and preferred reminder time in Supabase. Before
+delivery, the server checks for a completed check-in for that account and the
+reminder's local date. Completed days are skipped, including check-ins saved on
+another device. Drafts do not suppress reminders. A failed completion lookup
+aborts dispatch rather than sending an unchecked reminder.
+
+Existing local recurring reminders are canceled and migrated on launch. The
+opt-in is retained if registration fails and retried on the next foreground;
+there is no unconditional local fallback. Registered tokens and timezones are
+refreshed on foreground, and sign-out or opt-out removes the device registration.
+The permission prompt appears only
 after the user chooses a reminder time and taps **Schedule reminder & start**.
 
-After onboarding, Settings → Reminders shows the device's actual scheduled state.
+After onboarding, Settings → Reminders shows the device's registered push state.
 Users can turn the reminder off, turn it back on (requesting OS permission when
-needed), move it earlier or later in 15-minute increments, or send a real test
-push through the backend.
+needed), or move it earlier or later in 15-minute increments.
+
+Tapping a daily reminder opens Coach → Your Day, whether the app is running or
+launching. A launch response is retained through authentication/onboarding and
+consumed after navigation so it does not reopen on later mounts.
 
 Deploy `send-push-notifications`, set a strong `PUSH_CRON_SECRET` Edge Function
 secret, and invoke the function every 15 minutes (`*/15 * * * *`) with that value
@@ -127,9 +138,13 @@ let EAS enable Push Notifications for the production and development App IDs and
 generate or reuse an Apple Push Notifications key when prompted. Android remote
 push requires the project's FCM v1 credentials.
 
-Test on a physical device by enabling the reminder, tapping **Send test
-notification**, and backgrounding the app. If permission was previously denied,
-re-enable it in the device's notification settings and turn the reminder on again.
+Test on a physical device by enabling a reminder for an upcoming dispatch tick
+and backgrounding the app. Verify that completing today's check-in first skips
+the reminder, while an unfinished check-in receives it. Tap reminders with the
+app both closed and open on Settings/Progress and verify that Your Day opens.
+Also verify that reminders resume the next day and that sign-out/opt-out stops
+delivery. If permission was previously denied, re-enable it in the device's
+notification settings and turn the reminder on again.
 
 ## Supabase authentication
 
