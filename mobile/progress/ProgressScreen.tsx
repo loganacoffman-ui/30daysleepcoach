@@ -4,7 +4,8 @@ import type { User } from '@supabase/supabase-js';
 
 import { checkinRevision, subscribeToCheckins } from '../cache/checkinRevision';
 import { screenCache } from '../cache/screenCache';
-import { loadSleepProfileSummary } from '../coach/coachRepository';
+import { loadSleepProfileSummary, loadStoredDailyCoaching, type DailyCoaching } from '../coach/coachRepository';
+import { plainCoachText } from '../coach/ChatBubble';
 import { Skeleton, SkeletonLines } from '../design/Skeleton';
 import { colors, layout } from '../design/theme';
 import type { SleepProfile } from '../onboarding/types';
@@ -216,7 +217,12 @@ export default function ProgressScreen({ active = true, profile, refreshRequest,
             const entry = journey[index];
             return <Pressable accessibilityRole="button" accessibilityState={{ disabled: !entry, selected: selectedDay === index }} disabled={!entry} accessibilityLabel={`Check-in ${index + 1}${entry ? `, ${entry.checkin_date}, complete. Show details` : ', still to come'}`} key={index} onPress={() => setSelectedDay(current => current === index ? null : index)} style={[styles.journeySquare, entry ? styles.journeySquareComplete : styles.journeySquareFuture, selectedDay === index && { borderColor: colors.text, borderWidth: 2 }]}/>;
           })}</View>
-          {selectedEntry && <View style={{ marginTop: 14 }}><Text style={styles.cardTitle}>Check-in {selectedDay! + 1} · {selectedEntry.checkin_date}</Text><Text style={styles.profileCopy}>{selectedScore == null ? 'Sleep score unavailable in loaded history.' : `Sleep score: ${selectedScore}`}</Text><Text style={styles.profileCopy}>{selectedExperiment ? `That night’s experiment: ${selectedExperiment.behavior}` : 'No experiment available in loaded history.'}</Text></View>}
+          {selectedEntry && <View style={{ marginTop: 14 }}>
+            <Text style={styles.cardTitle}>Check-in {selectedDay! + 1} · {selectedEntry.checkin_date}</Text>
+            <Text style={styles.profileCopy}>{selectedScore == null ? 'Sleep score unavailable in loaded history.' : `Sleep score: ${selectedScore}`}</Text>
+            <Text style={styles.profileCopy}>{selectedExperiment ? `That night’s experiment: ${selectedExperiment.behavior}` : 'No experiment available in loaded history.'}</Text>
+            <CheckinCoaching key={`${user.id}:${selectedEntry.checkin_date}`} userId={user.id} date={selectedEntry.checkin_date}/>
+          </View>}
         </>}
       </View>
 
@@ -261,6 +267,35 @@ export default function ProgressScreen({ active = true, profile, refreshRequest,
     </>}
     {!!error && <Text style={styles.error}>{error}</Text>}
   </ScrollView>;
+}
+
+function CheckinCoaching({ userId, date }: { userId: string; date: string }) {
+  const [coaching, setCoaching] = useState<DailyCoaching | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setFailed(false);
+    void loadStoredDailyCoaching(userId, date)
+      .then(report => { if (active) setCoaching(report); })
+      .catch(() => { if (active) setFailed(true); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [attempt, date, userId]);
+
+  return <View style={{ marginTop: 18 }}>
+    <Text style={styles.cardEyebrow}>COACHING ADVICE</Text>
+    {loading ? <View style={styles.profileSkeleton}><SkeletonLines count={3}/></View>
+      : failed ? <Pressable accessibilityRole="button" onPress={() => setAttempt(value => value + 1)}>
+        <Text style={styles.error}>Coaching advice could not be loaded. Tap to try again.</Text>
+      </Pressable>
+      : coaching ? <Text style={styles.profileCopy}>{plainCoachText([
+        coaching.pattern, coaching.meaning, `Tonight: ${coaching.action}`, coaching.why,
+      ].filter(Boolean).join('\n\n'))}</Text>
+      : <Text style={styles.profileCopy}>No coaching advice was saved for this day.</Text>}
+  </View>;
 }
 
 function Section({children,onPress,open,subtitle,title}:{children:React.ReactNode;onPress:()=>void;open:boolean;subtitle:string;title:string}) { return <View style={styles.section}><Pressable accessibilityRole="button" accessibilityState={{expanded:open}} onPress={onPress} style={styles.sectionHeader}><View style={styles.sectionHeading}><Text style={styles.cardEyebrow}>{title}</Text><Text style={styles.sectionSubtitle}>{subtitle}</Text></View><Text style={styles.chevron}>{open ? '⌃' : '⌄'}</Text></Pressable>{open && <View>{children}</View>}</View>; }
