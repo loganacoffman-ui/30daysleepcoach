@@ -9,6 +9,7 @@ import {
   PanResponder,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -23,6 +24,7 @@ import ChatBubble from "./ChatBubble";
 import ChatComposer from "./ChatComposer";
 import JumpToLatest from "./JumpToLatest";
 import { useChatScroll } from "./useChatScroll";
+import { coachHomeExperience } from "./homeExperience";
 import TodayScreen from "../today/TodayScreen";
 import { feelingLabel } from "../today/feeling";
 import type { TodayRepository } from "../today/types";
@@ -52,7 +54,7 @@ const HISTORY_DRAWER_OPEN_DURATION = 260;
 const HISTORY_DRAWER_CLOSE_DURATION = 200;
 
 const personalizedGreeting = (state: CoachHomeState | null) => {
-  if (!state) return "Your coach will connect the dots as your sleep context builds.";
+  if (!state) return "Take a moment for yourself. Your coach is here to help, one night at a time.";
   if (typeof state.sleepScore === "number") {
     const source = state.sleepSource === "manual"
       ? "self-reported "
@@ -67,7 +69,7 @@ const personalizedGreeting = (state: CoachHomeState | null) => {
   if (state.hasCheckedInToday && state.morningFeeling) {
     return `Your wearable missed last night, but you said you feel ${feelingLabel(state.morningFeeling).toLowerCase()} this morning.`;
   }
-  return "Add last night’s sleep data to unlock today’s personalized context.";
+  return "Let’s start with how you slept and how you feel. A quick check-in helps your coach understand your day.";
 };
 
 const dailyDateLabel = (date: string) =>
@@ -175,6 +177,7 @@ export default function CoachChatScreen({
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const sendingRef = useRef(false);
+  const openingDailyRef = useRef<number | null>(null);
   const [busyAction, setBusyAction] = useState(false);
   const [resolvingToolCallId, setResolvingToolCallId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -363,6 +366,7 @@ export default function CoachChatScreen({
     resetScroll();
     // Any thread read still in flight belongs to the view being left.
     openRequestRef.current += 1;
+    setBusyAction(false);
     setDailyViewOpen(false);
     setPastDailyDate(null);
     setConversationId(null);
@@ -377,6 +381,8 @@ export default function CoachChatScreen({
   const startNewChat = showCoachHome;
 
   const openDailyThread = useCallback(async () => {
+    if (openingDailyRef.current === openRequestRef.current || sendingRef.current) return;
+    Keyboard.dismiss();
     setError("");
     const request = ++openRequestRef.current;
     const showDaily = (id: string) => {
@@ -399,6 +405,7 @@ export default function CoachChatScreen({
         .catch(() => undefined);
       return;
     }
+    openingDailyRef.current = request;
     setBusyAction(true);
     try {
       const id = await getOrCreateDailyConversation(user);
@@ -413,6 +420,7 @@ export default function CoachChatScreen({
         setError(loadError instanceof Error ? loadError.message : "Today’s coaching thread could not be opened.");
       }
     } finally {
+      if (openingDailyRef.current === request) openingDailyRef.current = null;
       if (request === openRequestRef.current) setBusyAction(false);
     }
   }, [closeHistory, dailyConversation, refreshHistory, user]);
@@ -581,6 +589,8 @@ export default function CoachChatScreen({
   };
 
   const isCoachHome = !dailyViewOpen && !conversationId && messages.length === 0;
+  const homeExperience = coachHomeExperience(homeState, profile.displayName);
+  const homeActionsDisabled = busyAction || sending || !!resolvingToolCallId;
   // While another thread is on screen the mounted Your Day reads its own history
   // from the cache, so its transcript never shows someone else's conversation.
   const dailyMessages = dailyConversation
@@ -620,7 +630,7 @@ export default function CoachChatScreen({
               <Text style={styles.eyebrow}>30 DAY SLEEP COACH</Text>
               <Text style={styles.title}>Coach</Text>
             </View>
-            <Pressable accessibilityRole="button" onPress={() => {
+            <Pressable accessibilityRole="button" disabled={homeActionsDisabled} accessibilityState={{ disabled: homeActionsDisabled }} onPress={() => {
               if (isCoachHome) void openDailyThread();
               else showCoachHome();
             }} style={styles.newButton}>
@@ -654,24 +664,37 @@ export default function CoachChatScreen({
           )}
 
           {!dailyViewOpen && (!conversationId && messages.length === 0 ? (
-            <View style={styles.newChat}>
-              <Text style={styles.newChatTitle}>What would you like to explore?</Text>
-              <Text style={styles.personalizedNote}>{personalizedGreeting(homeState)}</Text>
-              <Pressable accessibilityRole="button" onPress={() => void openDailyThread()} style={({ pressed }) => [styles.dailyEntry, pressed && styles.suggestionPressed]}>
+            <ScrollView
+              contentContainerStyle={styles.newChat}
+              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <Text accessibilityRole="header" style={styles.newChatTitle}>{homeExperience.title}</Text>
+              <Text style={styles.personalizedNote}>{homeExperience.introduction ?? personalizedGreeting(homeState)}</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: homeActionsDisabled, busy: busyAction }}
+                disabled={homeActionsDisabled}
+                onPress={() => void openDailyThread()}
+                style={({ pressed }) => [styles.dailyEntry, !homeState?.hasCheckedInToday && styles.dailyEntryPrimary, pressed && styles.suggestionPressed]}
+              >
                 <View style={styles.dailyEntryCopy}>
-                  <Text style={styles.dailyEntryEyebrow}>YOUR DAY</Text>
-                  <Text style={styles.dailyEntryTitle}>{homeState?.hasCheckedInToday ? "View today’s coaching" : "Complete today’s check-in"}</Text>
+                  <Text style={[styles.dailyEntryEyebrow, !homeState?.hasCheckedInToday && styles.dailyEntryInk]}>{homeExperience.checkinEyebrow}</Text>
+                  <Text style={[styles.dailyEntryTitle, !homeState?.hasCheckedInToday && styles.dailyEntryInk]}>{busyAction ? "Opening your day…" : homeState?.hasCheckedInToday ? "View today’s coaching" : "Complete today’s check-in"}</Text>
+                  <Text style={[styles.dailyEntryDescription, !homeState?.hasCheckedInToday && styles.dailyEntryInk]}>{homeExperience.checkinDescription}</Text>
                 </View>
-                <Text style={styles.dailyEntryArrow}>›</Text>
+                {busyAction ? <ActivityIndicator color={homeState?.hasCheckedInToday ? colors.accent : colors.ink} style={styles.dailyEntrySpinner} /> : <Text style={[styles.dailyEntryArrow, !homeState?.hasCheckedInToday && styles.dailyEntryInk]}>›</Text>}
               </Pressable>
               <View style={styles.suggestions}>
-                {[
-                  "How is my sleep trending?",
-                  "Today’s coaching",
-                  "What’s working?",
-                ].map(suggestion => (
+                <Text accessibilityRole="header" style={styles.suggestionsTitle}>Or start a conversation</Text>
+                <Text style={styles.suggestionsHint}>Tap a question to send it to your coach.</Text>
+                {homeExperience.prompts.map(suggestion => (
                   <Pressable
                     accessibilityRole="button"
+                    accessibilityHint="Sends this question to your coach"
+                    accessibilityState={{ disabled: homeActionsDisabled }}
+                    disabled={homeActionsDisabled}
                     key={suggestion}
                     onPress={() => void send(suggestion)}
                     style={({ pressed }) => [styles.suggestion, pressed && styles.suggestionPressed]}
@@ -681,7 +704,7 @@ export default function CoachChatScreen({
                   </Pressable>
                 ))}
               </View>
-            </View>
+            </ScrollView>
           ) : (
             <FlatList
               key={conversationId ?? "new-chat"}
@@ -873,9 +896,9 @@ const styles = StyleSheet.create({
   },
   historyButton: {
     alignItems: "center",
-    height: 40,
+    height: 44,
     justifyContent: "center",
-    width: 40,
+    width: 44,
   },
   historyButtonText: { color: colors.textMuted, fontSize: 22 },
   keyboard: { flex: 1 },
@@ -946,6 +969,9 @@ const styles = StyleSheet.create({
   loadingText: { color: colors.textSubtle, fontSize: 13 },
   messages: { gap: 18, paddingBottom: 20, paddingHorizontal: 18, paddingTop: 12 },
   newButton: {
+    minHeight: 44,
+    justifyContent: "center",
+    flexShrink: 1,
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: 14,
@@ -955,15 +981,15 @@ const styles = StyleSheet.create({
   },
   newButtonText: { color: colors.textMuted, fontSize: 11, fontWeight: "700" },
   newChat: {
-    flex: 1,
-    paddingBottom: 14,
+    flexGrow: 1,
+    paddingBottom: 24,
     paddingHorizontal: 22,
-    paddingTop: 26,
+    paddingTop: 16,
   },
   newChatTitle: {
     color: colors.text,
     fontSize: 25,
-    fontWeight: "500",
+    fontWeight: "700",
     letterSpacing: -0.5,
     lineHeight: 32,
   },
@@ -977,33 +1003,41 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: 20,
     borderWidth: 1,
     flexDirection: "row",
     marginTop: 22,
-    minHeight: 76,
-    paddingHorizontal: 17,
-    paddingVertical: 14,
+    minHeight: 136,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
   },
+  dailyEntryPrimary: { backgroundColor: colors.accent, borderColor: colors.accent },
+  dailyEntryInk: { color: colors.ink },
   dailyEntryCopy: { flex: 1 },
-  dailyEntryEyebrow: { color: colors.textSubtle, fontSize: 10, fontWeight: "500", letterSpacing: 1.3 },
-  dailyEntryTitle: { color: colors.text, fontSize: 16, fontWeight: "500", marginTop: 5 },
+  dailyEntryEyebrow: { color: colors.accent, fontSize: 10, fontWeight: "800", letterSpacing: 1.3 },
+  dailyEntryTitle: { color: colors.text, fontSize: 21, lineHeight: 27, fontWeight: "700", marginTop: 8 },
+  dailyEntryDescription: { color: colors.textMuted, fontSize: 13, lineHeight: 19, marginTop: 8 },
+  dailyEntrySpinner: { marginLeft: 12 },
   dailyEntryArrow: { color: colors.accent, fontSize: 28, marginLeft: 12 },
   dailyPane: { flex: 1 },
   hiddenPane: { display: "none" },
-  suggestions: { gap: 8, marginTop: "auto", paddingTop: 48 },
+  suggestions: { gap: 8, paddingTop: 28 },
+  suggestionsTitle: { color: colors.text, fontSize: 16, fontWeight: "600" },
+  suggestionsHint: { color: colors.textSubtle, fontSize: 12, lineHeight: 18, marginBottom: 4 },
   swipeArea: { flex: 1 },
   suggestion: {
     alignItems: "center",
-    borderBottomColor: colors.border,
-    borderBottomWidth: 0,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
     flexDirection: "row",
     justifyContent: "space-between",
-    minHeight: 46,
-    paddingHorizontal: 2,
+    minHeight: 52,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
   },
   suggestionPressed: { opacity: 0.58 },
-  suggestionText: { color: colors.textMuted, fontSize: 14 },
+  suggestionText: { color: colors.textMuted, fontSize: 14, lineHeight: 20, flex: 1 },
   suggestionArrow: { color: colors.textFaint, fontSize: 23 },
   drawerLayer: {
     bottom: 0,

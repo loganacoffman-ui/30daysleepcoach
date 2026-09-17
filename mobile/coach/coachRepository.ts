@@ -40,6 +40,8 @@ export type CoachMessage = {
 };
 export type CoachConversationSummary = { id: string; title: string; updatedAt: string };
 export type CoachHomeState = {
+  // Capped at seven by the home query; enough to distinguish the first few check-ins.
+  checkinCount: number;
   hasCheckedInToday: boolean;
   morningFeeling: MorningFeeling | null;
   sleepScore: number | null;
@@ -141,6 +143,7 @@ export const loadCoachHomeState = async (user: User): Promise<CoachHomeState> =>
     ? todayCheckin.manual_sleep_score
     : null;
   return {
+    checkinCount: checkins.length,
     hasCheckedInToday: Boolean(todayCheckin),
     morningFeeling: normalizeMorningFeeling(todayCheckin?.morning_feeling, todayCheckin?.feeling),
     // A score the user submitted is their correction of the night the wearable
