@@ -4,8 +4,8 @@
   "description": "Track your recovery, sync Oura data, get AI coaching insights.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#010818",
-  "theme_color": "#010818",
+  "background_color": "#16213A",
+  "theme_color": "#16213A",
   "orientation": "portrait",
   "icons": [
     { "src": "favicon-16x16.png", "sizes": "16x16", "type": "image/png" },

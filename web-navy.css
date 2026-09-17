@@ -1,0 +1,86 @@
+/* Quiet navy theme, shared visually with /beta and the mobile app.
+   Presentation only: navigation, authentication and data flows are unchanged. */
+:root {
+  color-scheme: dark;
+  --bg: #16213A;
+  --surface: #1D2B45;
+  --surface2: #121D32;
+  --surface3: #293852;
+  --border: #36415A;
+  --border2: #56617A;
+  --text: #F4EDDF;
+  --muted: #C9C7C5;
+  --muted2: #ACB2BD;
+  --accent: #B3CAD4;
+  --accent-dim: rgba(179,202,212,.09);
+  --green: #9BC8B0;
+  --green-dim: #203A3A;
+  --red: #F0ACA1;
+  --red-dim: #49313D;
+  --radius: 20px;
+  --radius-sm: 12px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+body, button, input, select, textarea,
+.logo, .auth-logo, .landing-logo, .landing-nav-logo, .page-heading,
+.card-label, .section-tag, .landing-eyebrow, .auth-sub,
+.auth-signup .signup-label, .field-name, .day-badge, .mode-badge {
+  font-family: var(--font) !important;
+}
+.bg-gradient, #landing-canvas { display: none; }
+header, .landing-nav, .mobile-tab-bar { background: rgba(22,33,58,.96); }
+#auth-overlay { background: rgba(22,33,58,.98); }
+nav { background: var(--surface2); border-radius: 12px; }
+.landing-nav { border-radius: 0; }
+nav button.active { background: var(--surface3); box-shadow: none; }
+.card, .baseline-progress { box-shadow: none; }
+.landing-logo, .page-heading, .auth-logo { font-weight: 500; letter-spacing: -.025em; }
+.landing-logo { white-space: normal; line-height: 1.16; }
+.landing-logo span, .landing-nav-logo span, .logo span { color: var(--text); }
+.landing-sub { line-height: 1.65; }
+.landing-desc { font-size: 1rem; line-height: 1.75; margin-left: 0; margin-right: 0; }
+.landing-banner { background: var(--surface); color: var(--muted); border: 1px solid var(--border); box-shadow: none; }
+.landing-banner a { color: var(--accent); }
+.auth-btn, .save-btn, .signup-btn, .chat-send, .landing-chat-send,
+.commitment-btn.primary, .landing-nav-links .nav-cta-btn {
+  color: var(--bg); border-radius: 16px; box-shadow: none;
+}
+.auth-btn:hover, .save-btn:hover, .signup-btn:hover, .chat-send:hover,
+.landing-chat-send:hover, .landing-nav-links .nav-cta-btn:hover {
+  background: #D0DFE3; color: var(--bg); box-shadow: none;
+}
+.auth-btn.primary-lg { border-radius: 16px; padding: 17px 28px; }
+.signup-input, .landing-chat-inner, .landing-chat-hint, .commitment-btn,
+select option { background: var(--surface); }
+.chat-msg.user { background: var(--surface3); color: var(--text); }
+.card-label, .section-tag, .landing-eyebrow { color: var(--accent); font-weight: 500; }
+.mic-orb { background: var(--accent); box-shadow: none; }
+.mic-orb svg { color: var(--bg); }
+.mic-btn.recording .mic-orb svg { color: var(--text); }
+.nav-badge { color: var(--green); background: var(--green-dim); border-color: var(--border); }
+.baseline-trend-svg text { fill: var(--muted); }
+.baseline-trend-svg circle { fill: var(--surface); stroke: var(--accent); }
+.baseline-trend-svg path[stroke] { stroke: var(--accent); }
+.landing-below div[style*="background:#fff"] {
+  background: var(--surface) !important; border-color: var(--border) !important;
+  border-radius: 20px !important; box-shadow: none !important;
+}
+.landing-below span[style*="background:#fff"] {
+  background: var(--surface3) !important; border-color: var(--border) !important;
+}
+button[style*="background:var(--accent)"] { color: var(--bg) !important; }
+:where(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 4px;
+}
+#trend-svg text { fill: var(--muted2); }
+#trend-svg line { stroke: var(--border2); }
+#trend-line-path { stroke: var(--accent); filter: none; }
+#trend-dot { fill: var(--accent); filter: none; }
+#trendFill stop { stop-color: var(--accent); }
+@media (max-width: 600px) {
+  .landing-box { padding-left: 22px; padding-right: 22px; }
+  .landing-logo { font-size: 2rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
