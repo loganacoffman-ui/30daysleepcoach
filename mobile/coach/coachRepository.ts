@@ -34,7 +34,7 @@ export type CoachMessage = {
   role: 'user' | 'assistant';
   content: string;
   createdAt: string;
-  origin?: 'checkin';
+  origin?: 'checkin' | 'daily_coaching';
   pending?: boolean;
   toolCall?: CoachToolCall;
 };
@@ -407,18 +407,50 @@ const loadConversationRows = async <T,>(
 export const loadCoachConversation = async (user: User, conversationId: string): Promise<CoachMessage[]> => {
   const conversation = await supabase
     .from('coach_conversations')
-    .select('id')
+    .select('id, title')
     .eq('id', conversationId)
     .eq('user_id', user.id)
     .maybeSingle();
   if (conversation.error) throw conversation.error;
   if (!conversation.data) throw new Error('That coaching conversation is no longer available.');
 
-  const [messages, toolCalls] = await Promise.all([
+  const date = dailyConversationDate(conversation.data.title ?? '');
+  const [messages, toolCalls, coaching] = await Promise.all([
     loadConversationRows<StoredCoachMessage>('coach_messages', 'id, role, content, created_at, metadata', user.id, conversationId),
     loadConversationRows<StoredCoachToolCall>('coach_tool_calls', 'id, tool_name, status, input, requires_confirmation, expires_at', user.id, conversationId),
+    date ? loadStoredDailyCoaching(user.id, date) : Promise.resolve(null),
   ]);
-  return mapCoachMessages(messages, toolCalls);
+  const history = mapCoachMessages(messages, toolCalls);
+  if (coaching) {
+    // The report is persisted separately from chat. Include that saved artifact
+    // after the check-in and before follow-ups, just as Your Day displays it.
+    // Reading it here also restores reports written by older app versions.
+    const report: CoachMessage = {
+      id: `daily-coaching:${conversationId}`,
+      role: 'assistant',
+      origin: 'daily_coaching',
+      content: [coaching.pattern, coaching.meaning, `Tonight: ${coaching.action}`, coaching.why]
+        .filter(Boolean).join('\n\n'),
+      createdAt: coaching.generatedAt,
+    };
+    const lastCheckin = history.reduce((last, message, index) => message.origin === 'checkin' ? index : last, -1);
+    history.splice(lastCheckin + 1, 0, report);
+  }
+  return history;
+};
+
+// History must read the requested calendar day's saved advice, never generate
+// new advice using today's context. Legacy action-only reports remain readable.
+export const loadStoredDailyCoaching = async (userId: string, date: string): Promise<DailyCoaching | null> => {
+  const { data, error } = await supabase.from('coach_recommendations')
+    .select('pattern, meaning, action, why, generated_at')
+    .eq('user_id', userId).eq('recommendation_date', date).maybeSingle();
+  if (error) throw error;
+  if (!data?.action?.trim()) return null;
+  return {
+    pattern: data.pattern ?? '', meaning: data.meaning ?? '', action: data.action,
+    why: data.why ?? '', generatedAt: data.generated_at,
+  };
 };
 
 // The server keeps one recommendation per date and reuses it, so this only

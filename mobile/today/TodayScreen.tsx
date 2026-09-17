@@ -427,7 +427,9 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
   // day's thread is the fallback once that draft is gone, such as on a second
   // device or any later day.
   const checkinMessages = chat?.messages.filter(message => message.origin === 'checkin') ?? [];
-  const followupMessages = chat?.messages.filter(message => message.origin !== 'checkin') ?? [];
+  // Today's report is rendered from the snapshot below. History includes the
+  // same saved report as a message for past days, so don't display it twice here.
+  const followupMessages = chat?.messages.filter(message => !message.origin) ?? [];
   const checkinTurns: CheckinTurn[] = conversation.turns.length
     ? conversation.turns
     : checkinMessages.map(message => ({ role: message.role, content: message.content }));

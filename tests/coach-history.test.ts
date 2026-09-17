@@ -14,6 +14,9 @@ let messages: Record<string, unknown>[];
 let toolCalls: Record<string, unknown>[];
 let missingConversation: boolean;
 let failedPage: number | null;
+let conversationTitle: string;
+let recommendation: Record<string, unknown> | null;
+let recommendationError: Error | null;
 const queries: { table: string; filters: [string, string][]; orders: string[]; range?: [number, number] }[] = [];
 
 beforeEach(() => {
@@ -22,6 +25,9 @@ beforeEach(() => {
   toolCalls = [];
   missingConversation = false;
   failedPage = null;
+  conversationTitle = 'Sleep coaching';
+  recommendation = null;
+  recommendationError = null;
   queries.length = 0;
   from.mockImplementation((table: string) => {
     const query: typeof queries[number] = { table, filters: [], orders: [] };
@@ -30,7 +36,9 @@ beforeEach(() => {
       select: () => builder,
       eq: (key: string, value: string) => { query.filters.push([key, value]); return builder; },
       order: (column: string) => { query.orders.push(column); return builder; },
-      maybeSingle: async () => ({ data: missingConversation ? null : { id: 'daily-thread' }, error: null }),
+      maybeSingle: async () => table === 'coach_recommendations'
+        ? { data: recommendation, error: recommendationError }
+        : { data: missingConversation ? null : { id: 'daily-thread', title: conversationTitle }, error: null },
       range: async (start: number, end: number) => {
         query.range = [start, end];
         if (table === 'coach_messages' && start === failedPage) return { data: null, error: new Error('History load failed') };
@@ -42,6 +50,53 @@ beforeEach(() => {
 });
 
 describe('persisted coach conversation history', () => {
+  it('restores saved advice between a past check-in and its follow-ups on every reopen', async () => {
+    conversationTitle = 'Your Day · 2026-09-08';
+    recommendation = {
+      pattern: 'Your sleep has been steadier.', meaning: 'Your routine may be helping.',
+      action: 'Keep your wake time consistent.', why: 'Give the routine time.',
+      generated_at: '2026-09-08T19:00:00Z',
+    };
+    messages = [
+      { id: 'checkin', role: 'user', content: 'Feeling rested', created_at: '2026-09-08T12:00:00Z', metadata: { source: 'daily_checkin' } },
+      { id: 'followup', role: 'user', content: 'What about weekends?', created_at: '2026-09-08T13:00:00Z' },
+    ];
+    const history = await loadCoachConversation(user, 'daily-thread');
+    expect(history.map(message => message.id)).toEqual(['checkin', 'daily-coaching:daily-thread', 'followup']);
+    expect(history[1]).toMatchObject({
+      role: 'assistant', origin: 'daily_coaching', createdAt: recommendation.generated_at,
+      content: 'Your sleep has been steadier.\n\nYour routine may be helping.\n\nTonight: Keep your wake time consistent.\n\nGive the routine time.',
+    });
+    expect(await loadCoachConversation(user, 'daily-thread')).toEqual(history);
+    for (const query of queries.filter(query => query.table === 'coach_recommendations')) {
+      expect(query.filters).toEqual([['user_id', 'user-1'], ['recommendation_date', '2026-09-08']]);
+    }
+  });
+
+  it('restores advice even when no chat transcript was saved, including legacy action-only reports', async () => {
+    conversationTitle = 'Your Day · 2026-09-08';
+    recommendation = { action: 'Try a short walk.', generated_at: '2026-09-08T12:00:00Z' };
+    expect(await loadCoachConversation(user, 'daily-thread')).toMatchObject([
+      { origin: 'daily_coaching', content: 'Tonight: Try a short walk.' },
+    ]);
+  });
+
+  it('does not fabricate advice for a day without a saved recommendation', async () => {
+    conversationTitle = 'Your Day · 2026-09-08';
+    expect(await loadCoachConversation(user, 'daily-thread')).toEqual([]);
+  });
+
+  it('reports a recommendation read failure instead of silently dropping saved advice', async () => {
+    conversationTitle = 'Your Day · 2026-09-08';
+    recommendationError = new Error('Coaching history unavailable');
+    await expect(loadCoachConversation(user, 'daily-thread')).rejects.toThrow('Coaching history unavailable');
+  });
+
+  it('does not attach daily advice to an ordinary chat', async () => {
+    await loadCoachConversation(user, 'daily-thread');
+    expect(queries.some(query => query.table === 'coach_recommendations')).toBe(false);
+  });
+
   it('restores every follow-up after reopening, including messages past the old 60-message cutoff', async () => {
     messages = Array.from({ length: 245 }, (_, i) => ({
       id: `message-${i}`, role: i % 2 === 0 ? 'user' : 'assistant', content: `Follow-up ${i}`,
