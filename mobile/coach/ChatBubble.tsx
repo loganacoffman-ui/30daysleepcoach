@@ -46,7 +46,7 @@ const RevealingText = ({
     return () => clearInterval(timer);
   }, [animate, clean]);
 
-  return <Text style={style}>{animate ? visibleText : clean}</Text>;
+  return <Text selectable style={style}>{animate ? visibleText : clean}</Text>;
 };
 
 const Thinking = () => {
