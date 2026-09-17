@@ -158,6 +158,7 @@ export default function CoachChatScreen({
 }) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<CoachMessage[]>([]);
+  const [emptyView, setEmptyView] = useState<"home" | "new-chat">("home");
   // Threads already read this session reopen from here, so returning to a
   // conversation paints its history before the refresh comes back. Held in a ref
   // because reopening a thread is what renders it, not the cache growing.
@@ -361,7 +362,7 @@ export default function CoachChatScreen({
     return id;
   };
 
-  const showCoachHome = useCallback(() => {
+  const resetConversation = useCallback((view: "home" | "new-chat") => {
     Keyboard.dismiss();
     resetScroll();
     // Any thread read still in flight belongs to the view being left.
@@ -369,16 +370,20 @@ export default function CoachChatScreen({
     setBusyAction(false);
     setDailyViewOpen(false);
     setPastDailyDate(null);
+    setEmptyView(view);
     setConversationId(null);
     setMessages([]);
     setInput("");
     setError("");
     setRevealingMessageId(null);
     closeHistory();
-    void loadCoachHomeState(user).then(setHomeState).catch(() => undefined);
+    if (view === "home") {
+      void loadCoachHomeState(user).then(setHomeState).catch(() => undefined);
+    }
   }, [closeHistory, resetScroll, user]);
 
-  const startNewChat = showCoachHome;
+  const showCoachHome = useCallback(() => resetConversation("home"), [resetConversation]);
+  const startNewChat = () => resetConversation("new-chat");
 
   const openDailyThread = useCallback(async () => {
     if (openingDailyRef.current === openRequestRef.current || sendingRef.current) return;
@@ -590,7 +595,7 @@ export default function CoachChatScreen({
     }
   };
 
-  const isCoachHome = !dailyViewOpen && !conversationId && messages.length === 0;
+  const isCoachHome = emptyView === "home" && !dailyViewOpen && !conversationId && messages.length === 0;
   const homeExperience = coachHomeExperience(homeState, profile.displayName);
   const homeActionsDisabled = busyAction || sending || !!resolvingToolCallId;
   // While another thread is on screen the mounted Your Day reads its own history
@@ -665,7 +670,7 @@ export default function CoachChatScreen({
             </View>
           )}
 
-          {!dailyViewOpen && (!conversationId && messages.length === 0 ? (
+          {!dailyViewOpen && (isCoachHome ? (
             <ScrollView
               contentContainerStyle={styles.newChat}
               keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
