@@ -8,7 +8,7 @@
 <link rel="icon" href="favicon-16x16.png" type="image/png" sizes="16x16">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#4f7cff">
+<meta name="theme-color" content="#16213A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>30 Day Sleep Coach</title>
@@ -1001,6 +1001,8 @@ textarea::placeholder { color: var(--muted2); }
 }
 
 </style>
+<!-- Shared navy visual system for the web experience. -->
+<link rel="stylesheet" href="web-navy.css">
 </head>
 <body>
 
@@ -1699,12 +1701,12 @@ function resetChart(chart) {
 }
 
 const CHART_TICK_FONT = { size: 9, family: 'Geist Mono' };
-const CHART_TICK_COLOR = '#a1a1aa';
-const CHART_GRID_STYLE = { color: 'rgba(0,0,0,0.04)' };
+const CHART_TICK_COLOR = '#ACB2BD';
+const CHART_GRID_STYLE = { color: '#36415A' };
 const CHART_BORDER_HIDE = { display: false };
 
 function chartTooltipDefaults(labelCb) {
-  return { callbacks: { label: labelCb }, backgroundColor: '#ffffff', borderColor: 'rgba(0,0,0,0.08)', borderWidth: 1, titleColor: '#71717a', bodyColor: '#18181b', bodyFont: { family: 'Geist Mono', size: 11 } };
+  return { callbacks: { label: labelCb }, backgroundColor: '#1D2B45', borderColor: '#56617A', borderWidth: 1, titleColor: '#C9C7C5', bodyColor: '#F4EDDF', bodyFont: { family: 'Geist Mono', size: 11 } };
 }
 
 function chartAxis(extra) {
@@ -3864,6 +3866,8 @@ initOuraNewBadge();
 // ── LANDING CANVAS ANIMATION ─────────────────────────
 (function() {
   const canvas = document.getElementById('landing-canvas');
+  // Do not animate a decorative canvas hidden by the current skin.
+  if (getComputedStyle(canvas).display === 'none') return;
   const ctx = canvas.getContext('2d');
   let W, H, raf;
   let active = true;
