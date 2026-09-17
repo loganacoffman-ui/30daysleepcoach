@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { dueReminderDate } from "../_shared/push-reminder.ts";
+import { dueReminderDate, pendingReminders } from "../_shared/push-reminder.ts";
 
 type PushDevice = {
   id: string;
@@ -131,20 +131,18 @@ Deno.serve(async (req) => {
     if (error) throw error;
 
     const now = new Date();
-    const clockDue = ((data ?? []) as PushDevice[]).filter((device) => dueReminderDate(device, now) !== null);
-    const dueChecks = await Promise.all(clockDue.map(async (device) => {
-      const localDate = dueReminderDate(device, now)!;
-      const { data: checkin } = await admin
+    const due = await pendingReminders((data ?? []) as PushDevice[], now, async (userId, localDate) => {
+      const { data: checkin, error: checkinError } = await admin
         .from("daily_checkins")
         .select("id")
-        .eq("user_id", device.user_id)
+        .eq("user_id", userId)
         .eq("checkin_date", localDate)
         .not("completed_at", "is", null)
         .limit(1)
         .maybeSingle();
-      return checkin ? null : device;
-    }));
-    const due = dueChecks.filter((device): device is PushDevice => device !== null);
+      if (checkinError) throw checkinError;
+      return checkin !== null;
+    });
     if (!due.length) return json({ sent: 0 });
 
     let sent = 0;
@@ -155,6 +153,7 @@ Deno.serve(async (req) => {
         title: "How did you sleep?",
         body: "Take a minute to check in so your coach can refine your next step.",
         sound: "default",
+        channelId: "daily-check-in",
         data: { destination: "today", kind: "daily-check-in" },
       })));
       const tickets = Array.isArray(result?.data) ? result.data : [];

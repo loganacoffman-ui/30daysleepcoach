@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AppState, Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
+import { subscribeToDailyCheckInNotifications } from '../notificationNavigation';
+import { syncDailyCheckInReminder } from '../notifications';
 
 import { colors } from '../design/theme';
 import { syncAppleHealthForDate } from '../healthkit/appleHealth';
@@ -43,17 +45,20 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
       {onConflict:'user_id,opened_date',ignoreDuplicates:true},
     );
   },[session.user.id]);
+  useEffect(()=>subscribeToDailyCheckInNotifications(()=>{
+    setTab('coach');
+    setRefreshKey(value=>value+1);
+    setDailyViewRequest(value=>value+1);
+  }),[]);
   useEffect(()=>{
-    const openNotification=(response:Notifications.NotificationResponse|null)=>{
-      if(response?.notification.request.content.data?.destination==='today'){
-        setTab('coach');
-        setDailyViewRequest(value=>value+1);
-      }
-    };
-    void Notifications.getLastNotificationResponseAsync().then(openNotification);
-    const subscription=Notifications.addNotificationResponseReceivedListener(openNotification);
-    return()=>subscription.remove();
-  },[]);
+    if(Platform.OS==='web')return;
+    const sync=(devicePushToken?:Notifications.DevicePushToken)=>{void syncDailyCheckInReminder(session.user.id,profile.reminderTime || '07:30',devicePushToken)
+      .catch(error=>console.warn('Daily reminder registration could not be refreshed',error));};
+    sync();
+    const appState=AppState.addEventListener('change',state=>{if(state==='active')sync();});
+    const pushToken=Notifications.addPushTokenListener(sync);
+    return()=>{appState.remove();pushToken.remove();};
+  },[session.user.id,profile.reminderTime]);
   useEffect(()=>{
     // A synced night is new evidence for the coach, so the shared context window
     // has to be dropped before the screens below refresh against it.

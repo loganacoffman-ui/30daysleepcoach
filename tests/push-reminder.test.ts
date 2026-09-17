@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { dueReminderDate } from '../supabase/functions/_shared/push-reminder';
+import { describe, expect, it, vi } from 'vitest';
+import { dueReminderDate, pendingReminders } from '../supabase/functions/_shared/push-reminder';
 
 const device = { timezone: 'UTC', reminder_time: '08:07:00', last_sent_local_date: null };
 
@@ -37,5 +37,40 @@ describe('15-minute push reminder dispatch', () => {
 
   it('ignores an invalid timezone', () => {
     expect(dueReminderDate({ ...device, timezone: 'invalid' }, new Date('2026-09-11T08:15:00Z'))).toBeNull();
+  });
+});
+
+
+describe('completed check-in suppression', () => {
+  const due = { ...device, user_id: 'user', id: 'phone' };
+  const now = new Date('2026-09-11T08:15:00Z');
+
+  it('skips all devices for a completed account and still sends for incomplete accounts', async () => {
+    const completed = vi.fn(async (userId: string) => userId === 'user');
+    const other = { ...due, user_id: 'other', id: 'other-phone' };
+    expect(await pendingReminders([due, { ...due, id: 'tablet' }, other], now, completed)).toEqual([other]);
+    expect(completed).toHaveBeenCalledWith('user', '2026-09-11');
+  });
+
+  it('checks the reminder date across local midnight, not the UTC or dispatch date', async () => {
+    const completed = vi.fn(async () => true);
+    expect(await pendingReminders([{ ...due, timezone: 'America/Los_Angeles', reminder_time: '23:53' }], new Date('2026-09-12T07:00:00Z'), completed)).toEqual([]);
+    expect(completed).toHaveBeenCalledWith('user', '2026-09-11');
+  });
+
+  it('continues reminders when only a previous day is complete', async () => {
+    const completed = vi.fn(async (_userId: string, date: string) => date === '2026-09-10');
+    expect(await pendingReminders([due], now, completed)).toEqual([due]);
+  });
+
+  it('does not query check-ins before the scheduled time or after today was sent', async () => {
+    const completed = vi.fn(async () => false);
+    expect(await pendingReminders([due], new Date('2026-09-11T08:00:00Z'), completed)).toEqual([]);
+    expect(await pendingReminders([{ ...due, last_sent_local_date: '2026-09-11' }], now, completed)).toEqual([]);
+    expect(completed).not.toHaveBeenCalled();
+  });
+
+  it('does not authorize delivery when completion cannot be checked', async () => {
+    await expect(pendingReminders([due], now, async () => { throw new Error('Database unavailable'); })).rejects.toThrow('Database unavailable');
   });
 });
