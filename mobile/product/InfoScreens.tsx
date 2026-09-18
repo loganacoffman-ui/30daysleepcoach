@@ -5,6 +5,8 @@ import type { User } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 
 import { colors, layout } from '../design/theme';
+import SleepProfileSettings from './SleepProfileSettings';
+import type { SleepProfileDraft } from '../onboarding/profileFields';
 import AppleHealthIntegration from '../healthkit/AppleHealthIntegration';
 import {
   cancelDailyCheckInReminder,
@@ -19,7 +21,6 @@ import { savePreferredSleepSource } from '../sleep/sourcePreference';
 import type { MorningFeeling } from '../today/feeling';
 import { feelingLabel, normalizeMorningFeeling } from '../today/feeling';
 
-const concernLabels: Record<string,string> = { falling_asleep:'Falling asleep', night_waking:'Waking during the night', early_waking:'Waking too early', unrefreshed:'Waking refreshed', irregular_schedule:'A steadier schedule' };
 
 export function ProgressScreen({ user }: { user: User }) {
   const [rows,setRows]=useState<{checkin_date:string;morningFeeling:MorningFeeling}[]>([]); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
@@ -70,7 +71,7 @@ function addDays(date:string,count:number){const value=new Date(`${date}T12:00:0
 function mostCommonFeeling(values:MorningFeeling[]){return values.reduce((best,value)=>values.filter(item=>item===value).length>values.filter(item=>item===best).length?value:best);}
 function formatProgressDate(date:string){return new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric'}).format(new Date(`${date}T12:00:00`));}
 
-export function SettingsScreen({ user, profile, busy, onSignOut, onDeleteAccount }: { user:User;profile:SleepProfile;busy:boolean;onSignOut:()=>void;onDeleteAccount:()=>void }) {
+export function SettingsScreen({ user, profile, busy, onSignOut, onDeleteAccount, onProfileSaved }: { user:User;profile:SleepProfile;onProfileSaved:(draft:SleepProfileDraft)=>void;busy:boolean;onSignOut:()=>void;onDeleteAccount:()=>void }) {
   const fallbackReminderTime = getFallbackReminderTime(profile);
   const [reminderEnabled,setReminderEnabled]=useState(false);
   const [reminderTime,setReminderTime]=useState(fallbackReminderTime);
@@ -119,7 +120,7 @@ export function SettingsScreen({ user, profile, busy, onSignOut, onDeleteAccount
         setReminderEnabled(false);
         return;
       }
-      const result=await scheduleDailyCheckInReminder(reminderTime);
+      const result=await scheduleDailyCheckInReminder(reminderTime,profile.timezone);
       if(result.status==='scheduled'){
         setReminderEnabled(true);
       }else if(result.status==='denied'){
@@ -144,7 +145,7 @@ export function SettingsScreen({ user, profile, busy, onSignOut, onDeleteAccount
     setReminderError('');
     try{
       if(reminderEnabled){
-        const result=await scheduleDailyCheckInReminder(nextTime);
+        const result=await scheduleDailyCheckInReminder(nextTime,profile.timezone);
         if(result.status!=='scheduled'){
           await cancelDailyCheckInReminder();
           setReminderEnabled(false);
@@ -174,16 +175,12 @@ export function SettingsScreen({ user, profile, busy, onSignOut, onDeleteAccount
     }
   };
 
-  return <ScrollView contentContainerStyle={s.content}>
+  return <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
     <Text style={s.eyebrow}>SETTINGS</Text>
     <Text style={s.title}>{profile.displayName||'Your profile'}</Text>
     <Text style={s.copy}>{user.email}</Text>
     <View style={s.card}>
-      <Text style={s.cardEyebrow}>SLEEP PROFILE</Text>
-      <Setting label="Primary focus" value={concernLabels[profile.primaryConcern]}/>
-      <Setting label="Usual bedtime" value={profile.typicalBedtime||'Not set'}/>
-      <Setting label="Usual wake time" value={profile.typicalWakeTime||'Not set'}/>
-      <Setting label="Timezone" value={profile.timezone}/>
+      <SleepProfileSettings user={user} profile={profile} onSaved={onProfileSaved}/>
     </View>
     <View style={s.card}>
       <Text style={s.cardEyebrow}>REMINDERS</Text>
@@ -244,6 +241,5 @@ function getFallbackReminderTime(profile:SleepProfile){if(/^([01]\d|2[0-3]):[0-5
 function shiftReminderTime(clock:string,change:number){const match=/^([01]\d|2[0-3]):([0-5]\d)$/.exec(clock);const minutes=match?Number(match[1])*60+Number(match[2]):7*60+30;return minutesToClock(minutes+change);}
 function minutesToClock(minutes:number){const normalized=((minutes%(24*60))+24*60)%(24*60);return`${String(Math.floor(normalized/60)).padStart(2,'0')}:${String(normalized%60).padStart(2,'0')}`;}
 function formatReminderTime(clock:string){const[hours,minutes]=clock.split(':').map(Number);const suffix=hours>=12?'PM':'AM';return`${hours%12||12}:${String(minutes).padStart(2,'0')} ${suffix}`;}
-function Setting({label,value}:{label:string;value:string}){return <View style={s.setting}><Text style={s.settingLabel}>{label}</Text><Text style={s.settingValue}>{value}</Text></View>}
 function Empty({title,copy}:{title:string;copy:string}){return <View style={s.card}><Text style={s.cardTitle}>{title}</Text><Text style={s.cardCopy}>{copy}</Text></View>}
 const s=StyleSheet.create({content:{backgroundColor:colors.canvas,flexGrow:1,padding:20,paddingBottom:48,paddingTop:layout.screenTopPadding},eyebrow:{color:colors.accentSoft,fontSize:12,fontWeight:'800',letterSpacing:1.8,marginBottom:8},title:{color:colors.text,fontSize:30,fontWeight:'800',letterSpacing:-.8},copy:{color:colors.textMuted,fontSize:15,lineHeight:22,marginBottom:24,marginTop:8},heroCard:{backgroundColor:colors.surfaceAccent,borderColor:colors.borderSelected,borderRadius:24,borderWidth:1,marginBottom:14,padding:22},heroEyebrow:{color:colors.accent,fontSize:11,fontWeight:'800',letterSpacing:1.3,marginBottom:8},heroTitle:{color:colors.text,fontSize:22,fontWeight:'800',lineHeight:28},heroLabel:{color:colors.accent,fontSize:10,fontWeight:'800',letterSpacing:1.1,marginTop:20},heroCopy:{color:colors.text,fontSize:15,fontWeight:'600',lineHeight:22,marginTop:7},metric:{color:colors.accent,fontSize:46,fontWeight:'800'},metricLabel:{color:colors.textMuted,fontSize:15,fontWeight:'700'},secondaryMetric:{color:colors.text,fontSize:16,fontWeight:'800',marginTop:18},card:{backgroundColor:colors.surface,borderColor:colors.border,borderRadius:22,borderWidth:1,marginBottom:14,padding:20},cardEyebrow:{color:colors.accentSoft,fontSize:11,fontWeight:'800',letterSpacing:1.3,marginBottom:8},cardTitle:{color:colors.text,fontSize:20,fontWeight:'800'},cardCopy:{color:colors.textMuted,fontSize:14,lineHeight:21,marginTop:8},coachNote:{backgroundColor:colors.surfaceAccent,borderRadius:12,color:colors.accent,fontSize:13,lineHeight:19,marginTop:14,padding:12},experimentRow:{alignItems:'flex-start',borderTopColor:colors.border,borderTopWidth:1,flexDirection:'row',gap:10,paddingVertical:13},experimentCopy:{flex:1},experimentDate:{color:colors.textSubtle,fontSize:10,fontWeight:'700'},experimentBehavior:{color:colors.text,fontSize:13,fontWeight:'700',lineHeight:18,marginTop:3},experimentStatus:{backgroundColor:colors.surfaceRaised,borderRadius:10,color:colors.textMuted,fontSize:10,fontWeight:'800',overflow:'hidden',paddingHorizontal:8,paddingVertical:5},statusComplete:{backgroundColor:colors.successSurface,color:colors.success},statusPartial:{backgroundColor:colors.warningSurface,color:colors.accent},row:{backgroundColor:colors.surface,borderBottomColor:colors.border,borderBottomWidth:1,flexDirection:'row',justifyContent:'space-between',padding:16},rowDate:{color:colors.textMuted,fontWeight:'700'},rowValue:{color:colors.accent,fontWeight:'800'},error:{color:colors.danger,marginTop:12},disclaimer:{color:colors.textSubtle,fontSize:12,lineHeight:18,marginTop:12,textAlign:'center'},setting:{borderBottomColor:colors.border,borderBottomWidth:1,paddingVertical:13},settingLabel:{color:colors.textSubtle,fontSize:12},settingValue:{color:colors.text,fontSize:15,fontWeight:'700',marginTop:3},notificationRow:{alignItems:'center',flexDirection:'row',gap:16},notificationCopy:{flex:1},notificationTitle:{color:colors.text,fontSize:17,fontWeight:'800'},notificationDescription:{color:colors.textMuted,fontSize:13,lineHeight:19,marginTop:4},reminderControls:{alignItems:'center',backgroundColor:colors.surfaceMuted,borderRadius:16,flexDirection:'row',justifyContent:'space-between',marginTop:18,padding:8},timeAdjustButton:{alignItems:'center',backgroundColor:colors.surfaceRaised,borderRadius:12,height:42,justifyContent:'center',width:46},timeAdjustText:{color:colors.accent,fontSize:25,fontWeight:'600'},reminderTime:{color:colors.text,fontSize:20,fontWeight:'800'},notificationError:{color:colors.danger,fontSize:13,lineHeight:18,marginTop:12},notificationSuccess:{color:colors.success,fontSize:13,lineHeight:18,marginTop:12},sourceButtons:{flexDirection:'row',gap:8,marginTop:16},sourceButton:{alignItems:'center',backgroundColor:colors.surfaceMuted,borderColor:colors.border,borderRadius:13,borderWidth:1,flex:1,padding:12},sourceButtonSelected:{backgroundColor:colors.surfaceAccent,borderColor:colors.accent},sourceButtonText:{color:colors.textMuted,fontSize:13,fontWeight:'800'},sourceButtonTextSelected:{color:colors.accent},button:{alignItems:'center',backgroundColor:colors.surface,borderColor:colors.borderStrong,borderRadius:16,borderWidth:1,marginTop:10,padding:16},buttonText:{color:colors.text,fontSize:15,fontWeight:'800'},dangerButton:{borderColor:colors.danger},dangerText:{color:colors.danger,fontSize:15,fontWeight:'800'},quickStats:{gap:10,marginBottom:26,paddingHorizontal:3},progressStat:{alignItems:'center',flexDirection:'row',gap:9},progressStatDot:{borderRadius:5,height:8,width:8},progressStatText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},journeySection:{marginBottom:22,paddingHorizontal:3},journeyHeader:{alignItems:'center',flexDirection:'row',justifyContent:'space-between'},journeyCount:{color:colors.textSubtle,fontSize:11,fontWeight:'700'},journeyGrid:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10,maxWidth:300},journeySquare:{backgroundColor:colors.surfaceRaised,borderColor:colors.border,borderRadius:4,borderWidth:1,height:22,width:22},journeySquareComplete:{backgroundColor:'#8bc8e8',borderColor:'#a8daf2'},journeySquareFuture:{opacity:.42},dropdown:{borderBottomColor:colors.border,borderBottomWidth:1},dropdownHeader:{alignItems:'center',flexDirection:'row',justifyContent:'space-between',minHeight:58,paddingHorizontal:3},dropdownLabel:{color:colors.text,fontSize:13,fontWeight:'800',letterSpacing:.8},dropdownChevron:{color:colors.textMuted,fontSize:22},dropdownBody:{paddingBottom:10},dropdownEmpty:{color:colors.textSubtle,fontSize:13,lineHeight:19,paddingVertical:12},feelingHistoryRow:{borderTopColor:colors.border,borderTopWidth:1,flexDirection:'row',justifyContent:'space-between',paddingVertical:14}});

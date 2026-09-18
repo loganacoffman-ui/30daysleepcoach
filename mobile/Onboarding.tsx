@@ -24,6 +24,8 @@ import {
   scheduleDailyCheckInReminder,
 } from './notifications';
 import type { PrimaryConcern } from './onboarding/types';
+import TimeZoneField from './onboarding/TimeZoneField';
+import { detectTimeZone, restoreOnboardingTimeZone } from './onboarding/profileFields';
 import OuraIntegration from './oura/OuraIntegration';
 import { supabase } from './supabase';
 
@@ -37,6 +39,7 @@ type Step = 'intro' | 'concern' | 'window' | 'followup' | 'results' | 'wearable'
 type ConcernKey = PrimaryConcern;
 
 type IntakeAnswers = {
+  timezone?: string;
   current_step?: Step | 'complete';
   primary_concern?: ConcernKey;
   typical_bedtime?: string;
@@ -261,6 +264,7 @@ const getSummary = (answers: IntakeAnswers) => {
 
 export function Onboarding({ session, onComplete }: OnboardingProps) {
   const [step, setStep] = useState<Step>('intro');
+  const [timezone, setTimezone] = useState(detectTimeZone);
   const [answers, setAnswers] = useState<IntakeAnswers>({});
   const [bedMinutes, setBedMinutes] = useState(3 * 60);
   const [wakeMinutes, setWakeMinutes] = useState(11 * 60);
@@ -299,7 +303,7 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
       const { data, error } = await supabase
         .from('sleep_profiles')
         .select(
-          'primary_concern, typical_bedtime, typical_wake_time, intake_answers, onboarding_completed_at',
+          'primary_concern, typical_bedtime, typical_wake_time, timezone, intake_answers, onboarding_completed_at',
         )
         .eq('user_id', session.user.id)
         .maybeSingle();
@@ -325,8 +329,11 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
         !Array.isArray(data.intake_answers)
           ? (data.intake_answers as IntakeAnswers)
           : {};
+      const restoredTimezone = restoreOnboardingTimeZone(storedAnswers.timezone, data?.timezone);
+      setTimezone(restoredTimezone);
       const restoredAnswers: IntakeAnswers = {
         ...storedAnswers,
+        timezone: restoredTimezone,
         primary_concern:
           storedAnswers.primary_concern ??
           (data?.primary_concern as ConcernKey | undefined),
@@ -414,12 +421,14 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
   ) => {
     const intakeAnswers: IntakeAnswers = {
       ...nextAnswers,
+      timezone,
       current_step: currentStep,
     };
     setAnswers(intakeAnswers);
 
     const profile = {
       user_id: session.user.id,
+      timezone,
       primary_concern: intakeAnswers.primary_concern ?? null,
       typical_bedtime: intakeAnswers.typical_bedtime
         ? `${intakeAnswers.typical_bedtime}:00`
@@ -586,6 +595,7 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
     const firstExperiment = getFirstExperiment(answers);
     const completedAnswers: IntakeAnswers = {
       ...answers,
+      timezone,
       current_step: 'complete',
       reminder_time: reminderTime,
       first_experiment: firstExperiment,
@@ -595,8 +605,11 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
     setErrorMessage('');
     let scheduledReminderIdentifier: string | undefined;
     try {
+      // The completion RPC preserves the existing timezone column. Persist it
+      // first, including when an older unfinished intake resumes on this step.
+      await persistAnswers(answers, step);
       if (!skipReminder) {
-        const reminderResult = await scheduleDailyCheckInReminder(reminderTime);
+        const reminderResult = await scheduleDailyCheckInReminder(reminderTime, timezone);
 
         if (reminderResult.status === 'denied') {
           setSaving(false);
@@ -867,6 +880,7 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
             />
           </View>
 
+          <TimeZoneField value={timezone} onChange={setTimezone} disabled={saving}/>
           <PrimaryButton
             busy={saving}
             label="Continue"

@@ -54,6 +54,13 @@ beforeEach(() => {
 });
 
 describe('mobile check-in push registration', () => {
+  it('uses the selected profile time zone for scheduling and foreground refresh', async () => {
+    await scheduleDailyCheckInReminder('08:15', 'Asia/Kathmandu');
+    expect(query.upsert).toHaveBeenCalledWith(expect.objectContaining({ timezone: 'Asia/Kathmandu' }), expect.anything());
+    await syncDailyCheckInReminder('user', '08:15', undefined, 'Europe/Paris');
+    expect(query.update).toHaveBeenCalledWith(expect.objectContaining({ timezone: 'Europe/Paris' }));
+  });
+
   it('registers the account, local timezone, and clock for server-side completion checks', async () => {
     expect(await scheduleDailyCheckInReminder('08:15')).toEqual({ status: 'scheduled', identifier: 'device' });
     expect(mock.token).toHaveBeenCalledWith({ projectId: 'project' });
