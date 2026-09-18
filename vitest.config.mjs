@@ -5,6 +5,7 @@ export default defineConfig({
     include: ['tests/**/*.test.{mjs,ts}'],
   },
   esbuild: {
+    jsx: 'automatic',
     tsconfigRaw: '{}',
   },
 });

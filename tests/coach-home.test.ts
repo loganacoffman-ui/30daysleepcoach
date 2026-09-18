@@ -45,6 +45,7 @@ describe('coach home progression', () => {
     expect(home.title).toBe('Welcome, Alex.');
     expect(home.checkinEyebrow).toBe('START HERE');
     expect(home.prompts).not.toContain('How is my sleep trending?');
+    expect(home.prompts).toContain('I’d like to talk about my bedtime habits');
   });
 
   it('acknowledges the first completed check-in while keeping starter prompts', async () => {
@@ -64,6 +65,8 @@ describe('coach home progression', () => {
     checkins.push({ checkin_date: '2025-12-31' });
     const returning = coachHomeExperience(await loadCoachHomeState(user), 'Alex');
     expect(returning.prompts).toContain('How is my sleep trending?');
+    expect(returning.prompts).toContain('What have we learned about my sleep?');
+    expect(returning.prompts).toContain('My routine has changed lately');
     expect(returning.checkinEyebrow).toBe('YOUR NEXT STEP');
     expect(returning.introduction).toBeNull();
   });

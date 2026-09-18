@@ -695,11 +695,11 @@ export default function CoachChatScreen({
               </Pressable>
               <View style={styles.suggestions}>
                 <Text accessibilityRole="header" style={styles.suggestionsTitle}>Or start a conversation</Text>
-                <Text style={styles.suggestionsHint}>Tap a question to send it to your coach.</Text>
+                <Text style={styles.suggestionsHint}>Share habits, what’s been happening in your life, or questions about your sleep. Tap a starter to send it.</Text>
                 {homeExperience.prompts.map(suggestion => (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityHint="Sends this question to your coach"
+                    accessibilityHint="Sends this message to your coach"
                     accessibilityState={{ disabled: homeActionsDisabled }}
                     disabled={homeActionsDisabled}
                     key={suggestion}
@@ -727,7 +727,7 @@ export default function CoachChatScreen({
                 ) : pastDailyDate ? (
                   <View style={styles.loading}>
                     <Text style={styles.emptyThreadText}>
-                      No conversation was saved for {dailyDateLabel(pastDailyDate)}. Ask your coach about that day below.
+                      No conversation was saved for {dailyDateLabel(pastDailyDate)}. Tell Coach about that day below.
                     </Text>
                   </View>
                 ) : null

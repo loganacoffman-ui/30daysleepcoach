@@ -20,7 +20,7 @@ export function coachHomeExperience(state: CoachHomeState | null, displayName: s
       ? 'Your check-in is saved. Explore your coach’s guidance for tonight.'
       : 'Share how you slept and how you feel. No wearable needed.',
     prompts: gettingStarted
-      ? ['How do these 30 days work?', 'Help me get started with tonight’s experiment', 'What should I pay attention to this week?']
-      : ['How is my sleep trending?', 'Help me prepare for tonight', 'What’s working?'],
+      ? ['How do these 30 days work?', 'Help me get started with tonight’s experiment', 'I’d like to talk about my bedtime habits']
+      : ['How is my sleep trending?', 'What have we learned about my sleep?', 'My routine has changed lately'],
   };
 }

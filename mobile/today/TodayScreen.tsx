@@ -929,7 +929,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
         onSend={() => void reply(input)}
         sending={saving || interpreting || !!chat?.sending}
         disabled={!draftLoaded || (!snapshot.checkin && (!sleepReviewed || !sleepContextReady)) || (!!snapshot.checkin && (!chat || chat.disabled))}
-        placeholder={snapshot.checkin ? 'Ask your coach…' : !sleepReviewed ? 'Start with your sleep score above' : conversation.step === 'details' ? 'Share anything else…' : 'Reply or add more detail…'}
+        placeholder={snapshot.checkin ? 'Tell Coach…' : !sleepReviewed ? 'Start with your sleep score above' : conversation.step === 'details' ? 'Share anything else…' : 'Reply or add more detail…'}
         error={error || chat?.error}
       />
     </KeyboardAvoidingView>
