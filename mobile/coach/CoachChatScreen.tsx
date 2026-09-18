@@ -12,6 +12,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -174,6 +175,8 @@ export default function CoachChatScreen({
   // while it is still the newest request, so an interrupted close cannot leave
   // the drawer layer mounted over a screen it is no longer covering.
   const drawerRequest = useRef(0);
+  const composerRef = useRef<TextInput>(null);
+  const pendingComposerFocus = useRef(false);
   const [revealingMessageId, setRevealingMessageId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -208,6 +211,7 @@ export default function CoachChatScreen({
   }, [user]);
 
   const showDrawer = useCallback(() => {
+    pendingComposerFocus.current = false;
     Keyboard.dismiss();
     drawerRequest.current += 1;
     drawerOpenRef.current = true;
@@ -257,6 +261,10 @@ export default function CoachChatScreen({
       if (drawerRequest.current !== request) return;
       drawerOpenRef.current = false;
       setDrawerOpen(false);
+      if (pendingComposerFocus.current) {
+        pendingComposerFocus.current = false;
+        requestAnimationFrame(() => composerRef.current?.focus());
+      }
     });
   }, [
     drawerBackdropOpacity,
@@ -362,8 +370,9 @@ export default function CoachChatScreen({
     return id;
   };
 
-  const resetConversation = useCallback((view: "home" | "new-chat") => {
-    Keyboard.dismiss();
+  const resetConversation = useCallback((view: "home" | "new-chat", options?: { dismissKeyboard?: boolean; focusComposer?: boolean }) => {
+    pendingComposerFocus.current = !!options?.focusComposer;
+    if (options?.dismissKeyboard !== false && !options?.focusComposer) Keyboard.dismiss();
     resetScroll();
     // Any thread read still in flight belongs to the view being left.
     openRequestRef.current += 1;
@@ -383,10 +392,13 @@ export default function CoachChatScreen({
   }, [closeHistory, resetScroll, user]);
 
   const showCoachHome = useCallback(() => resetConversation("home"), [resetConversation]);
-  const startNewChat = () => resetConversation("new-chat");
+  const startNewChat = () => {
+    resetConversation("new-chat", { dismissKeyboard: false, focusComposer: true });
+  };
 
   const openDailyThread = useCallback(async () => {
     if (openingDailyRef.current === openRequestRef.current || sendingRef.current) return;
+    pendingComposerFocus.current = false;
     Keyboard.dismiss();
     setError("");
     const request = ++openRequestRef.current;
@@ -462,6 +474,7 @@ export default function CoachChatScreen({
   const openConversation = async (conversation: CoachConversationSummary) => {
     const dailyDate = dailyConversationDate(conversation.title);
     if (dailyDate === localDate()) return openDailyThread();
+    pendingComposerFocus.current = false;
     setError("");
     resetScroll();
     const request = ++openRequestRef.current;
@@ -747,6 +760,7 @@ export default function CoachChatScreen({
         </View>
 
         {!dailyViewOpen && <ChatComposer
+          ref={composerRef}
           value={input}
           onChangeText={setInput}
           onSend={() => void send()}
