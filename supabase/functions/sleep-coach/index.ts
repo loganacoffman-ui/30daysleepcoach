@@ -932,11 +932,7 @@ Deno.serve(async (req: Request) => {
         });
       }
       try {
-        const interpretation = await tracedAnthropic(
-          "interpretCheckinReply",
-          request,
-          () => interpretCheckinReply(request, ANTHROPIC_API_KEY),
-        );
+        const interpretation = await interpretCheckinReply(request, ANTHROPIC_API_KEY);
         return new Response(JSON.stringify({ interpretation }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
