@@ -518,6 +518,7 @@ function AppContent() {
 
     return (
       <ProductApp
+        onProfileSaved={draft => setProfile(current => current ? { ...current, ...draft } : current)}
         busy={busy}
         onDeleteAccount={deleteAccount}
         onSignOut={signOut}

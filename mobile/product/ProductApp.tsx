@@ -9,6 +9,7 @@ import { syncDailyCheckInReminder } from '../notifications';
 import { colors } from '../design/theme';
 import { syncAppleHealthForDate } from '../healthkit/appleHealth';
 import type { SleepProfile } from '../onboarding/types';
+import type { SleepProfileDraft } from '../onboarding/profileFields';
 import { createSupabaseTodayRepository } from '../today/supabaseTodayRepository';
 import CoachChatScreen from '../coach/CoachChatScreen';
 import { invalidateCoachContext } from '../coach/coachRepository';
@@ -24,7 +25,7 @@ const localDate = () => {
 type Tab='progress'|'coach'|'settings';
 const tabs:{key:Tab;icon:string;label:string}[]=[{key:'coach',icon:'✦',label:'Coach'},{key:'progress',icon:'↗',label:'Progress'},{key:'settings',icon:'○',label:'Settings'}];
 
-export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccount}:{session:Session;profile:SleepProfile;busy:boolean;onSignOut:()=>void;onDeleteAccount:()=>void}){
+export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccount,onProfileSaved}:{session:Session;profile:SleepProfile;onProfileSaved:(draft:SleepProfileDraft)=>void;busy:boolean;onSignOut:()=>void;onDeleteAccount:()=>void}){
   const [tab,setTab]=useState<Tab>('coach');
   // Each tab is mounted the first time it is opened and then kept, so switching
   // tabs preserves scroll position, open sections, and loaded data instead of
@@ -52,13 +53,13 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
   }),[]);
   useEffect(()=>{
     if(Platform.OS==='web')return;
-    const sync=(devicePushToken?:Notifications.DevicePushToken)=>{void syncDailyCheckInReminder(session.user.id,profile.reminderTime || '07:30',devicePushToken)
+    const sync=(devicePushToken?:Notifications.DevicePushToken)=>{void syncDailyCheckInReminder(session.user.id,profile.reminderTime || '07:30',devicePushToken,profile.timezone)
       .catch(error=>console.warn('Daily reminder registration could not be refreshed',error));};
     sync();
     const appState=AppState.addEventListener('change',state=>{if(state==='active')sync();});
     const pushToken=Notifications.addPushTokenListener(sync);
     return()=>{appState.remove();pushToken.remove();};
-  },[session.user.id,profile.reminderTime]);
+  },[session.user.id,profile.reminderTime,profile.timezone]);
   useEffect(()=>{
     // A synced night is new evidence for the coach, so the shared context window
     // has to be dropped before the screens below refresh against it.
@@ -77,7 +78,7 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
           <CoachChatScreen dailyViewRequest={dailyViewRequest} refreshRequest={refreshKey} profile={profile} repository={repository} user={session.user} />
         </View>
         {visited.settings && <View style={tab === 'settings' ? styles.pane : styles.hiddenPane}>
-          <SettingsScreen busy={busy} onDeleteAccount={onDeleteAccount} onSignOut={onSignOut} profile={profile} user={session.user} />
+          <SettingsScreen onProfileSaved={draft=>{invalidateCoachContext(session.user.id);onProfileSaved(draft);setRefreshKey(value=>value+1);}} busy={busy} onDeleteAccount={onDeleteAccount} onSignOut={onSignOut} profile={profile} user={session.user} />
         </View>}
       </View>
       <View style={styles.tabs}>
