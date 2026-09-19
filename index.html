@@ -1017,12 +1017,12 @@ textarea::placeholder { color: var(--muted2); }
     </div>
   </nav>
   <div class="landing-banner">
-    A 30-day Recovery Audit for high performers who wake up tired.
-    <a href="#" onclick="event.preventDefault(); showSignupScreen()">Start your audit →</a>
+    A sleep coach. One small experiment each day.
+    <a href="#" onclick="event.preventDefault(); showSignupScreen()">Meet your coach →</a>
   </div>
   <div class="landing-box">
     <div class="landing-logo"><span>30 Day</span> Sleep Coach</div>
-    <p class="landing-sub">A Recovery Audit for high performers who wake up tired.</p>
+    <p class="landing-sub">Talk it through. Try one change. Learn from your nights.</p>
 
     <!-- WELCOME -->
     <div id="landing-welcome">
@@ -1031,7 +1031,7 @@ textarea::placeholder { color: var(--muted2); }
         <svg id="trend-svg" viewBox="0 0 400 90" preserveAspectRatio="none" style="width:100%;height:90px;overflow:visible">
           <!-- Target line -->
           <line x1="0" y1="22" x2="400" y2="22" stroke="rgba(79,124,255,0.25)" stroke-width="1" stroke-dasharray="4,4"/>
-          <text x="392" y="18" fill="rgba(79,124,255,0.4)" font-size="8" font-family="monospace" text-anchor="end">target</text>
+          <text x="392" y="18" fill="rgba(79,124,255,0.4)" font-size="8" font-family="monospace" text-anchor="end">example</text>
           <!-- Gradient fill -->
           <defs>
             <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
@@ -1055,10 +1055,10 @@ textarea::placeholder { color: var(--muted2); }
           <text x="396" y="86" fill="rgba(113,113,122,0.7)" font-size="8" font-family="monospace" text-anchor="end">Day 30</text>
         </svg>
       </div>
-      <p class="landing-desc">A 30-day concierge audit using your wearable data, symptoms, and routines to identify your biggest recovery bottleneck, then turn it into a simple experiment plan.</p>
+      <p class="landing-desc">Meet your conversational sleep coach. Log how you slept and how you feel, talk about what’s happening in your life, and choose one daily behavior experiment to try.</p>
       
       <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-top:0.5rem;">
-        <button class="auth-btn primary-lg" onclick="showSignupScreen()">Start your Recovery Audit →</button>
+        <button class="auth-btn primary-lg" onclick="showSignupScreen()">Start with your coach →</button>
       </div>
       <div style="margin-top:1rem; text-align:center;">
         <span class="auth-login-link" onclick="showPasswordScreen()">Already have an account? Log in</span>
@@ -1071,8 +1071,8 @@ textarea::placeholder { color: var(--muted2); }
         <div class="auth-back" onclick="showWelcomeScreen()" style="margin-top:1.5rem">← back</div>
 
         <div style="text-align:center;margin-bottom:1.25rem">
-          <div style="font-family:'Geist',sans-serif;font-size:clamp(1.5rem,3vw,2rem);font-weight:700;color:var(--text);line-height:1.2;letter-spacing:-0.02em;">Find your recovery bottleneck <br>in 30 days.</div>
-          <div style="font-size:0.88rem;color:var(--muted);font-weight:400;line-height:1.6;margin-top:10px;">Use your wearable data, symptoms, and routines to build a practical recovery plan.</div>
+          <div style="font-family:'Geist',sans-serif;font-size:clamp(1.5rem,3vw,2rem);font-weight:700;color:var(--text);line-height:1.2;letter-spacing:-0.02em;">Build your sleep routine <br>one day at a time.</div>
+          <div style="font-size:0.88rem;color:var(--muted);font-weight:400;line-height:1.6;margin-top:10px;">Start with a daily check-in and a conversation. Wearable data is optional; how you feel matters too.</div>
         </div>
 
         <div style="text-align:center;margin-bottom:1.5rem;">
@@ -1160,22 +1160,22 @@ textarea::placeholder { color: var(--muted2); }
     <!-- How it works -->
     <div style="margin-bottom:3.5rem;">
       <div style="font-family:'Geist Mono',monospace; font-size:0.65rem; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;">How it works</div>
-      <h2 style="font-size:1.6rem; font-weight:600; letter-spacing:-0.02em; margin-bottom:2rem; color:var(--text);">Diagnose first. Experiment second.</h2>
+      <h2 style="font-size:1.6rem; font-weight:600; letter-spacing:-0.02em; margin-bottom:2rem; color:var(--text);">Check in. Talk it through. Try one change.</h2>
       <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.5rem; text-align:left;">
         <div style="background:#fff; border:1px solid rgba(0,0,0,0.06); border-radius:8px; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
           <div style="font-family:'Geist Mono',monospace; font-size:0.7rem; color:var(--accent); font-weight:500; margin-bottom:8px;">01</div>
-          <div style="font-weight:600; font-size:0.92rem; margin-bottom:6px;">Voice-led intake</div>
-          <div style="font-size:0.82rem; color:var(--muted); line-height:1.6;">Map your sleep, stress, symptoms, schedule, and recovery history without another long form.</div>
+          <div style="font-weight:600; font-size:0.92rem; margin-bottom:6px;">Log your night</div>
+          <div style="font-size:0.82rem; color:var(--muted); line-height:1.6;">Log your sleep each day, how rested you feel, and what you noticed. Add wearable data if you have it; you can start without a device.</div>
         </div>
         <div style="background:#fff; border:1px solid rgba(0,0,0,0.06); border-radius:8px; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
           <div style="font-family:'Geist Mono',monospace; font-size:0.7rem; color:var(--accent); font-weight:500; margin-bottom:8px;">02</div>
-          <div style="font-weight:600; font-size:0.92rem; margin-bottom:6px;">Review your data</div>
-          <div style="font-size:0.82rem; color:var(--muted); line-height:1.6;">Bring Oura, WHOOP, Apple Watch, Eight Sleep, labs, notes, or whatever signal you already have.</div>
+          <div style="font-weight:600; font-size:0.92rem; margin-bottom:6px;">Chat with your coach</div>
+          <div style="font-size:0.82rem; color:var(--muted); line-height:1.6;">Talk about stress, travel, work, or anything affecting your routine. Your coach uses that context alongside your check-ins and sleep data.</div>
         </div>
         <div style="background:#fff; border:1px solid rgba(0,0,0,0.06); border-radius:8px; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
           <div style="font-family:'Geist Mono',monospace; font-size:0.7rem; color:var(--accent); font-weight:500; margin-bottom:8px;">03</div>
-          <div style="font-weight:600; font-size:0.92rem; margin-bottom:6px;">Run one experiment</div>
-          <div style="font-size:0.82rem; color:var(--muted); line-height:1.6;">Get a clear recovery baseline, your likely bottleneck, and the next practical experiment to test.</div>
+          <div style="font-weight:600; font-size:0.92rem; margin-bottom:6px;">Try one daily experiment</div>
+          <div style="font-size:0.82rem; color:var(--muted); line-height:1.6;">Choose one manageable behavior to try. Check in on how it went, then work with your coach on what to keep or adjust.</div>
         </div>
       </div>
     </div>
@@ -1183,13 +1183,13 @@ textarea::placeholder { color: var(--muted2); }
     <!-- Built for -->
     <div style="margin-bottom:3.5rem;">
       <div style="font-family:'Geist Mono',monospace; font-size:0.65rem; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;">Built for</div>
-      <h2 style="font-size:1.6rem; font-weight:600; letter-spacing:-0.02em; margin-bottom:1.5rem; color:var(--text);">High performers with data, but no clear answer.</h2>
-      <p style="font-size:0.95rem; color:var(--muted); line-height:1.7; max-width:480px; margin:0 auto 1.5rem;">If you wake up tired despite doing the obvious things, 30 Day Sleep Coach helps turn your wearable data and lived symptoms into a focused recovery diagnosis.</p>
+      <h2 style="font-size:1.6rem; font-weight:600; letter-spacing:-0.02em; margin-bottom:1.5rem; color:var(--text);">A sleep routine that fits your real life.</h2>
+      <p style="font-size:0.95rem; color:var(--muted); line-height:1.7; max-width:480px; margin:0 auto 1.5rem;">Over time, your conversations, daily check-ins, and sleep data help you and your coach notice useful patterns. A better score on one night doesn’t prove a change caused better sleep. Use what you learn to decide what to try next.</p>
       <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
-        <span style="font-size:0.78rem; color:var(--muted); padding:6px 16px; border:1px solid rgba(0,0,0,0.08); border-radius:100px; background:#fff;">Oura Ring</span>
-        <span style="font-size:0.78rem; color:var(--muted); padding:6px 16px; border:1px solid rgba(0,0,0,0.08); border-radius:100px; background:#fff;">WHOOP</span>
-        <span style="font-size:0.78rem; color:var(--muted); padding:6px 16px; border:1px solid rgba(0,0,0,0.08); border-radius:100px; background:#fff;">Apple Watch</span>
-        <span style="font-size:0.78rem; color:var(--muted); padding:6px 16px; border:1px solid rgba(0,0,0,0.08); border-radius:100px; background:#fff;">Eight Sleep</span>
+        <span style="font-size:0.78rem; color:var(--muted); padding:6px 16px; border:1px solid rgba(0,0,0,0.08); border-radius:100px; background:#fff;">Daily check-ins</span>
+        <span style="font-size:0.78rem; color:var(--muted); padding:6px 16px; border:1px solid rgba(0,0,0,0.08); border-radius:100px; background:#fff;">Life context</span>
+        <span style="font-size:0.78rem; color:var(--muted); padding:6px 16px; border:1px solid rgba(0,0,0,0.08); border-radius:100px; background:#fff;">Optional wearable data</span>
+        <span style="font-size:0.78rem; color:var(--muted); padding:6px 16px; border:1px solid rgba(0,0,0,0.08); border-radius:100px; background:#fff;">One daily experiment</span>
       </div>
     </div>
 
