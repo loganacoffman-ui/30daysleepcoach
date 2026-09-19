@@ -146,13 +146,12 @@ export const loadCoachHomeState = async (user: User): Promise<CoachHomeState> =>
     checkinCount: checkins.length,
     hasCheckedInToday: Boolean(todayCheckin),
     morningFeeling: normalizeMorningFeeling(todayCheckin?.morning_feeling, todayCheckin?.feeling),
-    // A score the user submitted is their correction of the night the wearable
-    // reported, so the greeting quotes theirs.
-    sleepScore: manualScore ?? currentWearable?.score ?? null,
+    // Coaching prefers wearable measurements while preserving the self-report.
+    sleepScore: currentWearable?.score ?? manualScore ?? null,
     previousSleepScore: currentWearable
       ? wearableSleep.find(item => item.day < currentWearable.day)?.score ?? null
       : wearableSleep[0]?.score ?? null,
-    sleepSource: manualScore !== null ? 'manual' : currentWearable?.source ?? 'missing',
+    sleepSource: currentWearable?.source ?? (manualScore !== null ? 'manual' : 'missing'),
     suspectedFactor: typeof todayCheckin?.suspected_factor === 'string'
       ? todayCheckin.suspected_factor
       : null,
@@ -236,14 +235,6 @@ const fetchCoachContext = async (user: User, profile: SleepProfile): Promise<Coa
   ]);
   if (checkinsResult.error) throw checkinsResult.error;
   if (commitmentsResult.error) throw commitmentsResult.error;
-  // Nights the user scored themselves are theirs. Sending the wearable's reading
-  // for those dates too would leave the coach reasoning about two sleep scores
-  // for one night, and the check-ins below already carry the corrected one.
-  const correctedNights = new Set(
-    (checkinsResult.data ?? [])
-      .filter(row => typeof row.manual_sleep_score === 'number' && row.manual_sleep_submitted_at)
-      .map(row => row.checkin_date),
-  );
   return {
     date: localDate(),
     profile: {
@@ -257,7 +248,7 @@ const fetchCoachContext = async (user: User, profile: SleepProfile): Promise<Coa
       morning_feeling: normalizeMorningFeeling(morning_feeling, feeling),
     })),
     experiment_adherence: commitmentsResult.data ?? [],
-    wearable_sleep: wearableSleep.filter(night => !correctedNights.has(night.day)),
+    wearable_sleep: wearableSleep,
   };
 };
 
@@ -456,8 +447,7 @@ export const loadStoredDailyCoaching = async (userId: string, date: string): Pro
   };
 };
 
-// The server keeps one recommendation per date and reuses it, so this only
-// generates when the day has no coaching yet. `refresh` is the manual override.
+// The server validates current sleep evidence before reusing or generating advice.
 export const loadDailyCoaching = async (
   user: User,
   profile: SleepProfile,
@@ -471,6 +461,7 @@ export const loadDailyCoaching = async (
   }>('sleep-coach', {
     body: { mode: 'daily_coach', coachContext, refresh: options.refresh === true },
   });
+  if (data?.status === 'awaiting_sleep_data') throw new Error('Sync sleep data or submit a manual sleep score to unlock today’s coaching.');
   if (error || data?.status !== 'ok' || !data.recommendation) throw error ?? new Error('Your daily coaching could not be generated.');
   return {
     pattern: data.recommendation.pattern,

@@ -70,29 +70,15 @@ Deno.test("new or corrected wearable data invalidates daily coaching", async () 
   assertNotEquals(original, newer);
 });
 
-Deno.test("today's coaching is reused for the date, even after new wearable data", () => {
-  assertEquals(
-    isDailyCoachCacheReusable({
-      prompt_version: DAILY_COACH_PROMPT_VERSION,
-      action: "Dim the lights an hour before bed",
-    }),
-    true,
-  );
-  assertEquals(
-    isDailyCoachCacheReusable({
-      prompt_version: "native-daily-v3-concise-weekly",
-      action: "Dim the lights an hour before bed",
-    }),
-    false,
-  );
-  assertEquals(
-    isDailyCoachCacheReusable({
-      prompt_version: DAILY_COACH_PROMPT_VERSION,
-      action: "",
-    }),
-    false,
-  );
-  assertEquals(isDailyCoachCacheReusable(null), false);
+Deno.test("daily coaching requires matching source evidence and prompt version", () => {
+  const row = { action: "Dim the lights", prompt_version: DAILY_COACH_PROMPT_VERSION,
+    source_context: { source_fingerprint: "original" } };
+  assertEquals(isDailyCoachCacheReusable(row, "original"), true);
+  assertEquals(isDailyCoachCacheReusable(row, "changed"), false);
+  assertEquals(isDailyCoachCacheReusable({ ...row, source_context: undefined }, "original"), false);
+  assertEquals(isDailyCoachCacheReusable({ ...row, prompt_version: "old" }, "original"), false);
+  assertEquals(isDailyCoachCacheReusable({ ...row, action: "" }, "original"), false);
+  assertEquals(isDailyCoachCacheReusable(null, "original"), false);
 });
 
 Deno.test("the sleep profile stays cached across days until its evidence changes", async () => {

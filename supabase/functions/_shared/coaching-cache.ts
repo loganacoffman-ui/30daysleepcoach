@@ -1,4 +1,6 @@
-export const DAILY_COACH_PROMPT_VERSION = "native-daily-v6-experiment-loop";
+import { validSleepScore } from "./dailySleepContract.ts";
+export { DAILY_COACH_PROMPT_VERSION } from "./dailySleepContract.ts";
+import { DAILY_COACH_PROMPT_VERSION } from "./dailySleepContract.ts";
 export const SLEEP_PROFILE_PROMPT_VERSION = "native-profile-v1-evolving";
 
 type JsonObject = Record<string, unknown>;
@@ -174,18 +176,16 @@ export function hasWearableSleepForDate(
   return rows.some((row) => {
     if (!row || typeof row !== "object") return false;
     const sleep = row as JsonObject;
-    return sleep.day === date && typeof sleep.score === "number";
+    return sleep.day === date && validSleepScore(sleep.score);
   });
 }
 
-// Today's coaching is a fixed artifact. Once a date has advice the user may
-// already have read, a later wearable sync must not silently rewrite it; only an
-// explicit regenerate or a new prompt version replaces it.
+// Advice is reusable only while the evidence that generated it is unchanged.
 export function isDailyCoachCacheReusable(
-  existing: { prompt_version?: unknown; action?: unknown } | null,
+  existing: { prompt_version?: unknown; action?: unknown; source_context?: { source_fingerprint?: unknown } } | null,
+  sourceFingerprint: string,
 ): boolean {
-  if (!existing || typeof existing.action !== "string" || !existing.action) {
-    return false;
-  }
-  return existing.prompt_version === DAILY_COACH_PROMPT_VERSION;
+  return Boolean(existing && typeof existing.action === "string" && existing.action.trim()
+    && existing.prompt_version === DAILY_COACH_PROMPT_VERSION
+    && existing.source_context?.source_fingerprint === sourceFingerprint);
 }

@@ -1,3 +1,5 @@
+import { loadDailySleepContext } from '../_shared/dailySleep.ts';
+import { sleepResolutionKey } from '../_shared/dailySleepContract.ts';
 // Supabase Edge Function: sleep-coach
 // Deploy via Supabase Dashboard → Edge Functions → Deploy a new function
 // Set secret: ANTHROPIC_API_KEY via Dashboard → Edge Functions → Secrets
@@ -1507,13 +1509,23 @@ Deno.serve(async (req: Request) => {
 
     // ─── NATIVE DAILY COACH (persistent one-per-calendar-day artifact) ─
     if (mode === "daily_coach") {
-      const recommendationDate = typeof coachContext?.date === "string" &&
-          /^\d{4}-\d{2}-\d{2}$/.test(coachContext.date)
-        ? coachContext.date
-        : new Date().toISOString().split("T")[0];
-      const sourceFingerprint = await dailyCoachSourceFingerprint(coachContext);
-      const experimentHistory = Array.isArray(coachContext?.experiment_adherence)
-        ? coachContext.experiment_adherence.filter((item: unknown) => {
+      const recommendationDate = coachContext?.date;
+      if (typeof recommendationDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(recommendationDate)
+        || !Number.isFinite(Date.parse(recommendationDate))
+        || new Date(recommendationDate).toISOString().slice(0, 10) !== recommendationDate) {
+        return new Response(JSON.stringify({ error: "A valid coaching date is required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const dailyContext = await loadDailySleepContext(supabase, user.id, recommendationDate);
+      if (dailyContext.sleep_resolution.source === "missing") {
+        return new Response(JSON.stringify({ status: "awaiting_sleep_data" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const sourceFingerprint = await dailyCoachSourceFingerprint(dailyContext);
+      const experimentHistory = Array.isArray(dailyContext?.experiment_adherence)
+        ? dailyContext.experiment_adherence.filter((item: unknown) => {
           if (!item || typeof item !== "object") return false;
           const date = (item as Record<string, unknown>).behavior_date;
           return typeof date === "string" && date < recommendationDate;
@@ -1529,12 +1541,12 @@ Deno.serve(async (req: Request) => {
 
       const { data: existing } = await supabase
         .from("coach_recommendations")
-        .select("pattern, meaning, action, why, generated_at, prompt_version")
+        .select("pattern, meaning, action, why, generated_at, prompt_version, source_context")
         .eq("user_id", user.id)
         .eq("recommendation_date", recommendationDate)
         .maybeSingle();
 
-      if (!forceRegenerate && isDailyCoachCacheReusable(existing)) {
+      if (!forceRegenerate && isDailyCoachCacheReusable(existing, sourceFingerprint)) {
         const commitmentError = await syncDailyExperimentCommitment(
           supabase,
           user.id,
@@ -1566,11 +1578,11 @@ Deno.serve(async (req: Request) => {
 
       const memories = await recallCoachMemory(
         user.id,
-        buildMemoryQuery(memoryMode, messages, sleepData, coachContext),
+        buildMemoryQuery(memoryMode, messages, sleepData, dailyContext),
       );
       const userMessage =
-        `Generate today's four-section coaching recommendation from this combined context. Subjective check-ins and notes describe how the user felt and what they think affected sleep. Experiment adherence shows what they actually tried. Wearable sleep is the quantitative layer when Apple Health or Oura is connected; the source field identifies whether a score is app-derived or provider-owned. Use relevant long-term memory to follow up on earlier goals, experiments, and outcomes. Be honest when data is sparse; do not invent measurements. Always return all four required sections.\n\n${
-          JSON.stringify(coachContext, null, 2)
+        `Generate today's four-section coaching recommendation from this combined context. Subjective check-ins and notes describe how the user felt and what they think affected sleep. Experiment adherence shows what they actually tried. Wearable sleep is the quantitative layer when Apple Health or Oura is connected; the source field identifies whether a score is app-derived or provider-owned. The sleep_resolution selects the preferred quantitative source for the requested night: wearable first, otherwise an explicitly submitted manual score. Preserve manual scores as self-reports and qualitative context, never as wearable measurements. Use relevant long-term memory to follow up on earlier goals, experiments, and outcomes. Be honest when data is sparse; do not invent measurements. Always return all four required sections.\n\n${
+          JSON.stringify(dailyContext, null, 2)
         }`;
       let rawText = await callAnthropicNonStreaming(userMessage, memories);
       let sections = rawText ? parseRecommendation(rawText) : null;
@@ -1582,6 +1594,15 @@ Deno.serve(async (req: Request) => {
       if (!sections) {
         return new Response(JSON.stringify({ status: "generation_failed" }), {
           status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Do not publish an answer generated while its qualifying evidence changed.
+      const latestContext = await loadDailySleepContext(supabase, user.id, recommendationDate);
+      if (await dailyCoachSourceFingerprint(latestContext) !== sourceFingerprint) {
+        return new Response(JSON.stringify({ status: latestContext.sleep_resolution.source === "missing"
+          ? "awaiting_sleep_data" : "sleep_data_changed" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -1607,16 +1628,17 @@ Deno.serve(async (req: Request) => {
         why: sections.why,
         source_context: {
           subjective_checkin_count:
-            Array.isArray(coachContext?.subjective_checkins)
-              ? coachContext.subjective_checkins.length
+            Array.isArray(dailyContext?.subjective_checkins)
+              ? dailyContext.subjective_checkins.length
               : 0,
-          adherence_count: Array.isArray(coachContext?.experiment_adherence)
-            ? coachContext.experiment_adherence.length
+          adherence_count: Array.isArray(dailyContext?.experiment_adherence)
+            ? dailyContext.experiment_adherence.length
             : 0,
-          wearable_sleep_count: Array.isArray(coachContext?.wearable_sleep)
-            ? coachContext.wearable_sleep.length
+          wearable_sleep_count: Array.isArray(dailyContext?.wearable_sleep)
+            ? dailyContext.wearable_sleep.length
             : 0,
           source_fingerprint: sourceFingerprint,
+          sleep_resolution_key: sleepResolutionKey(dailyContext.sleep_resolution),
           memory_count: memories.length,
           memory_provider: memoryProvider.name,
         },
@@ -1661,7 +1683,7 @@ Deno.serve(async (req: Request) => {
       runInBackground(persistCoachMemory(
         user.id,
         memoryMode,
-        buildMemoryObservation(memoryMode, messages, sleepData, coachContext),
+        buildMemoryObservation(memoryMode, messages, sleepData, dailyContext),
         rawText ?? Object.values(sections).join("\n"),
       ));
 

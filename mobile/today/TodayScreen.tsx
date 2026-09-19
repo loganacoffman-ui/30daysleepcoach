@@ -68,7 +68,7 @@ const formatLongDate = (date: string) => {
 const TODAY_CACHE_NAME = 'today-snapshot';
 // Bump when TodaySnapshot changes shape so a released build never renders a
 // cached entry it can no longer read.
-const TODAY_CACHE_VERSION = 2;
+const TODAY_CACHE_VERSION = 3;
 
 const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
   disabled?: boolean;
@@ -278,15 +278,8 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     }
     try {
       const nextSnapshot = await repository.loadToday();
-      // Today's coaching is a fixed artifact once written, so a refresh that has
-      // not yet observed it must never clear what is already on screen — nor
-      // store a day without it, which the next launch would try to fill.
-      const shown = snapshotRef.current;
-      const merged = nextSnapshot.dailyCoaching || !shown?.dailyCoaching || shown.date !== nextSnapshot.date
-        ? nextSnapshot
-        : { ...nextSnapshot, dailyCoaching: shown.dailyCoaching };
-      setSnapshot(merged);
-      void screenCache.write(draftOwner, TODAY_CACHE_NAME, TODAY_CACHE_VERSION, merged).catch(() => undefined);
+      setSnapshot(nextSnapshot);
+      void screenCache.write(draftOwner, TODAY_CACHE_NAME, TODAY_CACHE_VERSION, nextSnapshot).catch(() => undefined);
     } catch (loadError) {
       // A background refresh leaves the visible day alone; only a load with
       // nothing to show reports the failure.
@@ -344,7 +337,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
   }, [loadToday]);
 
   // Non-null only while the day has earned coaching but has none stored yet.
-  // Once the report exists this is null, so no later visit can regenerate it.
+  // Source changes clear stale reports in the repository and allow regeneration.
   const pendingCoachingFor = snapshot && !snapshot.dailyCoaching && snapshot.checkin
     && snapshot.sleepData.status !== 'missing' && user && profile
     ? `${snapshot.date}:${snapshot.checkin.id}`
@@ -763,7 +756,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
               <View style={styles.ownScoreArea}>
                 <Text style={styles.promptHint}>
                   {syncedSleepLabel
-                    ? `Your score is used for last night instead of the ${syncedSleepLabel} score of ${snapshot.syncedSleep!.score}.`
+                    ? `Your self-report is saved alongside the ${syncedSleepLabel} score of ${snapshot.syncedSleep!.score}. Coaching uses the wearable measurement.`
                     : 'Slide to your best estimate from 0–100.'}
                 </Text>
                 <View style={styles.sleepDataActions}>
