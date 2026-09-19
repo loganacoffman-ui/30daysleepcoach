@@ -522,7 +522,7 @@ export const sendCoachMessage = async (
   onDelta?: (delta: string) => void,
 ): Promise<CoachMessage> => {
   const trimmed = content.trim();
-  if (!trimmed) throw new Error('Ask your coach a question first.');
+  if (!trimmed) throw new Error('Write a message to your coach first.');
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
   if (sessionError || !accessToken) throw sessionError ?? new Error('Please sign in again.');

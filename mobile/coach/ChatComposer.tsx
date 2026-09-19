@@ -19,7 +19,7 @@ export default forwardRef<TextInputType, ChatComposerProps>(function ChatCompose
   onSend,
   disabled = false,
   sending = false,
-  placeholder = 'Ask your coach…',
+  placeholder = 'Tell Coach…',
   error,
   maxLength = 4000,
 }, ref) {
@@ -30,7 +30,8 @@ export default forwardRef<TextInputType, ChatComposerProps>(function ChatCompose
       <View style={styles.composer}>
         <TextInput
           ref={ref}
-          accessibilityLabel="Message your sleep coach"
+          accessibilityLabel="Tell Coach"
+          accessibilityHint="Share habits, recent life context, or questions about your sleep"
           autoCorrect
           editable={!disabled}
           maxLength={maxLength}
