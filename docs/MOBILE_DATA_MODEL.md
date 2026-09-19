@@ -155,7 +155,9 @@ Persist the user-visible coaching artifact separately from transport cache.
 
 `ai_cache` remains an internal optimization. It is not the product record and should not be the only place a recommendation exists.
 
-Once a date has coaching the user may already have read, that row is what every later request returns. A wearable sync arriving later does not rewrite it; only a new `prompt_version` or an explicit regenerate does.
+The daily row is reused while its `prompt_version` and `source_context.source_fingerprint` match the current evidence. New or corrected wearable nights, manual scores, qualitative check-ins, profile inputs, and prior experiment adherence invalidate it. Today's generated commitment is excluded from the daily fingerprint so saving advice cannot invalidate itself. The evolving profile still includes that commitment. Legacy rows without a matching fingerprint regenerate on their next request.
+
+Mobile paints the saved report while revalidating on a loaded/reopened day or app foreground. Revalidation fetches fresh sources without forcing generation; unchanged evidence remains a server cache hit. The reload that picks up a generated commitment does not schedule another coaching request. Manual regenerate remains explicit, and past-day history continues reading stored reports.
 
 ### `coach_profile_summaries`
 
