@@ -1529,12 +1529,12 @@ Deno.serve(async (req: Request) => {
 
       const { data: existing } = await supabase
         .from("coach_recommendations")
-        .select("pattern, meaning, action, why, generated_at, prompt_version")
+        .select("pattern, meaning, action, why, generated_at, prompt_version, source_context")
         .eq("user_id", user.id)
         .eq("recommendation_date", recommendationDate)
         .maybeSingle();
 
-      if (!forceRegenerate && isDailyCoachCacheReusable(existing)) {
+      if (!forceRegenerate && isDailyCoachCacheReusable(existing, sourceFingerprint)) {
         const commitmentError = await syncDailyExperimentCommitment(
           supabase,
           user.id,

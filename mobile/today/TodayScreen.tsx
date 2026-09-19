@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { screenCache } from '../cache/screenCache';
 import { loadDailyCoaching, type CoachMessage, type DailyCoaching } from '../coach/coachRepository';
+import { dailyCoachingEvidence } from './coachingEvidence';
 import { Skeleton, SkeletonLines } from '../design/Skeleton';
 import { colors, layout } from '../design/theme';
 import type { SleepProfile } from '../onboarding/types';
@@ -267,25 +268,27 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
   const [manualSleepSaving, setManualSleepSaving] = useState(false);
   const [coachingBusy, setCoachingBusy] = useState(false);
   const [coachingError, setCoachingError] = useState('');
+  const [coachingCheck, setCoachingCheck] = useState<{ evidence: string | null } | null>(null);
 
   const draftOwner = user?.id ?? 'demo';
   const dailyCoaching = snapshot?.dailyCoaching ?? null;
 
-  const loadToday = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+  const loadToday = useCallback(async ({ silent = false, revalidateCoaching = true }: { silent?: boolean; revalidateCoaching?: boolean } = {}) => {
     if (!silent) {
       setError('');
       setLoading(true);
     }
     try {
       const nextSnapshot = await repository.loadToday();
-      // Today's coaching is a fixed artifact once written, so a refresh that has
-      // not yet observed it must never clear what is already on screen — nor
-      // store a day without it, which the next launch would try to fill.
+      // Keep the visible report while checking whether its evidence changed.
       const shown = snapshotRef.current;
       const merged = nextSnapshot.dailyCoaching || !shown?.dailyCoaching || shown.date !== nextSnapshot.date
         ? nextSnapshot
         : { ...nextSnapshot, dailyCoaching: shown.dailyCoaching };
       setSnapshot(merged);
+      // A reopen also checks history/profile changes not visible in today's
+      // snapshot. The post-generation reload below opts out to avoid a loop.
+      if (revalidateCoaching) setCoachingCheck({ evidence: dailyCoachingEvidence(nextSnapshot) });
       void screenCache.write(draftOwner, TODAY_CACHE_NAME, TODAY_CACHE_VERSION, merged).catch(() => undefined);
     } catch (loadError) {
       // A background refresh leaves the visible day alone; only a load with
@@ -323,7 +326,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', state => {
-      if (state === 'active' && snapshot?.date !== localCheckinDate()) void loadToday();
+      if (state === 'active') void loadToday({ silent: snapshot?.date === localCheckinDate() });
     });
     return () => subscription.remove();
   }, [loadToday, snapshot?.date]);
@@ -340,27 +343,20 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     } : current));
     // Generating coaching also commits tonight's experiment, so pick that up
     // without disturbing the report the user is already reading.
-    void loadToday({ silent: true });
+    void loadToday({ silent: true, revalidateCoaching: false });
   }, [loadToday]);
 
-  // Non-null only while the day has earned coaching but has none stored yet.
-  // Once the report exists this is null, so no later visit can regenerate it.
-  const pendingCoachingFor = snapshot && !snapshot.dailyCoaching && snapshot.checkin
-    && snapshot.sleepData.status !== 'missing' && user && profile
-    ? `${snapshot.date}:${snapshot.checkin.id}`
-    : null;
-
   useEffect(() => {
-    if (!pendingCoachingFor || !user || !profile) return;
+    if (!coachingCheck?.evidence || !user || !profile) return;
     let active = true;
     setCoachingBusy(true);
     setCoachingError('');
-    void loadDailyCoaching(user, profile)
+    void loadDailyCoaching(user, profile, { freshSources: true })
       .then(coaching => { if (active) applyCoaching(coaching); })
       .catch(() => { if (active) setCoachingError('Today’s coaching isn’t ready yet.'); })
       .finally(() => { if (active) setCoachingBusy(false); });
     return () => { active = false; };
-  }, [applyCoaching, pendingCoachingFor, profile, user]);
+  }, [applyCoaching, coachingCheck, profile, user]);
 
   const regenerateCoaching = useCallback(async () => {
     if (!user || !profile || coachingBusy) return;

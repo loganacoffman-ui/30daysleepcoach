@@ -51,7 +51,17 @@ async function fingerprint(snapshot: JsonObject): Promise<string> {
 export function dailyCoachSourceFingerprint(
   coachContext: unknown,
 ): Promise<string> {
-  return fingerprint(dailyCoachSourceSnapshot(coachContext));
+  const snapshot = dailyCoachSourceSnapshot(coachContext);
+  // Today's commitment is an output of generation, not adherence evidence.
+  // Including it would make saving the recommendation invalidate itself.
+  snapshot.experiment_adherence = (snapshot.experiment_adherence as unknown[])
+    .filter((item) => {
+      if (!item || typeof item !== "object") return false;
+      const date = (item as JsonObject).behavior_date;
+      return typeof date === "string" && typeof snapshot.date === "string" &&
+        date < snapshot.date;
+    });
+  return fingerprint(snapshot);
 }
 
 // The evolving profile describes the user rather than a single day, so a new
@@ -178,14 +188,16 @@ export function hasWearableSleepForDate(
   });
 }
 
-// Today's coaching is a fixed artifact. Once a date has advice the user may
-// already have read, a later wearable sync must not silently rewrite it; only an
-// explicit regenerate or a new prompt version replaces it.
+// Reuse the daily artifact only while the evidence behind it is unchanged.
 export function isDailyCoachCacheReusable(
-  existing: { prompt_version?: unknown; action?: unknown } | null,
+  existing: { prompt_version?: unknown; action?: unknown; source_context?: unknown } | null,
+  sourceFingerprint: string,
 ): boolean {
-  if (!existing || typeof existing.action !== "string" || !existing.action) {
+  if (!existing || !coachSummaryText(existing.action)) {
     return false;
   }
-  return existing.prompt_version === DAILY_COACH_PROMPT_VERSION;
+  const source = existing.source_context;
+  return existing.prompt_version === DAILY_COACH_PROMPT_VERSION &&
+    !!source && typeof source === "object" &&
+    (source as JsonObject).source_fingerprint === sourceFingerprint;
 }
