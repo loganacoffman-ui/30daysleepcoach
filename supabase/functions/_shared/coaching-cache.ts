@@ -1,4 +1,6 @@
-export const DAILY_COACH_PROMPT_VERSION = "native-daily-v6-experiment-loop";
+import { validSleepScore } from "./dailySleepContract.ts";
+export { DAILY_COACH_PROMPT_VERSION } from "./dailySleepContract.ts";
+import { DAILY_COACH_PROMPT_VERSION } from "./dailySleepContract.ts";
 export const SLEEP_PROFILE_PROMPT_VERSION = "native-profile-v1-evolving";
 
 type JsonObject = Record<string, unknown>;
@@ -184,7 +186,7 @@ export function hasWearableSleepForDate(
   return rows.some((row) => {
     if (!row || typeof row !== "object") return false;
     const sleep = row as JsonObject;
-    return sleep.day === date && typeof sleep.score === "number";
+    return sleep.day === date && validSleepScore(sleep.score);
   });
 }
 

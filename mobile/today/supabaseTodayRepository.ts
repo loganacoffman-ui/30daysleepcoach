@@ -1,3 +1,4 @@
+import { DAILY_COACH_PROMPT_VERSION, resolveSleep, sleepResolutionKey } from '../sleep/dailySleepContract';
 import type { User } from '@supabase/supabase-js';
 import { markCheckinSaved } from '../cache/checkinRevision';
 import { invalidateCoachContext } from '../coach/coachRepository';
@@ -33,7 +34,7 @@ export const createSupabaseTodayRepository = (user: User, greetingName: string |
       supabase.from('daily_checkins').select('id, checkin_date, morning_feeling, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, note, completed_at').eq('user_id', user.id).eq('checkin_date', date).maybeSingle(),
       supabase.from('behavior_commitments').select('id, behavior_date, behavior, status').eq('user_id', user.id).eq('behavior_date', date).maybeSingle(),
       supabase.from('behavior_commitments').select('id, behavior_date, behavior, status').eq('user_id', user.id).lt('behavior_date', date).order('behavior_date', { ascending: false }).limit(7),
-      supabase.from('coach_recommendations').select('pattern, meaning, action, why, generated_at').eq('user_id', user.id).eq('recommendation_date', date).maybeSingle(),
+      supabase.from('coach_recommendations').select('pattern, meaning, action, why, generated_at, prompt_version, source_context').eq('user_id', user.id).eq('recommendation_date', date).maybeSingle(),
       supabase.functions.invoke<{ data?: OuraSleepDay[] }>('oura-proxy', {
         body: { endpoint: 'daily_sleep', start_date: date, end_date: date },
       }),
@@ -85,7 +86,12 @@ export const createSupabaseTodayRepository = (user: User, greetingName: string |
     const manualScore = typeof checkin?.manual_sleep_score === 'number'
       ? checkin.manual_sleep_score
       : null;
-    const recommendation = recommendationResult.data;
+    const resolution = resolveSleep(date, wearable ? [wearable] : [], checkin);
+    const stored = recommendationResult.data;
+    const recommendation = resolution.source !== 'missing'
+      && stored?.prompt_version === DAILY_COACH_PROMPT_VERSION
+      && stored?.source_context?.sleep_resolution_key === sleepResolutionKey(resolution)
+      ? stored : null;
     return {
       date,
       dayNumber: Math.max(openDaysResult.count ?? 1, 1),
@@ -121,7 +127,7 @@ export const createSupabaseTodayRepository = (user: User, greetingName: string |
   async saveCheckin(draft: DailyCheckinDraft) {
     const date=localDate(); const completedAt=new Date().toISOString();
     const manualSleep = typeof draft.manualSleepScore === 'number';
-    const {data,error}=await supabase.from('daily_checkins').upsert({user_id:user.id,checkin_date:date,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC',morning_feeling:draft.morningFeeling,manual_sleep_score:manualSleep?draft.manualSleepScore:null,manual_sleep_submitted_at:manualSleep?completedAt:null,suspected_factor:draft.suspectedFactor||null,note:draft.note?.trim()||null,completed_at:completedAt,updated_at:completedAt},{onConflict:'user_id,checkin_date'}).select('id, checkin_date, morning_feeling, manual_sleep_score, suspected_factor, note, completed_at').single();
+    const {data,error}=await supabase.from('daily_checkins').upsert({user_id:user.id,checkin_date:date,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC',morning_feeling:draft.morningFeeling,...(manualSleep?{manual_sleep_score:draft.manualSleepScore,manual_sleep_submitted_at:completedAt}:{}),suspected_factor:draft.suspectedFactor||null,note:draft.note?.trim()||null,completed_at:completedAt,updated_at:completedAt},{onConflict:'user_id,checkin_date'}).select('id, checkin_date, morning_feeling, manual_sleep_score, suspected_factor, note, completed_at').single();
     if(error) throw error;
     // Today's coaching and the evolving profile are both generated from this
     // check-in, so the cached window must not answer the next request and
