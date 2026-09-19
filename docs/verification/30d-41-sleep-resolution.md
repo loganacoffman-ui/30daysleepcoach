@@ -10,10 +10,11 @@ Matching pure contracts live in mobile/sleep and supabase/functions/_shared so e
 
 ## Automated verification
 
-- Full app suite: 249 tests passed, including direct endpoint calls with mocked authenticated storage/provider/model boundaries.
-- Full edge helper suite: 39 tests passed.
+- Full app suite: 255 tests passed, including direct endpoint calls with mocked authenticated storage/provider/model boundaries.
+- Full edge helper suite: 42 tests passed.
 - Edge endpoint type check passed.
-- Mobile TypeScript check and whitespace check are recorded in the PR.
+- Mobile TypeScript and whitespace checks passed.
+- Local Metro iOS export passed (831 modules); this verifies bundling, not device interaction.
 - New coverage includes missing/delayed wearable, forged client context, stale cache and refresh bypass attempts, wrong date, invalid scores, explicit manual zero-score unlock, later Oura arrival, Apple Health qualification, retained manual/qualitative provenance, unchanged cache reuse, source removal during generation, and general chat without resolved sleep.
 - Repository tests mock external services; no production requests or data writes were used for validation.
 
@@ -28,3 +29,7 @@ No iPhone/simulator, Development/Preview app, or TestFlight build was exercised.
 5. Reopen a historical check-in and confirm its saved report still appears.
 
 Merged foundations inspected: PR #59 (slider/correction behavior), PR #61 (historical reports), recent merged PR list, and current origin/main. No slider or check-in UI was rebuilt.
+
+## Integration with 30D-40
+
+Updated against main after PR #73. Keep source-fingerprint reuse and exclusion of today's generated commitment, fresh-source revalidation on reopen/foreground, and the post-generation reload opt-out that prevents request loops. Respect 30D-41's resolution gate when replacing the screen snapshot, rather than restoring a report the repository deliberately invalidated. Manual reports and wearable readings remain separate inputs under 30D-41's wearable-first coaching contract. An endpoint regression confirms corrected Oura data regenerates once, retains the five-field response, and then produces a cache hit.

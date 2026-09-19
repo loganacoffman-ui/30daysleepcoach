@@ -74,6 +74,23 @@ it('explicit manual submission unlocks, reuses unchanged advice, and later weara
   expect(writes).not.toContain('daily_checkins');
   expect(JSON.parse(fetchMock.mock.calls[1][1].body).messages[0].content).toContain('Restless');
 });
+it('corrected authenticated wearable evidence regenerates once and keeps the response contract', async () => {
+  oura = [{ day: date, score: 79 }];
+  const first = await request();
+  const firstBody = await first.json();
+  expect(first.headers.get('X-Cache')).toBe('MISS');
+  expect((await request()).headers.get('X-Cache')).toBe('HIT');
+  oura = [{ day: date, score: 88 }];
+  const corrected = await request();
+  expect(corrected.headers.get('X-Cache')).toBe('MISS');
+  const correctedBody = await corrected.json();
+  expect(Object.keys(correctedBody.recommendation)).toEqual(Object.keys(firstBody.recommendation));
+  expect(Object.keys(correctedBody.recommendation)).toEqual(['pattern', 'meaning', 'action', 'why', 'generated_at']);
+  const reused = await request();
+  expect(reused.headers.get('X-Cache')).toBe('HIT');
+  expect(await reused.json()).toEqual(correctedBody);
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+});
 it('a delayed wearable retry unlocks and Apple Health also qualifies', async () => {
   expect((await (await request()).json()).status).toBe('awaiting_sleep_data');
   nights = [{ sleep_date: date, sleep_score: 76, provider: 'apple_health' }];

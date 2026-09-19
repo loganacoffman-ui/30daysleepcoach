@@ -44,8 +44,7 @@ export type TodaySnapshot = {
   commitment: BehaviorCommitment | null;
   previousCommitment: BehaviorCommitment | null;
   checkin: DailyCheckin | null;
-  // Today's coaching once it exists. Reading the stored artifact here is what
-  // keeps revisiting Your Day from asking the coach to write it again.
+  // Paint the stored report while the server checks whether its evidence changed.
   dailyCoaching: DailyCoachingReport | null;
   sleepData: {
     status: 'wearable' | 'manual' | 'missing';

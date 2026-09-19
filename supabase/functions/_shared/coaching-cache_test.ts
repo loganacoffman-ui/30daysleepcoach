@@ -53,32 +53,80 @@ Deno.test("daily coach fingerprint is stable across object key order", async () 
   );
 });
 
-Deno.test("new or corrected wearable data invalidates daily coaching", async () => {
-  const original = await dailyCoachSourceFingerprint(context);
-  const corrected = await dailyCoachSourceFingerprint({
-    ...context,
-    wearable_sleep: [{ day: "2026-08-26", score: 88, source: "apple_health" }],
-  });
-  const newer = await dailyCoachSourceFingerprint({
-    ...context,
-    wearable_sleep: [
-      { day: "2026-08-27", score: 88, source: "apple_health" },
-      { day: "2026-08-26", score: 79, source: "oura" },
-    ],
-  });
-  assertNotEquals(original, corrected);
-  assertNotEquals(original, newer);
+const cachedRecommendation = async (sources: unknown) => ({
+  prompt_version: DAILY_COACH_PROMPT_VERSION,
+  source_context: { source_fingerprint: await dailyCoachSourceFingerprint(sources) },
+  pattern: "Your sleep score was 79",
+  meaning: "Keep watching your recovery",
+  action: "Dim the lights an hour before bed",
+  why: "Give yourself time to wind down",
+  generated_at: "2026-08-27T08:00:00.000Z",
 });
 
-Deno.test("daily coaching requires matching source evidence and prompt version", () => {
-  const row = { action: "Dim the lights", prompt_version: DAILY_COACH_PROMPT_VERSION,
-    source_context: { source_fingerprint: "original" } };
-  assertEquals(isDailyCoachCacheReusable(row, "original"), true);
-  assertEquals(isDailyCoachCacheReusable(row, "changed"), false);
-  assertEquals(isDailyCoachCacheReusable({ ...row, source_context: undefined }, "original"), false);
-  assertEquals(isDailyCoachCacheReusable({ ...row, prompt_version: "old" }, "original"), false);
-  assertEquals(isDailyCoachCacheReusable({ ...row, action: "" }, "original"), false);
-  assertEquals(isDailyCoachCacheReusable(null, "original"), false);
+Deno.test("unchanged sources reuse the stored daily recommendation", async () => {
+  const stored = await cachedRecommendation(context);
+  assertEquals(isDailyCoachCacheReusable(stored, await dailyCoachSourceFingerprint(context)), true);
+  const fingerprint = await dailyCoachSourceFingerprint(context);
+  for (const invalid of [
+    null,
+    { ...stored, prompt_version: "old" },
+    { ...stored, action: "   " },
+    { ...stored, source_context: null },
+    { ...stored, source_context: {} },
+    { ...stored, source_context: "invalid" },
+  ]) {
+    assertEquals(isDailyCoachCacheReusable(invalid, fingerprint), false);
+  }
+});
+
+for (const [name, wearable_sleep] of Object.entries({
+  newer: [{ day: "2026-08-27", score: 88, source: "oura" }, ...context.wearable_sleep],
+  corrected: [{ day: "2026-08-26", score: 88, source: "oura" }],
+})) {
+  Deno.test(`${name} Oura data invalidates once, then reuses the refreshed row`, async () => {
+    let stored = await cachedRecommendation(context);
+    const updated = { ...context, wearable_sleep };
+    const fingerprint = await dailyCoachSourceFingerprint(updated);
+    let generations = 0;
+    for (let request = 0; request < 3; request++) {
+      if (!isDailyCoachCacheReusable(stored, fingerprint)) {
+        generations++;
+        stored = await cachedRecommendation(updated);
+      }
+      assertEquals(Object.keys(dailyCoachRecommendationBody(stored)), [
+        "pattern", "meaning", "action", "why", "generated_at",
+      ]);
+    }
+    assertEquals(generations, 1);
+    assertEquals(latestWearableSummary(updated).score, 88);
+  });
+}
+
+Deno.test("manual, qualitative, profile, and prior adherence changes invalidate coaching", async () => {
+  const stored = await cachedRecommendation(context);
+  for (const changes of [
+    { subjective_checkins: [{ ...context.subjective_checkins[0], manual_sleep_score: 63, manual_sleep_submitted_at: "2026-08-27T10:00:00Z" }] },
+    { subjective_checkins: [{ ...context.subjective_checkins[0], feeling: 40 }] },
+    { subjective_checkins: [{ ...context.subjective_checkins[0], suspected_factor: "stress", note: "Woke anxious" }] },
+    { profile: { primary_concern: "falling_asleep" } },
+    { experiment_adherence: [{ ...context.experiment_adherence[0], status: "skipped" }] },
+  ]) {
+    assertEquals(isDailyCoachCacheReusable(stored, await dailyCoachSourceFingerprint({ ...context, ...changes })), false);
+  }
+});
+
+Deno.test("saving today's experiment does not invalidate its own coaching", async () => {
+  const stored = await cachedRecommendation(context);
+  const afterSave = {
+    ...context,
+    experiment_adherence: [
+      { behavior_date: context.date, behavior: stored.action, status: "committed" },
+      ...context.experiment_adherence,
+    ],
+  };
+  assertEquals(isDailyCoachCacheReusable(stored, await dailyCoachSourceFingerprint(afterSave)), true);
+  // The evolving profile still includes the current experiment.
+  assertNotEquals(await sleepProfileSourceFingerprint(context), await sleepProfileSourceFingerprint(afterSave));
 });
 
 Deno.test("the sleep profile stays cached across days until its evidence changes", async () => {

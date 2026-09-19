@@ -53,7 +53,17 @@ async function fingerprint(snapshot: JsonObject): Promise<string> {
 export function dailyCoachSourceFingerprint(
   coachContext: unknown,
 ): Promise<string> {
-  return fingerprint(dailyCoachSourceSnapshot(coachContext));
+  const snapshot = dailyCoachSourceSnapshot(coachContext);
+  // Today's commitment is an output of generation, not adherence evidence.
+  // Including it would make saving the recommendation invalidate itself.
+  snapshot.experiment_adherence = (snapshot.experiment_adherence as unknown[])
+    .filter((item) => {
+      if (!item || typeof item !== "object") return false;
+      const date = (item as JsonObject).behavior_date;
+      return typeof date === "string" && typeof snapshot.date === "string" &&
+        date < snapshot.date;
+    });
+  return fingerprint(snapshot);
 }
 
 // The evolving profile describes the user rather than a single day, so a new
@@ -180,12 +190,16 @@ export function hasWearableSleepForDate(
   });
 }
 
-// Advice is reusable only while the evidence that generated it is unchanged.
+// Reuse the daily artifact only while the evidence behind it is unchanged.
 export function isDailyCoachCacheReusable(
-  existing: { prompt_version?: unknown; action?: unknown; source_context?: { source_fingerprint?: unknown } } | null,
+  existing: { prompt_version?: unknown; action?: unknown; source_context?: unknown } | null,
   sourceFingerprint: string,
 ): boolean {
-  return Boolean(existing && typeof existing.action === "string" && existing.action.trim()
-    && existing.prompt_version === DAILY_COACH_PROMPT_VERSION
-    && existing.source_context?.source_fingerprint === sourceFingerprint);
+  if (!existing || !coachSummaryText(existing.action)) {
+    return false;
+  }
+  const source = existing.source_context;
+  return existing.prompt_version === DAILY_COACH_PROMPT_VERSION &&
+    !!source && typeof source === "object" &&
+    (source as JsonObject).source_fingerprint === sourceFingerprint;
 }

@@ -230,7 +230,9 @@ const loadCoachContext = (user: User, profile: SleepProfile): Promise<CoachConte
 const fetchCoachContext = async (user: User, profile: SleepProfile): Promise<CoachContext> => {
   const [checkinsResult, commitmentsResult, wearableSleep] = await Promise.all([
     supabase.from('daily_checkins').select('checkin_date, morning_feeling, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, note, completed_at').eq('user_id', user.id).order('checkin_date', { ascending: false }).limit(14),
-    supabase.from('behavior_commitments').select('behavior_date, behavior, status').eq('user_id', user.id).order('behavior_date', { ascending: false }).limit(14),
+    // Bound by dates, not row count: inserting today's generated commitment
+    // must not evict an older adherence row and change the source fingerprint.
+    supabase.from('behavior_commitments').select('behavior_date, behavior, status').eq('user_id', user.id).gte('behavior_date', daysAgo(14)).lte('behavior_date', localDate()).order('behavior_date', { ascending: false }),
     loadWearableSleep(user, 14),
   ]);
   if (checkinsResult.error) throw checkinsResult.error;
@@ -447,13 +449,14 @@ export const loadStoredDailyCoaching = async (userId: string, date: string): Pro
   };
 };
 
-// The server validates current sleep evidence before reusing or generating advice.
+// The server reuses matching evidence. A changed day snapshot needs fresh source
+// reads, while only the explicit `refresh` action forces a new generation.
 export const loadDailyCoaching = async (
   user: User,
   profile: SleepProfile,
-  options: { refresh?: boolean } = {},
+  options: { refresh?: boolean; freshSources?: boolean } = {},
 ): Promise<DailyCoaching> => {
-  if (options.refresh) invalidateCoachContext(user.id);
+  if (options.refresh || options.freshSources) invalidateCoachContext(user.id);
   const coachContext = await loadCoachContext(user, profile);
   const { data, error } = await supabase.functions.invoke<{
     status?: string;
