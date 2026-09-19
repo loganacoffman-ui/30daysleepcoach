@@ -1,7 +1,8 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { forwardRef } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type TextInput as TextInputType } from 'react-native';
 import { colors } from '../design/theme';
 
-export default function ChatComposer({ value, onChangeText, onSend, disabled = false, sending = false, placeholder = 'Tell Coach…', error, maxLength = 4000 }: {
+type ChatComposerProps = {
   value: string;
   onChangeText: (text: string) => void;
   onSend: () => void;
@@ -10,13 +11,25 @@ export default function ChatComposer({ value, onChangeText, onSend, disabled = f
   placeholder?: string;
   error?: string;
   maxLength?: number;
-}) {
+};
+
+export default forwardRef<TextInputType, ChatComposerProps>(function ChatComposer({
+  value,
+  onChangeText,
+  onSend,
+  disabled = false,
+  sending = false,
+  placeholder = 'Tell Coach…',
+  error,
+  maxLength = 4000,
+}, ref) {
   const cannotSend = disabled || sending || !value.trim();
   return (
     <View style={styles.area}>
       {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
       <View style={styles.composer}>
         <TextInput
+          ref={ref}
           accessibilityLabel="Tell Coach"
           accessibilityHint="Share habits, recent life context, or questions about your sleep"
           autoCorrect
@@ -38,7 +51,7 @@ export default function ChatComposer({ value, onChangeText, onSend, disabled = f
       <Text style={styles.disclaimer}>Behavioral coaching, not medical advice.</Text>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   area: { backgroundColor: colors.canvas, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8 },

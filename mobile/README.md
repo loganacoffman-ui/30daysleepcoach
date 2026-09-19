@@ -85,6 +85,18 @@ The journal `note` contains user replies only, with a 20,000-character aggregate
 limit enforced by the mobile flow and database constraint. Coach questions and
 clarifications stay in the separate local conversation cache.
 
+## Sleep profile settings
+
+Settings → Sleep profile → Edit lets users change their primary focus, usual
+bedtime, usual wake time, and time zone. Changes are validated and saved to the
+account; Cancel discards the draft. Saving refreshes the profile used by the coach.
+
+Onboarding infers the device time zone and offers a searchable city/region picker
+on the sleep-window step. The chosen zone is saved with onboarding progress and
+restored on resume, including an explicit UTC choice. Older unfinished profiles
+with only the database's UTC default use device detection. Reminder registration
+uses the selected profile time zone and refreshes when that setting changes.
+
 ## Daily check-in notifications
 
 The onboarding reminder registers the signed-in device with Expo Push Service

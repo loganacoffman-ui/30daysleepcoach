@@ -1,3 +1,4 @@
+import { detectTimeZone, isValidTimeZone } from './onboarding/profileFields';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
@@ -114,8 +115,9 @@ async function cancelLegacyReminder() {
   return identifier;
 }
 
-async function registerPushReminder(clock: string, userId: string, devicePushToken?: Notifications.DevicePushToken): Promise<string> {
+async function registerPushReminder(clock: string, userId: string, devicePushToken?: Notifications.DevicePushToken, timezone = detectTimeZone()): Promise<string> {
   parseReminderTime(clock);
+  if (!isValidTimeZone(timezone)) throw new Error('Choose a valid time zone.');
   const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
   if (!projectId) throw new Error('Push notifications are not configured for this app.');
   const token = await Notifications.getExpoPushTokenAsync({ projectId, ...(devicePushToken ? { devicePushToken } : {}) });
@@ -127,7 +129,7 @@ async function registerPushReminder(clock: string, userId: string, devicePushTok
     expo_push_token: token.data,
     platform: Platform.OS,
     app_variant: Constants.expoConfig?.extra?.appVariant ?? 'production',
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+    timezone,
     reminder_time: clock,
     enabled: true,
     disabled_at: null,
@@ -211,20 +213,20 @@ export function getDailyCheckInReminderState(fallbackClock: string): Promise<Dai
   });
 }
 
-export function scheduleDailyCheckInReminder(clock: string): Promise<DailyReminderScheduleResult> {
+export function scheduleDailyCheckInReminder(clock: string, timezone = detectTimeZone()): Promise<DailyReminderScheduleResult> {
   return serialize(async () => {
     if (Platform.OS === 'web') return { status: 'unsupported' };
     parseReminderTime(clock);
     if (!await requestNotificationPermission()) return { status: 'denied' };
     const userId = await currentUserId();
     await cancelLegacyReminder();
-    return { status: 'scheduled', identifier: await registerPushReminder(clock, userId) };
+    return { status: 'scheduled', identifier: await registerPushReminder(clock, userId, undefined, timezone) };
   });
 }
 
 // No permission prompt here: only an existing opt-in may be refreshed/migrated.
 // Retry on launch/foreground to pick up token and timezone changes.
-export function syncDailyCheckInReminder(userId: string, fallbackClock: string, devicePushToken?: Notifications.DevicePushToken) {
+export function syncDailyCheckInReminder(userId: string, fallbackClock: string, devicePushToken?: Notifications.DevicePushToken, timezone = detectTimeZone()) {
   return serialize(async () => {
     if (Platform.OS === 'web') return;
     const legacy = await cancelLegacyReminder();
@@ -237,7 +239,7 @@ export function syncDailyCheckInReminder(userId: string, fallbackClock: string, 
     }
     await prepareAndroidChannel();
     const clock = await AsyncStorage.getItem(DAILY_CHECK_IN_TIME_KEY) ?? fallbackClock;
-    await registerPushReminder(clock, userId, devicePushToken);
+    await registerPushReminder(clock, userId, devicePushToken, timezone);
   });
 }
 

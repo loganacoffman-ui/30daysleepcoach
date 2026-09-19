@@ -3,6 +3,7 @@ import type { User } from '@supabase/supabase-js';
 import { loadPreferredSleepSource } from '../sleep/sourcePreference';
 import { supabase } from '../supabase';
 import type { PrimaryConcern, SleepProfile, SleepSource } from './types';
+import { validateSleepProfile, type SleepProfileDraft } from './profileFields';
 
 type ProfileRow = {
   display_name: string | null;
@@ -40,4 +41,24 @@ export async function loadSleepProfile(user: User): Promise<SleepProfile | null>
   ]);
   if (error) throw error;
   return data ? asProfile(data as ProfileRow, preferredSleepSource) : null;
+}
+
+export async function saveSleepProfile(user: User, draft: SleepProfileDraft): Promise<SleepProfileDraft> {
+  const validationError = validateSleepProfile(draft);
+  if (validationError) throw new Error(validationError);
+  const { data, error } = await supabase.from('sleep_profiles').update({
+    primary_concern: draft.primaryConcern,
+    typical_bedtime: `${draft.typicalBedtime}:00`,
+    typical_wake_time: `${draft.typicalWakeTime}:00`,
+    timezone: draft.timezone,
+  }).eq('user_id', user.id)
+    .select('primary_concern, typical_bedtime, typical_wake_time, timezone').single();
+  if (error) throw error;
+  if (!data) throw new Error('Your profile could not be saved. Please try again.');
+  return {
+    primaryConcern: data.primary_concern as PrimaryConcern,
+    typicalBedtime: data.typical_bedtime.slice(0, 5),
+    typicalWakeTime: data.typical_wake_time.slice(0, 5),
+    timezone: data.timezone,
+  };
 }

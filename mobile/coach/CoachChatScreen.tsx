@@ -12,12 +12,14 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
 import type { User } from "@supabase/supabase-js";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { Skeleton } from "../design/Skeleton";
 import { colors, layout } from "../design/theme";
 import type { SleepProfile } from "../onboarding/types";
 import ChatBubble from "./ChatBubble";
@@ -25,6 +27,8 @@ import ChatComposer from "./ChatComposer";
 import JumpToLatest from "./JumpToLatest";
 import { useChatScroll } from "./useChatScroll";
 import { coachHomeExperience } from "./homeExperience";
+import { subscribeToCheckins } from "../cache/checkinRevision";
+import { screenCache } from "../cache/screenCache";
 import TodayScreen from "../today/TodayScreen";
 import { feelingLabel } from "../today/feeling";
 import type { TodayRepository } from "../today/types";
@@ -46,6 +50,11 @@ import type {
   CoachHomeState,
   CoachMessage,
 } from "./coachRepository";
+
+const COACH_HOME_CACHE_NAME = "coach-home";
+const COACH_HOME_CACHE_VERSION = 1;
+
+type CachedCoachHome = { date: string; state: CoachHomeState };
 
 const HISTORY_SWIPE_ACTIVATION_DISTANCE = 18;
 const HISTORY_SWIPE_OPEN_DISTANCE = 96;
@@ -168,12 +177,16 @@ export default function CoachChatScreen({
   const [dailyConversation, setDailyConversation] = useState<{ id: string; date: string } | null>(null);
   const [conversations, setConversations] = useState<CoachConversationSummary[]>([]);
   const [homeState, setHomeState] = useState<CoachHomeState | null>(null);
+  const [homeHydrated, setHomeHydrated] = useState(false);
+  const [homeLoaded, setHomeLoaded] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerOpenRef = useRef(false);
   // Bumped by every open and close. A close animation only reports its outcome
   // while it is still the newest request, so an interrupted close cannot leave
   // the drawer layer mounted over a screen it is no longer covering.
   const drawerRequest = useRef(0);
+  const composerRef = useRef<TextInput>(null);
+  const pendingComposerFocus = useRef(false);
   const [revealingMessageId, setRevealingMessageId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -208,6 +221,7 @@ export default function CoachChatScreen({
   }, [user]);
 
   const showDrawer = useCallback(() => {
+    pendingComposerFocus.current = false;
     Keyboard.dismiss();
     drawerRequest.current += 1;
     drawerOpenRef.current = true;
@@ -257,6 +271,10 @@ export default function CoachChatScreen({
       if (drawerRequest.current !== request) return;
       drawerOpenRef.current = false;
       setDrawerOpen(false);
+      if (pendingComposerFocus.current) {
+        pendingComposerFocus.current = false;
+        requestAnimationFrame(() => composerRef.current?.focus());
+      }
     });
   }, [
     drawerBackdropOpacity,
@@ -344,10 +362,49 @@ export default function CoachChatScreen({
     ],
   );
 
+  const persistCoachHomeState = useCallback((state: CoachHomeState) => {
+    setHomeState(state);
+    void screenCache.write(user.id, COACH_HOME_CACHE_NAME, COACH_HOME_CACHE_VERSION, {
+      date: localDate(),
+      state,
+    } satisfies CachedCoachHome).catch(() => undefined);
+  }, [user.id]);
+
+  const refreshCoachHomeState = useCallback(async () => {
+    try {
+      persistCoachHomeState(await loadCoachHomeState(user));
+    } catch {
+      // Keep whatever the cache already painted if the network read fails.
+    } finally {
+      setHomeLoaded(true);
+    }
+  }, [persistCoachHomeState, user]);
+
+  useEffect(() => {
+    setHomeState(null);
+    setHomeHydrated(false);
+    setHomeLoaded(false);
+    let active = true;
+    void screenCache.read<CachedCoachHome>(user.id, COACH_HOME_CACHE_NAME, COACH_HOME_CACHE_VERSION)
+      .then(entry => {
+        if (!active || !entry?.value || entry.value.date !== localDate()) return;
+        setHomeState(current => current ?? entry.value.state);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) setHomeHydrated(true);
+      });
+    return () => { active = false; };
+  }, [user.id]);
+
   useEffect(() => {
     void refreshHistory().catch(() => undefined);
-    void loadCoachHomeState(user).then(setHomeState).catch(() => setHomeState(null));
-  }, [user.id, refreshRequest]);
+    void refreshCoachHomeState();
+  }, [refreshCoachHomeState, refreshRequest]);
+
+  useEffect(() => subscribeToCheckins(() => {
+    void refreshCoachHomeState();
+  }), [refreshCoachHomeState]);
 
   // Mirror each settled thread so reopening it never starts from an empty list.
   // Skipped mid-send so a streaming reply is only cached once it is complete.
@@ -362,8 +419,9 @@ export default function CoachChatScreen({
     return id;
   };
 
-  const resetConversation = useCallback((view: "home" | "new-chat") => {
-    Keyboard.dismiss();
+  const resetConversation = useCallback((view: "home" | "new-chat", options?: { dismissKeyboard?: boolean; focusComposer?: boolean }) => {
+    pendingComposerFocus.current = !!options?.focusComposer;
+    if (options?.dismissKeyboard !== false && !options?.focusComposer) Keyboard.dismiss();
     resetScroll();
     // Any thread read still in flight belongs to the view being left.
     openRequestRef.current += 1;
@@ -378,15 +436,18 @@ export default function CoachChatScreen({
     setRevealingMessageId(null);
     closeHistory();
     if (view === "home") {
-      void loadCoachHomeState(user).then(setHomeState).catch(() => undefined);
+      void refreshCoachHomeState();
     }
-  }, [closeHistory, resetScroll, user]);
+  }, [closeHistory, refreshCoachHomeState, resetScroll]);
 
   const showCoachHome = useCallback(() => resetConversation("home"), [resetConversation]);
-  const startNewChat = () => resetConversation("new-chat");
+  const startNewChat = () => {
+    resetConversation("new-chat", { dismissKeyboard: false, focusComposer: true });
+  };
 
   const openDailyThread = useCallback(async () => {
     if (openingDailyRef.current === openRequestRef.current || sendingRef.current) return;
+    pendingComposerFocus.current = false;
     Keyboard.dismiss();
     setError("");
     const request = ++openRequestRef.current;
@@ -462,6 +523,7 @@ export default function CoachChatScreen({
   const openConversation = async (conversation: CoachConversationSummary) => {
     const dailyDate = dailyConversationDate(conversation.title);
     if (dailyDate === localDate()) return openDailyThread();
+    pendingComposerFocus.current = false;
     setError("");
     resetScroll();
     const request = ++openRequestRef.current;
@@ -596,8 +658,10 @@ export default function CoachChatScreen({
   };
 
   const isCoachHome = emptyView === "home" && !dailyViewOpen && !conversationId && messages.length === 0;
+  const checkedInToday = homeState?.hasCheckedInToday === true;
+  const checkinPending = !checkedInToday && (!homeHydrated || !homeLoaded);
   const homeExperience = coachHomeExperience(homeState, profile.displayName);
-  const homeActionsDisabled = busyAction || sending || !!resolvingToolCallId;
+  const homeActionsDisabled = busyAction || sending || !!resolvingToolCallId || checkinPending;
   // While another thread is on screen the mounted Your Day reads its own history
   // from the cache, so its transcript never shows someone else's conversation.
   const dailyMessages = dailyConversation
@@ -684,14 +748,30 @@ export default function CoachChatScreen({
                 accessibilityState={{ disabled: homeActionsDisabled, busy: busyAction }}
                 disabled={homeActionsDisabled}
                 onPress={() => void openDailyThread()}
-                style={({ pressed }) => [styles.dailyEntry, !homeState?.hasCheckedInToday && styles.dailyEntryPrimary, pressed && styles.suggestionPressed]}
+                style={({ pressed }) => [styles.dailyEntry, !checkedInToday && !checkinPending && styles.dailyEntryPrimary, pressed && styles.suggestionPressed]}
               >
                 <View style={styles.dailyEntryCopy}>
-                  <Text style={[styles.dailyEntryEyebrow, !homeState?.hasCheckedInToday && styles.dailyEntryInk]}>{homeExperience.checkinEyebrow}</Text>
-                  <Text style={[styles.dailyEntryTitle, !homeState?.hasCheckedInToday && styles.dailyEntryInk]}>{busyAction ? "Opening your day…" : homeState?.hasCheckedInToday ? "View today’s coaching" : "Complete today’s check-in"}</Text>
-                  <Text style={[styles.dailyEntryDescription, !homeState?.hasCheckedInToday && styles.dailyEntryInk]}>{homeExperience.checkinDescription}</Text>
+                  {checkinPending ? (
+                    <>
+                      <Skeleton height={10} width={112} />
+                      <Skeleton height={21} style={styles.dailyEntrySkeletonTitle} width="78%" />
+                      <Skeleton height={13} style={styles.dailyEntrySkeletonDescription} width="92%" />
+                    </>
+                  ) : (
+                    <>
+                      <Text style={[styles.dailyEntryEyebrow, !checkedInToday && styles.dailyEntryInk]}>{homeExperience.checkinEyebrow}</Text>
+                      <Text style={[styles.dailyEntryTitle, !checkedInToday && styles.dailyEntryInk]}>{busyAction ? "Opening your day…" : checkedInToday ? "View today’s coaching" : "Complete today’s check-in"}</Text>
+                      <Text style={[styles.dailyEntryDescription, !checkedInToday && styles.dailyEntryInk]}>{homeExperience.checkinDescription}</Text>
+                    </>
+                  )}
                 </View>
-                {busyAction ? <ActivityIndicator color={homeState?.hasCheckedInToday ? colors.accent : colors.ink} style={styles.dailyEntrySpinner} /> : <Text style={[styles.dailyEntryArrow, !homeState?.hasCheckedInToday && styles.dailyEntryInk]}>›</Text>}
+                {checkinPending ? (
+                  <Skeleton height={28} radius={8} style={styles.dailyEntrySpinner} width={18} />
+                ) : busyAction ? (
+                  <ActivityIndicator color={checkedInToday ? colors.accent : colors.ink} style={styles.dailyEntrySpinner} />
+                ) : (
+                  <Text style={[styles.dailyEntryArrow, !checkedInToday && styles.dailyEntryInk]}>›</Text>
+                )}
               </Pressable>
               <View style={styles.suggestions}>
                 <Text accessibilityRole="header" style={styles.suggestionsTitle}>Or start a conversation</Text>
@@ -747,6 +827,7 @@ export default function CoachChatScreen({
         </View>
 
         {!dailyViewOpen && <ChatComposer
+          ref={composerRef}
           value={input}
           onChangeText={setInput}
           onSend={() => void send()}
@@ -1021,6 +1102,8 @@ const styles = StyleSheet.create({
   dailyEntryPrimary: { backgroundColor: colors.accent, borderColor: colors.accent },
   dailyEntryInk: { color: colors.ink },
   dailyEntryCopy: { flex: 1 },
+  dailyEntrySkeletonTitle: { marginTop: 8 },
+  dailyEntrySkeletonDescription: { marginTop: 8 },
   dailyEntryEyebrow: { color: colors.accent, fontSize: 10, fontWeight: "800", letterSpacing: 1.3 },
   dailyEntryTitle: { color: colors.text, fontSize: 21, lineHeight: 27, fontWeight: "700", marginTop: 8 },
   dailyEntryDescription: { color: colors.textMuted, fontSize: 13, lineHeight: 19, marginTop: 8 },
