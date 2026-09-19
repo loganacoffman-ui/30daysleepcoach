@@ -16,7 +16,8 @@ function elements(node: any): any[] {
 function composer(overrides = {}) {
   const onChangeText = vi.fn();
   const onSend = vi.fn();
-  const tree = elements(ChatComposer({ value: '', onChangeText, onSend, ...overrides }));
+  const render = (ChatComposer as any).render as (props: unknown, ref: null) => unknown;
+  const tree = elements(render({ value: '', onChangeText, onSend, ...overrides }, null));
   return {
     input: tree.find(node => node.type === 'TextInput').props,
     send: tree.find(node => node.type === 'Pressable').props,
