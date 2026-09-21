@@ -1,3 +1,4 @@
+import { PERSONALIZATION_GUIDANCE, loadRecentUserReports, formatPersonalizationMemories } from '../_shared/personalization.ts';
 import { loadDailySleepContext } from '../_shared/dailySleep.ts';
 import { sleepResolutionKey } from '../_shared/dailySleepContract.ts';
 // Supabase Edge Function: sleep-coach
@@ -76,7 +77,7 @@ async function syncDailyExperimentCommitment(
   return error?.message ?? null;
 }
 
-const MEMORY_SYSTEM_GUIDANCE = `LONG-TERM MEMORY:
+const MEMORY_SYSTEM_GUIDANCE = `${PERSONALIZATION_GUIDANCE}\n\nLONG-TERM MEMORY:
 - Relevant long-term memories may be supplied in a clearly marked block. Use them to maintain continuity across sessions, remember the user's goals and preferences, compare current sleep activity with prior patterns, and follow up on past experiments or coaching actions.
 - Treat memory as historical context, not unquestionable truth. The user's current message and current structured sleep data take precedence when they conflict with an older memory.
 - Use dates and temporal language carefully. Do not present an old observation as current.
@@ -338,12 +339,13 @@ function memorySnapshot(
   coachContext: unknown,
 ): unknown {
   if (
-    mode === "daily_coach" && coachContext && typeof coachContext === "object"
+    (mode === "daily_coach" || mode === "coach_chat") && coachContext && typeof coachContext === "object"
   ) {
     const context = coachContext as Record<string, unknown>;
     return {
       date: context.date,
       profile: context.profile,
+      recent_user_reports: context.recent_user_reports ?? [],
       recent_subjective_checkins: Array.isArray(context.subjective_checkins)
         ? context.subjective_checkins.slice(0, 7)
         : [],
@@ -403,19 +405,7 @@ function buildMemoryObservation(
 }
 
 function formatMemoryContext(memories: Memory[]): string {
-  if (memories.length === 0) return "";
-
-  const lines = memories.map((memory) => {
-    const content = memory.content
-      .replaceAll("<", "‹")
-      .replaceAll(">", "›")
-      .slice(0, 1_500);
-    return `- ${content}`;
-  });
-
-  return `\n\n<relevant_long_term_memory>\n${
-    lines.join("\n")
-  }\n</relevant_long_term_memory>`;
+  return formatPersonalizationMemories(memories);
 }
 
 async function recallCoachMemory(
@@ -451,6 +441,7 @@ async function persistCoachMemory(
         app: "30daysleepcoach",
         source: "sleep-coach",
         mode,
+        observed_at: new Date().toISOString(),
       },
       observedAt: new Date().toISOString(),
     });
@@ -1246,16 +1237,18 @@ Deno.serve(async (req: Request) => {
       }
 
       const chatHistory = normalizeMessages((recentMessages ?? []).reverse());
-      const memories = await recallCoachMemory(
+      let recentReports;
+      try { recentReports = await loadRecentUserReports(supabase, user.id); }
+      catch { recentReports = null; }
+      const groundedContext = { ...(coachContext ?? {}), recent_user_reports: recentReports ?? [] };
+      // If direct corrections cannot be read, do not fall back to potentially
+      // contradictory semantic memory. The current conversation still works.
+      const memories = recentReports === null ? [] : await recallCoachMemory(
         user.id,
-        buildMemoryQuery(memoryMode, chatHistory, sleepData, coachContext),
+        buildMemoryQuery(memoryMode, chatHistory, sleepData, groundedContext),
       );
       const { response: anthropicResponse, span: coachSpan } =
-        await callAnthropicConversationStream(
-          chatHistory,
-          coachContext,
-          memories,
-        );
+        await callAnthropicConversationStream(chatHistory, groundedContext, memories);
       if (!anthropicResponse.ok || !anthropicResponse.body) {
         await endAnthropicSpan(coachSpan, null);
         return new Response(

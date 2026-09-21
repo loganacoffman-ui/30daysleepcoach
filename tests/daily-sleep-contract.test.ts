@@ -27,7 +27,7 @@ beforeEach(() => {
       let single = false; let record: any;
       const query: any = {
         select: () => query, eq: (key: string, value: unknown) => { filters.push([table, key, value]); return query; },
-        gte: () => query, lte: () => query, lt: () => query, order: () => query,
+        gte: () => query, lte: () => query, lt: () => query, order: () => query, limit: () => query,
         maybeSingle: () => { single = true; return query; }, single: () => { single = true; return query; },
         upsert: (value: any) => { record = value; stored = value; writes.push(table); return query; },
         insert: () => { writes.push(table); return query; }, update: () => { writes.push(table); return query; },

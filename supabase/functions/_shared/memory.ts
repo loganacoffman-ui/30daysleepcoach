@@ -69,6 +69,10 @@ const MEMORY_EXTRACTION_INSTRUCTIONS = [
   "Prioritize sleep goals and preferences, recurring sleep patterns, relevant life context,",
   "behaviors or experiments the user tried, adherence, observed outcomes, and coaching actions.",
   "Keep dates and changes over time when provided.",
+  "Explicit user corrections supersede conflicting older facts or assistant assumptions.",
+  "Track temporary events as active, resolved or uncertain when the user provides that status.",
+  "Retain useful history but do not describe an ended event or old schedule as current.",
+  "Never promote an assistant suggestion to a user habit, completed experiment or outcome.",
   "Do not store generic coaching advice as a fact about the user.",
   "Do not infer diagnoses, medications, or facts that were not stated or supported by the data.",
 ].join(" ");
