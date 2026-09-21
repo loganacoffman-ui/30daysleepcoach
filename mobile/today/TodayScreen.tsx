@@ -69,7 +69,7 @@ const formatLongDate = (date: string) => {
 const TODAY_CACHE_NAME = 'today-snapshot';
 // Bump when TodaySnapshot changes shape so a released build never renders a
 // cached entry it can no longer read.
-const TODAY_CACHE_VERSION = 2;
+const TODAY_CACHE_VERSION = 3;
 
 const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
   disabled?: boolean;
@@ -238,10 +238,6 @@ const DailyReport = ({ action, cacheKey, meaning, pattern }: {
 
 export default function TodayScreen({ embedded = false, chat, profile, refreshRequest, repository = mockTodayRepository, user }: TodayScreenProps) {
   const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
-  // Read by background refreshes, which need what is on screen right now rather
-  // than the snapshot captured when the refresh started.
-  const snapshotRef = useRef<TodaySnapshot | null>(null);
-  useEffect(() => { snapshotRef.current = snapshot; }, [snapshot]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -280,16 +276,11 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     }
     try {
       const nextSnapshot = await repository.loadToday();
-      // Keep the visible report while checking whether its evidence changed.
-      const shown = snapshotRef.current;
-      const merged = nextSnapshot.dailyCoaching || !shown?.dailyCoaching || shown.date !== nextSnapshot.date
-        ? nextSnapshot
-        : { ...nextSnapshot, dailyCoaching: shown.dailyCoaching };
-      setSnapshot(merged);
-      // A reopen also checks history/profile changes not visible in today's
-      // snapshot. The post-generation reload below opts out to avoid a loop.
+      // Respect the repository's sleep-resolution gate: never restore a report
+      // it has invalidated. Reopens still revalidate full server evidence.
+      setSnapshot(nextSnapshot);
       if (revalidateCoaching) setCoachingCheck({ evidence: dailyCoachingEvidence(nextSnapshot) });
-      void screenCache.write(draftOwner, TODAY_CACHE_NAME, TODAY_CACHE_VERSION, merged).catch(() => undefined);
+      void screenCache.write(draftOwner, TODAY_CACHE_NAME, TODAY_CACHE_VERSION, nextSnapshot).catch(() => undefined);
     } catch (loadError) {
       // A background refresh leaves the visible day alone; only a load with
       // nothing to show reports the failure.
@@ -759,7 +750,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
               <View style={styles.ownScoreArea}>
                 <Text style={styles.promptHint}>
                   {syncedSleepLabel
-                    ? `Your score is used for last night instead of the ${syncedSleepLabel} score of ${snapshot.syncedSleep!.score}.`
+                    ? `Your self-report is saved alongside the ${syncedSleepLabel} score of ${snapshot.syncedSleep!.score}. Coaching uses the wearable measurement.`
                     : 'Slide to your best estimate from 0–100.'}
                 </Text>
                 <View style={styles.sleepDataActions}>

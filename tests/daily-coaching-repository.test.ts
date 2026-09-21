@@ -58,9 +58,9 @@ it('revalidation bypasses the source memo without forcing regeneration', async (
   expect(adherenceQueries[0]).toEqual({ gte: expect.any(String), lte: localDate() });
 });
 
-it('keeps manual score corrections authoritative during revalidation', async () => {
+it('preserves manual reports alongside wearable evidence during revalidation', async () => {
   checkins = [{ checkin_date: localDate(), manual_sleep_score: 60, manual_sleep_submitted_at: '2026-08-27T09:00:00Z', note: 'Restless night' }];
   await loadDailyCoaching(user, profile, { freshSources: true });
   const request = vi.mocked(supabase.functions.invoke).mock.calls.find(([name]) => name === 'sleep-coach');
-  expect(request?.[1]?.body).toMatchObject({ refresh: false, coachContext: { subjective_checkins: [expect.objectContaining({ manual_sleep_score: 60, note: 'Restless night' })], wearable_sleep: [] } });
+  expect(request?.[1]?.body).toMatchObject({ refresh: false, coachContext: { subjective_checkins: [expect.objectContaining({ manual_sleep_score: 60, note: 'Restless night' })], wearable_sleep: [{ day: localDate(), score: 79, source: 'oura' }] } });
 });
