@@ -1,3 +1,4 @@
+import { GREETING_VERSION, GREETING_GUIDANCE, greetingReports, validateGreeting } from '../_shared/greeting.ts';
 import { PERSONALIZATION_GUIDANCE, loadRecentUserReports, formatPersonalizationMemories } from '../_shared/personalization.ts';
 import { loadDailySleepContext } from '../_shared/dailySleep.ts';
 import { sleepResolutionKey } from '../_shared/dailySleepContract.ts';
@@ -603,6 +604,7 @@ async function callAnthropicText(
   userMessage: string,
   memories: Memory[],
   maxTokens = 500,
+  timeoutMs?: number,
 ): Promise<string | null> {
   const body = {
     model: "claude-sonnet-4-6",
@@ -615,6 +617,7 @@ async function callAnthropicText(
   return tracedAnthropic("callAnthropicText", body, async () => {
     const res = await fetch(ANTHROPIC_URL, {
       method: "POST",
+      signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
       headers: {
         "Content-Type": "application/json",
         "x-api-key": ANTHROPIC_API_KEY,
@@ -911,6 +914,39 @@ Deno.serve(async (req: Request) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
+    }
+
+    // Optional home copy: no wearable sync, tools, memory writes or startup dependency.
+    if (mode === "coach_greeting") {
+      const respond = (greeting: unknown) => new Response(JSON.stringify({ status: "ok", user_id: user.id, greeting }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+      try {
+        const now = Date.now();
+        const reports = greetingReports(await loadRecentUserReports(supabase, user.id, now), now);
+        if (!reports.length) return respond(null);
+        const fingerprint = await dailyCoachSourceFingerprint({ recent_user_reports: reports });
+        const { data: cached } = await supabase.from("ai_cache").select("content, expires_at")
+          .eq("user_id", user.id).eq("cache_key", GREETING_VERSION).maybeSingle();
+        if (cached && Date.parse(cached.expires_at) > now) {
+          try {
+            const saved = JSON.parse(cached.content);
+            if (saved.fingerprint === fingerprint) {
+              const greeting = validateGreeting(JSON.stringify(saved.greeting), reports);
+              return respond(greeting ? { ...greeting, fingerprint, expires_at: cached.expires_at } : null);
+            }
+          } catch { /* Invalid cache is regenerated with current evidence. */ }
+        }
+        const raw = await callAnthropicText(GREETING_GUIDANCE, JSON.stringify({ reports }), [], 120, 2500);
+        const greeting = validateGreeting(raw, reports);
+        // Recheck before publishing: a correction may have arrived during generation.
+        const fresh = greetingReports(await loadRecentUserReports(supabase, user.id), Date.now());
+        if (await dailyCoachSourceFingerprint({ recent_user_reports: fresh }) !== fingerprint) return respond(null);
+        const expires_at = new Date(now + 2 * 60 * 60 * 1000).toISOString();
+        await supabase.from("ai_cache").upsert({ user_id: user.id, cache_key: GREETING_VERSION,
+          content: JSON.stringify({ fingerprint, greeting }), expires_at }, { onConflict: "user_id,cache_key" });
+        return respond(greeting ? { ...greeting, fingerprint, expires_at } : null);
+      } catch { return respond(null); }
     }
 
     // Interpret native check-in replies without writing data or invoking coaching tools.

@@ -1,3 +1,4 @@
+import { loadContextGreeting, claimContextGreeting } from './greetingRepository';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -188,6 +189,7 @@ export default function CoachChatScreen({
   const composerRef = useRef<TextInput>(null);
   const pendingComposerFocus = useRef(false);
   const [revealingMessageId, setRevealingMessageId] = useState<string | null>(null);
+  const [contextGreeting, setContextGreeting] = useState<{ userId: string; text: string } | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const sendingRef = useRef(false);
@@ -401,6 +403,18 @@ export default function CoachChatScreen({
     void refreshHistory().catch(() => undefined);
     void refreshCoachHomeState();
   }, [refreshCoachHomeState, refreshRequest]);
+
+  useEffect(() => {
+    setContextGreeting(null);
+    if (conversationId || dailyViewOpen || sending) return;
+    let active = true;
+    void loadContextGreeting(user.id).then(async greeting => {
+      if (!active || !greeting) return;
+      const show = await claimContextGreeting(user.id, greeting.fingerprint, localDate());
+      if (active && show) setContextGreeting({ userId: user.id, text: greeting.text });
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [user.id, conversationId, dailyViewOpen, sending, refreshRequest]);
 
   useEffect(() => subscribeToCheckins(() => {
     void refreshCoachHomeState();
@@ -742,7 +756,7 @@ export default function CoachChatScreen({
               showsVerticalScrollIndicator={false}
             >
               <Text accessibilityRole="header" style={styles.newChatTitle}>{homeExperience.title}</Text>
-              <Text style={styles.personalizedNote}>{homeExperience.introduction ?? personalizedGreeting(homeState)}</Text>
+              <Text style={styles.personalizedNote}>{homeExperience.introduction ?? (contextGreeting?.userId === user.id ? contextGreeting.text : personalizedGreeting(homeState))}</Text>
               <Pressable
                 accessibilityRole="button"
                 accessibilityState={{ disabled: homeActionsDisabled, busy: busyAction }}

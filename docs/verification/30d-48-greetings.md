@@ -1,0 +1,9 @@
+# 30D-48 — optional contextual home greeting
+
+Uses the 30D-39 authenticated reports, limited to 12 reports from the last seven days. Home renders ordinary copy immediately. A separate request can replace it with one short greeting; first-use onboarding copy retains precedence. Greeting generation is not part of daily coaching or its sleep-data gate.
+
+The server uses one existing ai_cache row per user/version for two hours, checks the source fingerprint on every request and again after generation, and verifies the model's cited source ID exists. Null/invalid model output is cached as a fallback too. No Mem0 write, wearable refresh or tool call. Generation has a 2.5-second deadline, a 120-token output budget and at most one model call per cache miss/request. Simultaneous calls on separate devices may generate independently; this is not a distributed rate limiter. Cost depends on the configured model; dollar cost and real latency are not measured here.
+
+Client requests have a 3.5-second deadline and five-minute per-user memoization. Local chat/check-in changes invalidate that memo. Cross-device changes are recognized on the next uncached request (up to five minutes). Responses identify the authenticated user and mismatches are discarded. Async UI effects cancel stale results on account/view changes. The same source fingerprint is shown at most once per local day using the existing per-user screen cache, cleared by existing sign-out/deletion controls. No personalized text is restored directly from disk.
+
+The prompt avoids unnecessary sensitive references and resolved/stale events. Output/source checks are structural and do not prove semantic correctness or safety. Synthetic model-output review and physical-device UI verification remain required before accepting the feature. Tests cover source age/IDs, malformed/long output, per-user caching, mismatched-account responses, invalidation, fallback and repeat suppression.
