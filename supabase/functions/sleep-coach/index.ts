@@ -1,4 +1,4 @@
-import { PERSONALIZATION_GUIDANCE, loadRecentUserReports, formatPersonalizationMemories } from '../_shared/personalization.ts';
+import { PERSONALIZATION_GUIDANCE, loadRecentUserReports, formatPersonalizationMemories, formatCurrentCoachContext } from '../_shared/personalization.ts';
 import { loadDailySleepContext } from '../_shared/dailySleep.ts';
 import { sleepResolutionKey } from '../_shared/dailySleepContract.ts';
 // Supabase Edge Function: sleep-coach
@@ -648,7 +648,7 @@ async function callAnthropicConversation(
     max_tokens: 350,
     system: SYSTEM_PROMPT + formatMemoryContext(memories) +
       `\n\nCURRENT USER CONTEXT:\n${
-        compactJson(coachContext, 10_000)
+        formatCurrentCoachContext(coachContext)
       }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
     messages,
     tools: COACH_TOOL_DEFINITIONS,
@@ -695,7 +695,7 @@ async function callAnthropicConversationStream(
     max_tokens: 350,
     system: SYSTEM_PROMPT + formatMemoryContext(memories) +
       `\n\nCURRENT USER CONTEXT:\n${
-        compactJson(coachContext, 10_000)
+        formatCurrentCoachContext(coachContext)
       }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
     messages,
     tools: COACH_TOOL_DEFINITIONS,
@@ -1348,7 +1348,7 @@ Deno.serve(async (req: Request) => {
                 content: responseText,
                 metadata: {
                   model,
-                  prompt_version: "native-chat-v4-streaming-tools",
+                  prompt_version: "native-chat-v5-current-life-context",
                   memory_count: memories.length,
                   memory_provider: memoryProvider.name,
                   responding_to: userMessageId,

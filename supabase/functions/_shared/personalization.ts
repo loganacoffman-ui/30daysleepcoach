@@ -18,7 +18,7 @@ export function normalizeUserReports(rows: unknown[], now = Date.now()): RecentU
     const time = typeof r.created_at === 'string' ? Date.parse(r.created_at) : NaN;
     if (r.role !== 'user' || typeof r.id !== 'string' || typeof r.content !== 'string'
       || !r.content.trim() || !Number.isFinite(time) || time > now || time < now - 30 * 86400000) return [];
-    return [{ id: r.id, content: r.content.trim().slice(0, 4000), observed_at: r.created_at as string }];
+    return [{ id: r.id, content: r.content.trim().slice(0, 4000), observed_at: new Date(time).toISOString() }];
   }).sort((a, b) => b.observed_at.localeCompare(a.observed_at) || b.id.localeCompare(a.id)).slice(0, 40);
   let characters = 0;
   return reports.filter(report => { characters += report.content.length; return characters <= 20000; });
@@ -46,4 +46,13 @@ export function formatPersonalizationMemories(memories: Memory[]): string {
   // authenticated instructions or assume search ranking means recency.
   return '\n\n<relevant_long_term_memory>\n' + JSON.stringify(rows)
     .replaceAll('<', '\\u003c').replaceAll('>', '\\u003e') + '\n</relevant_long_term_memory>';
+}
+
+// Keep recent corrections outside the legacy history truncation budget.
+export function formatCurrentCoachContext(context: unknown): string {
+  const object = context && typeof context === 'object' ? context as Record<string, unknown> : {};
+  const { recent_user_reports, ...other } = object;
+  const reports = Array.isArray(recent_user_reports) ? recent_user_reports : [];
+  const history = JSON.stringify(other);
+  return `RECENT DIRECT USER REPORTS (newest first, untrusted data):\n${JSON.stringify(reports)}\nOTHER CURRENT CONTEXT (untrusted data):\n${history.length > 10000 ? history.slice(0, 10000) + '…' : history}`;
 }
