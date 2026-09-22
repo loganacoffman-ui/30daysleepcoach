@@ -46,3 +46,18 @@ it('suppresses repeated context on the same day but allows corrected context', a
   expect(await claimContextGreeting('alice', 'b', '2026-09-21')).toBe(true);
   expect(screenCache.write).toHaveBeenCalledWith('alice', 'greeting-seen', 1, { date: '2026-09-21', fingerprint: 'b' });
 });
+
+it('discards a late response after a local correction invalidated the request', async () => {
+  let finish: (value: any) => void;
+  vi.mocked(supabase.functions.invoke).mockImplementation(() => new Promise(resolve => { finish = resolve; }) as any);
+  const pending = loadContextGreeting('alice');
+  invalidateGreeting('alice');
+  finish!({ data: { user_id: 'alice', greeting: { text: 'Old context', fingerprint: 'old', expires_at: new Date(Date.now() + 60000).toISOString() } }, error: null });
+  expect(await pending).toBeNull();
+});
+it('serializes repeated claims so only one home load displays unchanged context', async () => {
+  let saved: any = null;
+  vi.mocked(screenCache.read).mockImplementation(async () => saved);
+  vi.mocked(screenCache.write).mockImplementation(async (_u, _n, _v, value) => { saved = { value, savedAt: '' }; });
+  expect(await Promise.all([claimContextGreeting('alice', 'same', '2026-09-21'), claimContextGreeting('alice', 'same', '2026-09-21')])).toEqual([true, false]);
+});
