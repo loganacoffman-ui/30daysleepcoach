@@ -1,3 +1,4 @@
+import { invalidateGreeting } from './greetingRepository';
 import type { User } from '@supabase/supabase-js';
 import { fetch as expoFetch } from 'expo/fetch';
 
@@ -77,6 +78,7 @@ const coachContextMemo = createAsyncMemo<CoachContext>(COACH_CONTEXT_TTL_MS);
 // Called after a check-in or manual score is saved, so the next coaching request
 // reads the data the user just entered rather than the pre-check-in window.
 export const invalidateCoachContext = (userId: string) => {
+  invalidateGreeting(userId);
   wearableSleepMemo.invalidate(`${userId}:`);
   coachContextMemo.invalidate(`${userId}:`);
 };
@@ -517,6 +519,7 @@ export const sendCoachMessage = async (
 ): Promise<CoachMessage> => {
   const trimmed = content.trim();
   if (!trimmed) throw new Error('Write a message to your coach first.');
+  invalidateGreeting(user.id);
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
   if (sessionError || !accessToken) throw sessionError ?? new Error('Please sign in again.');
