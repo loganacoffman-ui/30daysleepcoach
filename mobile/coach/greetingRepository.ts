@@ -4,11 +4,16 @@ import { createAsyncMemo } from '../cache/asyncMemo';
 
 type Greeting = { text: string; fingerprint: string; expires_at: string };
 const memo = createAsyncMemo<Greeting | null>(5 * 60_000);
-export const invalidateGreeting = (userId: string) => memo.invalidate(`${userId}:`);
+const revisions = new Map<string, number>();
+export const invalidateGreeting = (userId: string) => {
+  revisions.set(userId, (revisions.get(userId) ?? 0) + 1);
+  memo.invalidate(`${userId}:`);
+};
 
 // Separate from home loading: timeout/failure leaves ordinary home copy intact.
 export async function loadContextGreeting(userId: string): Promise<Greeting | null> {
-  return memo.run(`${userId}:greeting`, async () => {
+  const revision = revisions.get(userId) ?? 0;
+  const result = await memo.run(`${userId}:greeting`, async () => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3500);
     try {
@@ -23,11 +28,17 @@ export async function loadContextGreeting(userId: string): Promise<Greeting | nu
     } catch { return null; }
     finally { clearTimeout(timeout); }
   });
+  return revision === (revisions.get(userId) ?? 0) && result && Date.parse(result.expires_at) > Date.now() ? result : null;
 }
 
+let claimQueue: Promise<unknown> = Promise.resolve();
 export async function claimContextGreeting(userId: string, fingerprint: string, date: string): Promise<boolean> {
+  const claim = claimQueue.then(async () => {
   const prior = await screenCache.read<{ date: string; fingerprint: string }>(userId, 'greeting-seen', 1);
   if (prior?.value.date === date && prior.value.fingerprint === fingerprint) return false;
   await screenCache.write(userId, 'greeting-seen', 1, { date, fingerprint });
   return true;
+  });
+  claimQueue = claim.catch(() => undefined);
+  return claim;
 }
