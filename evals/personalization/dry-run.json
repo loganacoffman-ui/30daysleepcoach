@@ -1,0 +1,20 @@
+{
+  "split": "development",
+  "cases": [
+    "shift-correction",
+    "race-resolved",
+    "deadline-active",
+    "deadline-ended",
+    "habit-correction",
+    "impractical-experiment"
+  ],
+  "dataset_sha256": "3760cdae5ff014f1be2dffb74d878e3673cfb3086964011bd67a828a7bd9b307",
+  "prompt_sha256": {
+    "baseline": "4cc0d6b819450f35f85ebef49a987c387cad1ae3c4285bd25e0d89803642bee1",
+    "candidate": "aac5891949aa959a335b89d9969cd8a2aa21a551fbe37993507e7052c0014903"
+  },
+  "model": "claude-sonnet-4-6",
+  "max_output_tokens": 400,
+  "calls": 12,
+  "status": "dry-run; no model calls or quality scores"
+}
