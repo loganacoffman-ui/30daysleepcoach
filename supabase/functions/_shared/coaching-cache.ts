@@ -26,6 +26,7 @@ export function dailyCoachSourceSnapshot(coachContext: unknown): JsonObject {
   return {
     date: context.date ?? null,
     profile: context.profile ?? null,
+    recent_user_reports: Array.isArray(context.recent_user_reports) ? context.recent_user_reports : [],
     subjective_checkins: Array.isArray(context.subjective_checkins)
       ? context.subjective_checkins
       : [],

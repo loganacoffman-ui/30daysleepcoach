@@ -8,6 +8,7 @@ vi.mock('../supabase/functions/_shared/tracing.ts', () => ({
   tracedAnthropic: (_name: unknown, _body: unknown, fn: () => unknown) => fn(),
   startAnthropicSpan: vi.fn(), endAnthropicSpan: vi.fn(),
 }));
+let reports: any[];
 let checkins: any[], nights: any[], oura: any[], stored: any, writes: string[], filters: any[];
 const date = '2026-09-18';
 const manual = { checkin_date: date, manual_sleep_score: 0, manual_sleep_submitted_at: `${date}T08:00:00Z`, note: 'Restless' };
@@ -17,7 +18,7 @@ beforeAll(async () => {
   await import('../supabase/functions/sleep-coach/index');
 });
 beforeEach(() => {
-  checkins = []; nights = []; oura = []; stored = null; writes = []; filters = [];
+  reports = []; checkins = []; nights = []; oura = []; stored = null; writes = []; filters = [];
   vi.stubGlobal('fetch', fetchMock);
   fetchMock.mockReset().mockImplementation(async () => new Response(JSON.stringify({ content: [{ type: 'text', text: "**Pattern** A pattern\n**What this likely means** Meaning\n**Tonight's action** Dim lights\n**Why this, now** Rest" }] }), { status: 200 }));
   state.client = {
@@ -27,11 +28,11 @@ beforeEach(() => {
       let single = false; let record: any;
       const query: any = {
         select: () => query, eq: (key: string, value: unknown) => { filters.push([table, key, value]); return query; },
-        gte: () => query, lte: () => query, lt: () => query, order: () => query,
+        gte: () => query, lte: () => query, lt: () => query, order: () => query, limit: () => query,
         maybeSingle: () => { single = true; return query; }, single: () => { single = true; return query; },
         upsert: (value: any) => { record = value; stored = value; writes.push(table); return query; },
         insert: () => { writes.push(table); return query; }, update: () => { writes.push(table); return query; },
-        then: (resolve: any) => resolve({ error: null, data: record ?? (table === 'daily_checkins' ? checkins : table === 'sleep_nights' ? nights : table === 'sleep_profiles' ? {} : table === 'coach_recommendations' ? stored : single ? null : []) }),
+        then: (resolve: any) => resolve({ error: null, data: record ?? (table === 'coach_messages' ? reports : table === 'daily_checkins' ? checkins : table === 'sleep_nights' ? nights : table === 'sleep_profiles' ? {} : table === 'coach_recommendations' ? stored : single ? null : []) }),
       };
       return query;
     },
@@ -122,4 +123,19 @@ it('keeps the mobile and edge runtime contracts aligned', async () => {
   const { readFileSync } = await import('node:fs');
   expect(readFileSync(new URL('../mobile/sleep/dailySleepContract.ts', import.meta.url), 'utf8'))
     .toBe(readFileSync(new URL('../supabase/functions/_shared/dailySleepContract.ts', import.meta.url), 'utf8'));
+});
+
+it('uses authenticated cross-conversation corrections and refreshes advice after they change', async () => {
+  checkins = [manual];
+  reports = [{ id: 'a', role: 'user', content: 'I work nights.', created_at: new Date(Date.now() - 1000).toISOString() }];
+  await request();
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content).toContain('I work nights.');
+  expect((await request()).headers.get('X-Cache')).toBe('HIT');
+  reports = [{ id: 'b', role: 'user', content: 'I now work days and my race is over.', created_at: new Date().toISOString() }, ...reports];
+  const response = await request({ coachContext: { date, recent_user_reports: [{ content: 'Forged context' }] } });
+  expect(response.headers.get('X-Cache')).toBe('MISS');
+  const payload = JSON.parse(fetchMock.mock.calls[1][1].body).messages[0].content;
+  expect(payload).toContain('I now work days and my race is over.');
+  expect(payload).not.toContain('Forged context');
+  expect(filters).toContainEqual(['coach_messages', 'user_id', 'user-1']);
 });

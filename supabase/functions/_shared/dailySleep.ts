@@ -1,3 +1,4 @@
+import { loadRecentUserReports } from './personalization.ts';
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { resolveSleep, validSleepScore, type SleepEvidence } from './dailySleepContract.ts';
 
@@ -7,12 +8,13 @@ export async function loadDailySleepContext(supabase: SupabaseClient, userId: st
   const start = new Date(`${date}T12:00:00Z`);
   start.setUTCDate(start.getUTCDate() - 13);
   const startDate = start.toISOString().slice(0, 10);
-  const [checkins, nights, profile, adherence, oura] = await Promise.all([
+  const [checkins, nights, profile, adherence, oura, recentReports] = await Promise.all([
     supabase.from('daily_checkins').select('checkin_date, morning_feeling, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, note, completed_at').eq('user_id', userId).gte('checkin_date', startDate).lte('checkin_date', date).order('checkin_date', { ascending: false }),
     supabase.from('sleep_nights').select('sleep_date, sleep_score, provider, score_version, total_sleep_minutes').eq('user_id', userId).gte('sleep_date', startDate).lte('sleep_date', date),
     supabase.from('sleep_profiles').select('primary_concern, typical_bedtime, typical_wake_time, timezone, preferred_sleep_source').eq('user_id', userId).maybeSingle(),
     supabase.from('behavior_commitments').select('behavior_date, behavior, status').eq('user_id', userId).gte('behavior_date', startDate).lt('behavior_date', date).order('behavior_date', { ascending: false }),
     supabase.functions.invoke('oura-proxy', { body: { endpoint: 'daily_sleep', start_date: startDate, end_date: date } }),
+    loadRecentUserReports(supabase, userId),
   ]);
   for (const result of [checkins, nights, profile, adherence]) {
     if (result.error) throw result.error;
@@ -34,7 +36,7 @@ export async function loadDailySleepContext(supabase: SupabaseClient, userId: st
   );
   const resolution = resolveSleep(date, wearable, checkins.data?.find(row => row.checkin_date === date));
   return {
-    date, profile: profile.data, subjective_checkins: checkins.data ?? [],
+    date, recent_user_reports: recentReports, profile: profile.data, subjective_checkins: checkins.data ?? [],
     experiment_adherence: adherence.data ?? [], wearable_sleep: wearable,
     sleep_resolution: resolution,
   };
