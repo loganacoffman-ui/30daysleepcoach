@@ -1,46 +1,34 @@
-import {
-  chooseDailyExperiment,
-  consecutiveExperimentNights,
-} from "./experimentCycle.ts";
+import { chooseDailyExperiment } from './experimentCycle.ts';
 
-Deno.test("continues a useful experiment until three attempted nights", () => {
-  const history = [{ behavior: "Write tomorrow's priorities at 10:30.", behavior_date: "2026-09-02", status: "completed" }];
+Deno.test('keeps a useful experiment after more than three nights without replacing its rationale', () => {
+  const behavior = 'Write tomorrow’s tasks for three minutes.';
   const choice = chooseDailyExperiment({
-    history,
-    proposedBehavior: "Try four minutes of slow breathing.",
-    proposedWhy: "Stress was elevated.",
+    history: [1, 2, 3, 4].map(day => ({ behavior, behavior_date: `2026-09-0${day}`, status: 'completed' })),
+    proposedBehavior: behavior, proposedWhy: 'You said writing helped and asked to keep it.',
   });
-  if (choice.behavior !== history[0].behavior || choice.phase !== "continue") throw new Error("Expected the current experiment to continue");
+  if (choice.behavior !== behavior || choice.phase !== 'continue' || !choice.why.includes('asked')) throw Error('Lost useful experiment or context');
 });
 
-Deno.test("advances after three attempted nights", () => {
-  const behavior = "Write tomorrow's priorities at 10:30.";
-  const history = [
-    { behavior, behavior_date: "2026-09-02", status: "completed" },
-    { behavior, behavior_date: "2026-09-01", status: "partial" },
-    { behavior, behavior_date: "2026-08-31", status: "completed" },
-  ];
-  if (consecutiveExperimentNights(behavior, history) !== 3) throw new Error("Expected a three-night run");
-  const choice = chooseDailyExperiment({ history, proposedBehavior: "Try four minutes of slow breathing.", proposedWhy: "Stress was elevated." });
-  if (choice.phase !== "new") throw new Error("Expected a new experiment");
-});
-
-Deno.test("retires the legacy generic bedroom experiment", () => {
+Deno.test('allows an adapted proposal before three nights when no experiment is saved today', () => {
   const choice = chooseDailyExperiment({
-    currentBehavior: "Keep your bedroom cool, dark, and quiet tonight.",
-    history: [{
-      behavior: "Keep your bedroom cool, dark, and quiet tonight.",
-      behavior_date: "2026-09-02",
-      status: "completed",
-    }],
-    proposedBehavior: "Put tomorrow's top three tasks on paper at 10:30, then leave the list outside the bedroom.",
-    proposedWhy: "Work thoughts have appeared in recent check-ins.",
+    history: [{ behavior: 'Read for twenty minutes.', behavior_date: '2026-09-21', status: 'partial' }],
+    proposedBehavior: 'Read one page before bed.', proposedWhy: 'You now have only one minute.',
   });
-  if (choice.phase !== "new" || choice.behavior.startsWith("Keep your bedroom")) throw new Error("Expected the generic experiment to be replaced");
+  if (choice.behavior !== 'Read one page before bed.' || choice.phase !== 'new') throw Error('Old nightly override blocked adaptation');
 });
 
-Deno.test("does not overwrite a current user-approved experiment", () => {
-  const current = "Read ten pages in a paper book at 10:30.";
-  const choice = chooseDailyExperiment({ currentBehavior: current, history: [], proposedBehavior: "Try slow breathing.", proposedWhy: "Stress was elevated." });
-  if (choice.behavior !== current || choice.phase !== "continue") throw new Error("Expected the current experiment to be preserved");
+Deno.test('never silently replaces today’s saved experiment even after a completed three-night run', () => {
+  const behavior = 'Read ten pages.';
+  const choice = chooseDailyExperiment({ currentBehavior: behavior,
+    history: [1, 2, 3].map(day => ({ behavior, behavior_date: `2026-09-0${day}`, status: 'completed' })),
+    proposedBehavior: 'Try breathing.', proposedWhy: 'Model picked a different action.',
+  });
+  if (choice.behavior !== behavior || choice.phase !== 'continue' || choice.why.includes('Model picked')) throw Error('Overwrote today’s saved choice');
+});
+
+Deno.test('retains personalized rationale when the model continues today’s same action', () => {
+  const choice = chooseDailyExperiment({ currentBehavior: 'Read two pages.', history: [],
+    proposedBehavior: 'Read two pages.', proposedWhy: 'Two pages fit your caregiving window.',
+  });
+  if (choice.why !== 'Two pages fit your caregiving window.') throw Error('Discarded grounded rationale');
 });

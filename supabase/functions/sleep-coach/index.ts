@@ -1,3 +1,5 @@
+import { buildDailyCoachingMessage, groundedDailyPattern } from '../_shared/dailyCoachingContext.ts';
+import { DAILY_COACH_SYSTEM_PROMPT } from '../_shared/dailyCoachingPrompt.ts';
 import { GREETING_VERSION, GREETING_GUIDANCE, greetingReports, validateGreeting } from '../_shared/greeting.ts';
 import { PERSONALIZATION_GUIDANCE, loadRecentUserReports, formatPersonalizationMemories, formatCurrentCoachContext } from '../_shared/personalization.ts';
 import { loadDailySleepContext } from '../_shared/dailySleep.ts';
@@ -60,20 +62,16 @@ async function syncDailyExperimentCommitment(
   current: { id: string; behavior: string; status: string } | null,
   updatedAt: string,
 ): Promise<string | null> {
-  if (current?.behavior === behavior && current.status === "committed") return null;
-  const write = current
-    ? supabase.from("behavior_commitments").update({
-      behavior,
-      status: "committed",
-      updated_at: updatedAt,
-    }).eq("id", current.id).eq("user_id", userId)
-    : supabase.from("behavior_commitments").insert({
-      user_id: userId,
-      behavior_date: behaviorDate,
-      behavior,
-      status: "committed",
-      updated_at: updatedAt,
-    });
+  // Regenerating coaching must not reset adherence or overwrite a Coach-approved
+  // change. Only create the initial row; explicit changes use their own tool flow.
+  if (current) return null;
+  const write = supabase.from("behavior_commitments").insert({
+    user_id: userId,
+    behavior_date: behaviorDate,
+    behavior,
+    status: "committed",
+    updated_at: updatedAt,
+  });
   const { error } = await write;
   return error?.message ?? null;
 }
@@ -1577,7 +1575,8 @@ Deno.serve(async (req: Request) => {
       // An unavailable cache is not evidence that a new report is needed.
       if (existingError) throw existingError;
 
-      if (!forceRegenerate && isDailyCoachCacheReusable(existing, sourceFingerprint)) {
+      if (!forceRegenerate && isDailyCoachCacheReusable(existing, sourceFingerprint)
+        && (!currentCommitment || currentCommitment.behavior === existing!.action)) {
         const commitmentError = await syncDailyExperimentCommitment(
           supabase,
           user.id,
@@ -1611,15 +1610,15 @@ Deno.serve(async (req: Request) => {
         user.id,
         buildMemoryQuery(memoryMode, messages, sleepData, dailyContext),
       );
-      const userMessage =
-        `Generate today's four-section coaching recommendation from this combined context. Subjective check-ins and notes describe how the user felt and what they think affected sleep. Experiment adherence shows what they actually tried. Wearable sleep is the quantitative layer when Apple Health or Oura is connected; the source field identifies whether a score is app-derived or provider-owned. The sleep_resolution selects the preferred quantitative source for the requested night: wearable first, otherwise an explicitly submitted manual score. Preserve manual scores as self-reports and qualitative context, never as wearable measurements. Use relevant long-term memory to follow up on earlier goals, experiments, and outcomes. Be honest when data is sparse; do not invent measurements. Always return all four required sections.\n\n${
-          JSON.stringify(dailyContext, null, 2)
-        }`;
-      let rawText = await callAnthropicNonStreaming(userMessage, memories);
-      let sections = rawText ? parseRecommendation(rawText) : null;
+      const userMessage = buildDailyCoachingMessage(dailyContext, currentCommitment);
+      const generateDaily = () => callAnthropicText(DAILY_COACH_SYSTEM_PROMPT, userMessage, memories, 800);
+      const parseDaily = (text: string | null) => text && text.trim().split(/\s+/).length < 85
+        && /^\s*\*\*Pattern\*\*/.test(text) ? parseRecommendation(text) : null;
+      let rawText = await generateDaily();
+      let sections = parseDaily(rawText);
       if (!sections) {
-        rawText = await callAnthropicNonStreaming(userMessage, memories);
-        sections = rawText ? parseRecommendation(rawText) : null;
+        rawText = await generateDaily();
+        sections = parseDaily(rawText);
       }
 
       if (!sections) {
@@ -1638,14 +1637,27 @@ Deno.serve(async (req: Request) => {
         });
       }
 
+      // A Coach-confirmed edit or adherence report can arrive during generation.
+      // Do not publish or persist an answer based on the previous commitment.
+      const { data: latestCommitment, error: latestCommitmentError } = await supabase
+        .from("behavior_commitments").select("id, behavior, status")
+        .eq("user_id", user.id).eq("behavior_date", recommendationDate).maybeSingle();
+      if (latestCommitmentError) throw latestCommitmentError;
+      const commitmentKey = (value: typeof currentCommitment) => value
+        ? JSON.stringify([value.id, value.behavior, value.status]) : null;
+      if (commitmentKey(latestCommitment) !== commitmentKey(currentCommitment)) {
+        return new Response(JSON.stringify({ status: "experiment_changed" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const experiment = chooseDailyExperiment({
-        currentBehavior: currentCommitment?.status === "committed"
-          ? currentCommitment.behavior
-          : null,
+        currentBehavior: currentCommitment?.behavior,
         history: experimentHistory,
         proposedBehavior: sections.action,
         proposedWhy: sections.why,
       });
+      sections.pattern = groundedDailyPattern(dailyContext) ?? sections.pattern;
       sections.action = experiment.behavior;
       sections.why = experiment.why;
 
@@ -1715,7 +1727,7 @@ Deno.serve(async (req: Request) => {
         user.id,
         memoryMode,
         buildMemoryObservation(memoryMode, messages, sleepData, dailyContext),
-        rawText ?? Object.values(sections).join("\n"),
+        Object.values(sections).join("\n"),
       ));
 
       return new Response(

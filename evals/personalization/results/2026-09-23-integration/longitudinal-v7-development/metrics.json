@@ -1,0 +1,30 @@
+{
+  "baseline": {
+    "count": 4,
+    "parsable": 4,
+    "passes_new_daily_format_gate": 0,
+    "published_word_range": [
+      89,
+      115
+    ],
+    "median_provider_latency_ms": 5420.5,
+    "max_provider_latency_ms": 6082,
+    "input_tokens": 16931,
+    "output_tokens": 609,
+    "all_end_turn": true
+  },
+  "candidate": {
+    "count": 4,
+    "parsable": 4,
+    "passes_new_daily_format_gate": 4,
+    "published_word_range": [
+      57,
+      70
+    ],
+    "median_provider_latency_ms": 4225.5,
+    "max_provider_latency_ms": 7213,
+    "input_tokens": 10751,
+    "output_tokens": 413,
+    "all_end_turn": true
+  }
+}

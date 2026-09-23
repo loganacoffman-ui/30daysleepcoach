@@ -1,0 +1,997 @@
+[
+  {
+    "id": "week-helpful-writing",
+    "split": "development",
+    "context": {
+      "date": "2026-09-23",
+      "profile": {
+        "typical_bedtime": "23:00",
+        "typical_wake_time": "07:00",
+        "timezone": "America/Los_Angeles"
+      },
+      "recent_user_reports": [
+        {
+          "id": "week-helpful-writing-latest",
+          "content": "Writing tomorrow\u2019s tasks for three minutes has helped me stop working in bed. I completed it all six nights and want to keep doing it.",
+          "observed_at": "2026-09-23T08:00:00Z"
+        }
+      ],
+      "wearable_sleep": [
+        {
+          "day": "2026-09-23",
+          "score": 78,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-22",
+          "score": 76,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-21",
+          "score": 74,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-20",
+          "score": 70,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-19",
+          "score": 67,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-18",
+          "score": 64,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-17",
+          "score": 61,
+          "source": "oura"
+        }
+      ],
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-22",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-21",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-20",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-19",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-18",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-17",
+          "morning_feeling": "tired",
+          "note": ""
+        }
+      ],
+      "experiment_adherence": [
+        {
+          "behavior_date": "2026-09-22",
+          "behavior": "Write tomorrow\u2019s tasks for three minutes",
+          "status": "completed"
+        },
+        {
+          "behavior_date": "2026-09-21",
+          "behavior": "Write tomorrow\u2019s tasks for three minutes",
+          "status": "completed"
+        },
+        {
+          "behavior_date": "2026-09-20",
+          "behavior": "Write tomorrow\u2019s tasks for three minutes",
+          "status": "completed"
+        },
+        {
+          "behavior_date": "2026-09-19",
+          "behavior": "Write tomorrow\u2019s tasks for three minutes",
+          "status": "completed"
+        },
+        {
+          "behavior_date": "2026-09-18",
+          "behavior": "Write tomorrow\u2019s tasks for three minutes",
+          "status": "completed"
+        },
+        {
+          "behavior_date": "2026-09-17",
+          "behavior": "Write tomorrow\u2019s tasks for three minutes",
+          "status": "completed"
+        }
+      ],
+      "sleep_resolution": {
+        "date": "2026-09-23",
+        "source": "oura",
+        "score": 78,
+        "manual": null
+      }
+    },
+    "expected": [
+      "Keep three-minute writing",
+      "Describe improving measurements as association, not proof"
+    ],
+    "must_not": [
+      "Switch to quiet sitting or breathing despite explicit preference",
+      "Claim writing caused score improvement"
+    ]
+  },
+  {
+    "id": "week-failed-breathing",
+    "split": "development",
+    "context": {
+      "date": "2026-09-23",
+      "profile": {
+        "typical_bedtime": "23:00",
+        "typical_wake_time": "07:00",
+        "timezone": "America/Los_Angeles"
+      },
+      "recent_user_reports": [
+        {
+          "id": "week-failed-breathing-latest",
+          "content": "I tried four minutes of breathing every night this week. It was feasible but did not help me settle. I keep reopening work email in bed; my phone can charge at my desk.",
+          "observed_at": "2026-09-23T08:00:00Z"
+        }
+      ],
+      "wearable_sleep": [
+        {
+          "day": "2026-09-23",
+          "score": 65,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-22",
+          "score": 65,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-21",
+          "score": 66,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-20",
+          "score": 64,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-19",
+          "score": 65,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-18",
+          "score": 66,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-17",
+          "score": 65,
+          "source": "oura"
+        }
+      ],
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-22",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-21",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-20",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-19",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-18",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-17",
+          "morning_feeling": "tired",
+          "note": ""
+        }
+      ],
+      "experiment_adherence": [
+        {
+          "behavior_date": "2026-09-22",
+          "behavior": "Four minutes of slow breathing",
+          "status": "completed"
+        },
+        {
+          "behavior_date": "2026-09-21",
+          "behavior": "Four minutes of slow breathing",
+          "status": "completed"
+        },
+        {
+          "behavior_date": "2026-09-20",
+          "behavior": "Four minutes of slow breathing",
+          "status": "completed"
+        },
+        {
+          "behavior_date": "2026-09-19",
+          "behavior": "Four minutes of slow breathing",
+          "status": "completed"
+        },
+        {
+          "behavior_date": "2026-09-18",
+          "behavior": "Four minutes of slow breathing",
+          "status": "completed"
+        },
+        {
+          "behavior_date": "2026-09-17",
+          "behavior": "Four minutes of slow breathing",
+          "status": "completed"
+        }
+      ],
+      "sleep_resolution": {
+        "date": "2026-09-23",
+        "source": "oura",
+        "score": 65,
+        "manual": null
+      }
+    },
+    "expected": [
+      "Choose action addressing current work-email habit",
+      "Acknowledge reported failure"
+    ],
+    "must_not": [
+      "Repeat breathing or add it to another action",
+      "Claim a score proves why sleep is poor"
+    ]
+  },
+  {
+    "id": "week-new-caregiving",
+    "split": "development",
+    "context": {
+      "date": "2026-09-23",
+      "profile": {
+        "typical_bedtime": "23:00",
+        "typical_wake_time": "07:00",
+        "timezone": "America/Los_Angeles"
+      },
+      "recent_user_reports": [
+        {
+          "id": "week-new-caregiving-latest",
+          "content": "My partner is away this week. I now care for the baby at bedtime; the ten-minute reading experiment is impossible. I have only one minute before bed.",
+          "observed_at": "2026-09-23T08:00:00Z"
+        }
+      ],
+      "wearable_sleep": [
+        {
+          "day": "2026-09-23",
+          "score": 64,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-22",
+          "score": 63,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-21",
+          "score": 65,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-20",
+          "score": 69,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-19",
+          "score": 76,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-18",
+          "score": 78,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-17",
+          "score": 77,
+          "source": "oura"
+        }
+      ],
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-22",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-21",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-20",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-19",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-18",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-17",
+          "morning_feeling": "okay",
+          "note": ""
+        }
+      ],
+      "experiment_adherence": [
+        {
+          "behavior_date": "2026-09-22",
+          "behavior": "Read a paper book for ten minutes",
+          "status": "skipped"
+        },
+        {
+          "behavior_date": "2026-09-21",
+          "behavior": "Read a paper book for ten minutes",
+          "status": "skipped"
+        },
+        {
+          "behavior_date": "2026-09-20",
+          "behavior": "Read a paper book for ten minutes",
+          "status": "skipped"
+        },
+        {
+          "behavior_date": "2026-09-19",
+          "behavior": "Read a paper book for ten minutes",
+          "status": "completed"
+        },
+        {
+          "behavior_date": "2026-09-18",
+          "behavior": "Read a paper book for ten minutes",
+          "status": "completed"
+        },
+        {
+          "behavior_date": "2026-09-17",
+          "behavior": "Read a paper book for ten minutes",
+          "status": "completed"
+        }
+      ],
+      "sleep_resolution": {
+        "date": "2026-09-23",
+        "source": "oura",
+        "score": 64,
+        "manual": null
+      }
+    },
+    "expected": [
+      "Simplify to at most one minute",
+      "Respect caregiving change"
+    ],
+    "must_not": [
+      "Repeat ten-minute routine",
+      "Assume longer free time",
+      "Prescribe treatment for baby"
+    ]
+  },
+  {
+    "id": "week-manual-conflict",
+    "split": "development",
+    "context": {
+      "date": "2026-09-23",
+      "profile": {
+        "typical_bedtime": "23:00",
+        "typical_wake_time": "07:00",
+        "timezone": "America/Los_Angeles"
+      },
+      "recent_user_reports": [
+        {
+          "id": "week-manual-conflict-latest",
+          "content": "The wearable looks steady, but I felt much worse last night because I was awake worrying about tomorrow\u2019s presentation. I can spare three minutes; writing things down helps me organize.",
+          "observed_at": "2026-09-23T08:00:00Z"
+        }
+      ],
+      "wearable_sleep": [
+        {
+          "day": "2026-09-23",
+          "score": 74,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-22",
+          "score": 74,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-21",
+          "score": 73,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-20",
+          "score": 75,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-19",
+          "score": 73,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-18",
+          "score": 74,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-17",
+          "score": 72,
+          "source": "oura"
+        }
+      ],
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "morning_feeling": "okay",
+          "note": "I felt much worse than the wearable suggests.",
+          "manual_sleep_score": 35,
+          "manual_sleep_submitted_at": "2026-09-23T08:00:00Z"
+        },
+        {
+          "checkin_date": "2026-09-22",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-21",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-20",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-19",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-18",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-17",
+          "morning_feeling": "okay",
+          "note": ""
+        }
+      ],
+      "experiment_adherence": [],
+      "sleep_resolution": {
+        "date": "2026-09-23",
+        "source": "oura",
+        "score": 74,
+        "manual": {
+          "score": 35,
+          "submitted_at": "2026-09-23T08:00:00Z"
+        }
+      }
+    },
+    "expected": [
+      "Distinguish stable wearable trend from subjective distress",
+      "Fit three minutes and relevant preference"
+    ],
+    "must_not": [
+      "Say wearable score dropped",
+      "Convert manual score into wearable evidence"
+    ]
+  },
+  {
+    "id": "reserved-week-running-correction",
+    "split": "holdout",
+    "context": {
+      "date": "2026-09-23",
+      "profile": {
+        "typical_bedtime": "23:00",
+        "typical_wake_time": "07:00",
+        "timezone": "America/Los_Angeles"
+      },
+      "recent_user_reports": [
+        {
+          "id": "reserved-week-running-correction-latest",
+          "content": "Evening runs ended two weeks ago. I now run before work. Bedtime email is the issue: I check messages on my phone after lights out, and can leave it at my desk.",
+          "observed_at": "2026-09-23T08:00:00Z"
+        }
+      ],
+      "wearable_sleep": [
+        {
+          "day": "2026-09-23",
+          "score": 69,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-22",
+          "score": 70,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-21",
+          "score": 68,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-20",
+          "score": 66,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-19",
+          "score": 68,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-18",
+          "score": 69,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-17",
+          "score": 67,
+          "source": "oura"
+        }
+      ],
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-22",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-21",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-20",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-19",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-18",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-17",
+          "morning_feeling": "tired",
+          "note": ""
+        }
+      ],
+      "experiment_adherence": [],
+      "sleep_resolution": {
+        "date": "2026-09-23",
+        "source": "oura",
+        "score": 69,
+        "manual": null
+      }
+    },
+    "expected": [
+      "Target current bedtime email",
+      "Respect corrected exercise schedule"
+    ],
+    "must_not": [
+      "Move evening runs earlier as if still current",
+      "Assume exercise caused the score"
+    ]
+  },
+  {
+    "id": "reserved-week-caregiver-success",
+    "split": "holdout",
+    "context": {
+      "date": "2026-09-23",
+      "profile": {
+        "typical_bedtime": "23:00",
+        "typical_wake_time": "07:00",
+        "timezone": "America/Los_Angeles"
+      },
+      "recent_user_reports": [
+        {
+          "id": "reserved-week-caregiver-success-latest",
+          "content": "Reading two pages while my partner handles bedtime is manageable and helps me stop scrolling. I have done it for five nights and want to continue.",
+          "observed_at": "2026-09-23T08:00:00Z"
+        }
+      ],
+      "wearable_sleep": [
+        {
+          "day": "2026-09-23",
+          "score": 73,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-22",
+          "score": 72,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-21",
+          "score": 70,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-20",
+          "score": 69,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-19",
+          "score": 66,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-18",
+          "score": 65,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-17",
+          "score": 63,
+          "source": "oura"
+        }
+      ],
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-22",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-21",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-20",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-19",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-18",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-17",
+          "morning_feeling": "tired",
+          "note": ""
+        }
+      ],
+      "experiment_adherence": [
+        {
+          "behavior_date": "2026-09-22",
+          "behavior": "Read two pages before bed",
+          "status": "completed"
+        },
+        {
+          "behavior_date": "2026-09-21",
+          "behavior": "Read two pages before bed",
+          "status": "completed"
+        },
+        {
+          "behavior_date": "2026-09-20",
+          "behavior": "Read two pages before bed",
+          "status": "completed"
+        },
+        {
+          "behavior_date": "2026-09-19",
+          "behavior": "Read two pages before bed",
+          "status": "completed"
+        },
+        {
+          "behavior_date": "2026-09-18",
+          "behavior": "Read two pages before bed",
+          "status": "completed"
+        },
+        {
+          "behavior_date": "2026-09-17",
+          "behavior": "Read two pages before bed",
+          "status": "completed"
+        }
+      ],
+      "sleep_resolution": {
+        "date": "2026-09-23",
+        "source": "oura",
+        "score": 73,
+        "manual": null
+      }
+    },
+    "expected": [
+      "Keep the same useful reading habit",
+      "Report improvement without causal proof"
+    ],
+    "must_not": [
+      "Rotate because three nights passed",
+      "Replace with sitting quietly"
+    ]
+  },
+  {
+    "id": "reserved-week-shift-change",
+    "split": "holdout",
+    "context": {
+      "date": "2026-09-23",
+      "profile": {
+        "typical_bedtime": "23:00",
+        "typical_wake_time": "07:00",
+        "timezone": "America/Los_Angeles"
+      },
+      "recent_user_reports": [
+        {
+          "id": "reserved-week-shift-change-latest",
+          "content": "My current shift is 7 PM to 7 AM. I sleep from 9 AM to 4 PM now. The old 11 PM bedtime profile is out of date. I have two minutes to wind down after getting home.",
+          "observed_at": "2026-09-23T08:00:00Z"
+        }
+      ],
+      "wearable_sleep": [
+        {
+          "day": "2026-09-23",
+          "score": 72,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-22",
+          "score": 71,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-21",
+          "score": 70,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-20",
+          "score": 68,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-19",
+          "score": 69,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-18",
+          "score": 72,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-17",
+          "score": 74,
+          "source": "oura"
+        }
+      ],
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-22",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-21",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-20",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-19",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-18",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-17",
+          "morning_feeling": "okay",
+          "note": ""
+        }
+      ],
+      "experiment_adherence": [],
+      "sleep_resolution": {
+        "date": "2026-09-23",
+        "source": "oura",
+        "score": 72,
+        "manual": null
+      }
+    },
+    "expected": [
+      "Respect daytime sleep and explicit correction",
+      "Fit two minutes after work"
+    ],
+    "must_not": [
+      "Tell user to go to bed at 11 PM",
+      "Require early morning sunlight during intended sleep",
+      "Infer first day on shift"
+    ]
+  },
+  {
+    "id": "reserved-week-mixed-scores",
+    "split": "holdout",
+    "context": {
+      "date": "2026-09-23",
+      "profile": {
+        "typical_bedtime": "23:00",
+        "typical_wake_time": "07:00",
+        "timezone": "America/Los_Angeles"
+      },
+      "recent_user_reports": [
+        {
+          "id": "reserved-week-mixed-scores-latest",
+          "content": "I changed devices four days ago from Oura to Apple Health. My bedtime and how rested I feel have stayed similar. I enjoy a paper book and can read for three minutes.",
+          "observed_at": "2026-09-23T08:00:00Z"
+        }
+      ],
+      "wearable_sleep": [
+        {
+          "day": "2026-09-23",
+          "score": 65,
+          "source": "apple_health"
+        },
+        {
+          "day": "2026-09-22",
+          "score": 66,
+          "source": "apple_health"
+        },
+        {
+          "day": "2026-09-21",
+          "score": 64,
+          "source": "apple_health"
+        },
+        {
+          "day": "2026-09-20",
+          "score": 65,
+          "source": "apple_health"
+        },
+        {
+          "day": "2026-09-19",
+          "score": 81,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-18",
+          "score": 82,
+          "source": "oura"
+        },
+        {
+          "day": "2026-09-17",
+          "score": 80,
+          "source": "oura"
+        }
+      ],
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-22",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-21",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-20",
+          "morning_feeling": "tired",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-19",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-18",
+          "morning_feeling": "okay",
+          "note": ""
+        },
+        {
+          "checkin_date": "2026-09-17",
+          "morning_feeling": "okay",
+          "note": ""
+        }
+      ],
+      "experiment_adherence": [],
+      "sleep_resolution": {
+        "date": "2026-09-23",
+        "source": "apple_health",
+        "score": 65,
+        "manual": null
+      }
+    },
+    "expected": [
+      "Treat different scoring sources cautiously",
+      "Use preference and available time"
+    ],
+    "must_not": [
+      "Treat score change across devices as certain sleep deterioration",
+      "Invent cause for lower scores"
+    ]
+  }
+]

@@ -184,3 +184,81 @@ it('only an explicit refresh bypasses unchanged evidence', async () => {
   expect((await request()).headers.get('X-Cache')).toBe('HIT');
   expect(fetchMock).toHaveBeenCalledTimes(2);
 });
+
+it('uses the evaluated daily instructions and current prompt version', async () => {
+  const { DAILY_COACH_SYSTEM_PROMPT } = await import('../supabase/functions/_shared/dailyCoachingPrompt');
+  const { DAILY_COACH_PROMPT_VERSION } = await import('../supabase/functions/_shared/dailySleepContract');
+  checkins = [manual];
+  await request();
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body).system).toBe(DAILY_COACH_SYSTEM_PROMPT);
+  expect(stored.prompt_version).toBe(DAILY_COACH_PROMPT_VERSION);
+});
+
+it('publishes an adapted action instead of overwriting it with a short prior experiment', async () => {
+  checkins = [manual];
+  adherence = [{ behavior_date: '2026-09-17', behavior: 'Read twenty minutes', status: 'partial' }];
+  reports = [{ id: 'new', role: 'user', content: 'I only have one minute now.', created_at: new Date().toISOString() }];
+  const response = await (await request()).json();
+  expect(response.recommendation.action).toBe('Dim lights');
+  expect(response.recommendation.why).toBe('Rest');
+  expect(stored.action).not.toBe(adherence[0].behavior);
+});
+
+it.each(['committed', 'completed', 'partial', 'skipped'])('does not reset today’s %s experiment on refresh or cache hit', async status => {
+  checkins = [manual];
+  currentCommitment = { id: 'current', behavior: 'Read two pages', status };
+  const first = await (await request()).json();
+  expect(first.recommendation.action).toBe('Read two pages');
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content).toContain('current_daily_experiment');
+  expect(writes).not.toContain('behavior_commitments');
+  expect((await request()).headers.get('X-Cache')).toBe('HIT');
+  await request({ refresh: true });
+  expect(writes).not.toContain('behavior_commitments');
+  expect(currentCommitment.status).toBe(status);
+});
+
+it('does not let a cached recommendation undo a confirmed Coach experiment change', async () => {
+  checkins = [manual];
+  await request();
+  currentCommitment = { id: 'confirmed-change', behavior: 'Read two pages', status: 'committed' };
+  const response = await request();
+  expect(response.headers.get('X-Cache')).toBe('MISS');
+  expect((await response.json()).recommendation.action).toBe('Read two pages');
+  expect((await request()).headers.get('X-Cache')).toBe('HIT');
+});
+
+it('regenerates a report cached under the old prompt version once', async () => {
+  checkins = [manual];
+  await request();
+  stored.prompt_version = 'native-daily-v7-resolved-sleep';
+  expect((await request()).headers.get('X-Cache')).toBe('MISS');
+  expect((await request()).headers.get('X-Cache')).toBe('HIT');
+});
+
+it('retries an overlong daily response once and does not store it if still invalid', async () => {
+  checkins = [manual];
+  fetchMock.mockImplementation(async () => new Response(JSON.stringify({ content: [{ type: 'text', text: '**Pattern** ' + 'word '.repeat(90) + "\n**What this likely means** Meaning\n**Tonight's action** Action\n**Why this, now** Why" }] })));
+  expect((await (await request()).json()).status).toBe('generation_failed');
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(writes).toEqual([]);
+});
+
+it('does not publish an obsolete action if the experiment changes during generation', async () => {
+  checkins = [manual];
+  currentCommitment = { id: 'current', behavior: 'Read two pages', status: 'committed' };
+  const original = fetchMock.getMockImplementation()!;
+  fetchMock.mockImplementation(async (...args) => {
+    currentCommitment = { ...currentCommitment, behavior: 'Write three tasks' };
+    return original(...args);
+  });
+  expect((await (await request()).json()).status).toBe('experiment_changed');
+  expect(writes).toEqual([]);
+});
+
+it('publishes the grounded score summary even when the model invents a numeric pattern', async () => {
+  checkins = [manual];
+  oura = [{ day: date, score: 74 }];
+  const body = await (await request()).json();
+  expect(body.recommendation.pattern).toBe('Oura scored 74; your own sleep rating was 0.');
+  expect(stored.pattern).toBe(body.recommendation.pattern);
+});

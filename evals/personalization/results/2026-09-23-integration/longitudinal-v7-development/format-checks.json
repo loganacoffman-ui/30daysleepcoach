@@ -1,0 +1,74 @@
+[
+  {
+    "case_id": "week-helpful-writing",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 89,
+    "daily_gate_pass": false,
+    "published_output": "**Pattern**\nYour Oura score has risen from 61 to 78 over seven nights, and morning feeling has shifted from tired to okay.\n**What this likely means**\nThe task-writing habit you've completed six consecutive nights has likely reduced the cognitive load you were carrying into bed.\n**Tonight's action**\nBefore bed, do four minutes of 3-second inhale, 6-second exhale breathing — set a timer so you know exactly when you're done.\n**Why this, now**\nYour scores are climbing; adding an active parasympathetic trigger after the task-writing could push that trend further.",
+    "published_words": 89
+  },
+  {
+    "case_id": "week-helpful-writing",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 63,
+    "daily_gate_pass": true,
+    "published_output": "**Pattern**\nOura scored 78; 7 comparable nights ranged from 61 to 78.\n**What this likely means**\nScores and reported feelings improved across the same period you completed the writing habit.\n**Tonight's action**\nBefore bed, write tomorrow's tasks for three minutes.\n**Why this, now**\nYou completed it all six nights and said it helped you stop working in bed.",
+    "published_words": 58
+  },
+  {
+    "case_id": "week-failed-breathing",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 115,
+    "daily_gate_pass": false,
+    "published_output": "**Pattern**\nYour Oura score has been locked at 64–66 for seven straight nights, and you've woken tired every single morning.\n**What this likely means**\nSix completed nights of breathing made no measurable difference, and your own report names the real culprit: reopening work email in bed is likely keeping your nervous system activated right when it needs to downshift.\n**Tonight's action**\nLeave your phone charging at your desk before you brush your teeth — use that as the hard cue — and do not bring it into the bedroom.\n**Why this, now**\nThe breathing was the right tool but email in bed was overriding it; removing the phone eliminates the stimulus, not just the response.",
+    "published_words": 115
+  },
+  {
+    "case_id": "week-failed-breathing",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 72,
+    "daily_gate_pass": true,
+    "published_output": "**Pattern**\nOura scored 65; 7 comparable nights ranged from 64 to 66.\n**What this likely means**\nBreathing was feasible but you reported no benefit, and you identify reopening work email in bed as the clearest ongoing disruption.\n**Tonight's action**\nLeave your phone charging at your desk before getting into bed.\n**Why this, now**\nYou said your phone can charge at your desk and you keep reopening work email in bed.",
+    "published_words": 70
+  },
+  {
+    "case_id": "week-new-caregiving",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 105,
+    "daily_gate_pass": false,
+    "published_output": "**Pattern**\nYour Oura score has dropped from 77 to 64 over seven nights, and you've woken tired every day since your partner left.\n**What this likely means**\nSolo bedtime caregiving is likely cutting into your wind-down time and keeping your nervous system activated right up until you sleep.\n**Tonight's action**\nAfter the baby is down, take one slow breath: inhale for 3 seconds, exhale for 6 seconds, and repeat for 60 seconds before you get into bed.\n**Why this, now**\nYou have one minute — this fits exactly, and the long exhale is the fastest lever for shifting out of fight-or-flight after a demanding evening.",
+    "published_words": 105
+  },
+  {
+    "case_id": "week-new-caregiving",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 61,
+    "daily_gate_pass": true,
+    "published_output": "**Pattern**\nOura scored 64; 7 comparable nights ranged from 63 to 78.\n**What this likely means**\nThe ten-minute reading experiment became impossible once solo caregiving began this week.\n**Tonight's action**\nAfter settling the baby, take one slow breath before lying down.\n**Why this, now**\nYou said you have only one minute before bed, making this a feasible low-burden trial.",
+    "published_words": 59
+  },
+  {
+    "case_id": "week-manual-conflict",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 101,
+    "daily_gate_pass": false,
+    "published_output": "**Pattern**\nYour Oura score held steady at 74 this week, but you rated last night a 35 — the wearable missed something real.\n**What this likely means**\nLying awake worrying about today's presentation likely kept your nervous system activated in ways that disrupted your subjective experience even if gross sleep architecture looked intact.\n**Tonight's action**\nBefore bed, spend three minutes writing every open loop about tomorrow onto paper, then physically close the notebook.\n**Why this, now**\nYou said writing helps you organize and you have three minutes — this externalizes the mental queue so your brain stops rehearsing it at 2am.",
+    "published_words": 101
+  },
+  {
+    "case_id": "week-manual-conflict",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 61,
+    "daily_gate_pass": true,
+    "published_output": "**Pattern**\nOura scored 74; your own sleep rating was 35.\n**What this likely means**\nYou reported feeling much worse than the wearable captured, with worry as the stated reason.\n**Tonight's action**\nBefore bed, spend three minutes writing down concerns about the presentation.\n**Why this, now**\nYou said writing helps you organize, and you can spare three minutes.",
+    "published_words": 57
+  }
+]

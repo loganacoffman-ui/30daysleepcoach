@@ -487,6 +487,7 @@ const fetchDailyCoaching = async (
   }>('sleep-coach', {
     body: { mode: 'daily_coach', coachContext, refresh: options.refresh === true },
   });
+  if (data?.status === 'experiment_changed') throw new Error('Your experiment changed while coaching was loading. Please try again.');
   if (data?.status === 'awaiting_sleep_data') throw new Error('Sync sleep data or submit a manual sleep score to unlock today’s coaching.');
   if (error || data?.status !== 'ok' || !data.recommendation) throw error ?? new Error('Your daily coaching could not be generated.');
   return {

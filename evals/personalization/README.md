@@ -1,18 +1,18 @@
 # 30D-49 coaching evaluation build
 
-This is a reviewable candidate and local baseline, supporting the dependency on 30D-44. It does **not** activate a production prompt or complete hosted Braintrust evaluation. All examples are synthetic; no user records or interviews are uploaded.
+This PR implements evaluated instructions in the native daily-coaching path, with factual score summaries and experiment/commitment safeguards. It has not been merged or deployed and does not complete hosted Braintrust evaluation (30D-44). All examples are synthetic; no user records or interviews are uploaded.
 
 ## Reproduce
 
-`node evals/personalization/run.mjs` validates the manifest with no API calls. Defaults to six development cases; `--split holdout` selects six held-out regression scenarios. Do not tune against the holdout results.
+`node --experimental-strip-types evals/personalization/run.mjs` validates the manifest with no API calls. Defaults to six development cases; `--split holdout` selects six held-out regression scenarios. Do not tune against the holdout results.
 
 An explicit live comparison uses an existing authorized Anthropic key from the environment:
 
-`node evals/personalization/run.mjs --execute --split development --out /private/tmp/sleep-coach-eval-development`
+`node --experimental-strip-types evals/personalization/run.mjs --execute --split development --out /private/tmp/sleep-coach-eval-development`
 
 Then run holdout once the candidate is frozen. Both variants use the same model, inputs and 800-token response cap, production daily-request instructions and provider-default temperature. Every output records model, token usage and latency; manifests pin dataset and prompt hashes. No secrets are written to output. The local runner sends synthetic context only to Anthropic and does not write to Supabase, Mem0 or Braintrust. No automatic retries/paid loops. The default model matches repository configuration; verify availability before a live run.
 
-Baseline is a frozen snapshot of the daily recommendation prompt plus 30D-39 personalization guidance. It isolates the broader instruction change from the memory plumbing. Candidate preserves the four-heading parser contract, removes unsupported mechanism shortcuts and improves constraint/experiment guidance. It is not imported by the app.
+Baseline is a frozen snapshot of the daily recommendation prompt plus 30D-39 personalization guidance. It isolates the broader instruction change from the memory plumbing. Candidate preserves the four-heading parser contract, removes unsupported mechanism shortcuts and improves constraint/experiment guidance. The candidate is imported by the native daily endpoint through dailyCoachingPrompt.ts; a parity test checks exact equality.
 
 ## Human review rubric
 
@@ -30,8 +30,12 @@ Promotion requires zero critical safety/correction failures, valid parser format
 
 ## Current evidence and remaining work
 
-Dry-run manifest and dataset/runner tests verify reproducibility, not model quality. The [initial comparison](results/2026-09-22-development/REVIEW.md) failed a correction check. The [refinement review](results/2026-09-22-refinement/REVIEW.md) records three development revisions and one frozen holdout run: the final candidate produced 12/12 parsable answers under 85 words, with no critical correction/safety failures observed in unblinded Codex review. It still produces repetitive sparse-data advice and has not been independently reviewed or integrated. All cases have one measured night, so richer-history validation is still needed. Holdout has now been consumed; do not tune against it and claim it remains unseen. Hosted Braintrust work remains under 30D-44.
+The [initial comparison](results/2026-09-22-development/REVIEW.md) and [first refinement](results/2026-09-22-refinement/REVIEW.md) are retained. The [multi-night integration review](results/2026-09-23-integration/REVIEW.md) contains the current decision, paired answers, test results, limitations and release/rollback steps.
 
-After evaluation passes, a separate reviewed change can import the candidate into the server, bump the daily prompt version in both runtime contracts and confirm parser/client compatibility. Rollback keeps the frozen baseline and restores the prior versioned prompt. Nothing here merges, deploys or creates a TestFlight build.
+Use `--dataset cases-longitudinal.json` for the eight multi-night scenarios. Both datasets' reserved cases have now been used; do not tune against them and call them unseen again. Before further prompt tuning, reserve new cases.
 
-This compares generated daily advice only. It does not exercise memory retrieval, caching or the app's final experiment selection. Production can retain an existing experiment after generation; verify that integration before promoting any candidate.
+The runner uses the same context builder as native daily coaching. It records raw output plus the grounded Pattern used by the runtime. Review the final displayed candidate alongside its raw answer; do not mistake deterministic grounding for proof that the model's original wording was correct. An existing same-day commitment is protected by endpoint tests; the live synthetic comparison does not write any commitments.
+
+## Access
+
+Anthropic is already configured in the Supabase project. A missing local ANTHROPIC_API_KEY does not mean the app's integration is absent. The recorded live comparisons used a temporary, fixed-scenario, access-protected function with the existing server secret, then removed the function. Never expose that secret or add arbitrary prompt execution to the public coaching endpoint. The local runner remains available for an already-configured developer environment.
