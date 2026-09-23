@@ -10,7 +10,7 @@ An explicit live comparison uses an existing authorized Anthropic key from the e
 
 `node evals/personalization/run.mjs --execute --split development --out /private/tmp/sleep-coach-eval-development`
 
-Then run holdout once the candidate is frozen. Both variants use the same model, inputs and 400-token response cap. Every output records model, token usage and latency; manifests pin dataset and prompt hashes. No secrets are written to output. The local runner sends synthetic context only to Anthropic and does not write to Supabase, Mem0 or Braintrust. No automatic retries/paid loops. The default model matches repository configuration; verify availability before a live run.
+Then run holdout once the candidate is frozen. Both variants use the same model, inputs and 800-token response cap, production daily-request instructions and provider-default temperature. Every output records model, token usage and latency; manifests pin dataset and prompt hashes. No secrets are written to output. The local runner sends synthetic context only to Anthropic and does not write to Supabase, Mem0 or Braintrust. No automatic retries/paid loops. The default model matches repository configuration; verify availability before a live run.
 
 Baseline is a frozen snapshot of the daily recommendation prompt plus 30D-39 personalization guidance. It isolates the broader instruction change from the memory plumbing. Candidate preserves the four-heading parser contract, removes unsupported mechanism shortcuts and improves constraint/experiment guidance. It is not imported by the app.
 
@@ -33,3 +33,5 @@ Promotion requires zero critical safety/correction failures, valid parser format
 Dry-run manifest and dataset/runner tests can verify reproducibility, not model quality. No live outputs, human scores, latency or provider cost have been measured in this build. Do not present this as a proven coaching improvement. 30D-44 hosted dataset/run tracking is still open.
 
 After evaluation passes, a separate reviewed change can import the candidate into the server, bump the daily prompt version in both runtime contracts and confirm parser/client compatibility. Rollback keeps the frozen baseline and restores the prior versioned prompt. Nothing here merges, deploys or creates a TestFlight build.
+
+This compares generated daily advice only. It does not exercise memory retrieval, caching or the app's final experiment selection. Production can retain an existing experiment after generation; verify that integration before promoting any candidate.

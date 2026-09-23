@@ -14,7 +14,8 @@
     "candidate": "aac5891949aa959a335b89d9969cd8a2aa21a551fbe37993507e7052c0014903"
   },
   "model": "claude-sonnet-4-6",
-  "max_output_tokens": 400,
+  "max_output_tokens": 800,
+  "temperature": "provider default (matches production)",
   "calls": 12,
   "status": "dry-run; no model calls or quality scores"
 }
