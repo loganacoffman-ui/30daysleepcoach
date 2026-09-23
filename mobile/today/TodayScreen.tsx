@@ -557,6 +557,9 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
           : sleepData ?? snapshot.sleepData,
       };
       setSnapshot(saved);
+      // Finishing updates the snapshot without reloading the day. Schedule
+      // coaching from the saved evidence so it starts while this screen stays open.
+      setCoachingCheck({ evidence: dailyCoachingEvidence(saved) });
       void screenCache.write(draftOwner, TODAY_CACHE_NAME, TODAY_CACHE_VERSION, saved).catch(() => undefined);
       void chat?.onCheckinComplete?.(finalConversation.turns);
     } catch (saveError) {
