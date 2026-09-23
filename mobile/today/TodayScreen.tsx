@@ -338,7 +338,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
   }, [loadToday]);
 
   useEffect(() => {
-    if (!coachingCheck?.evidence || !user || !profile) return;
+    if (saving || !coachingCheck?.evidence || !user || !profile) return;
     let active = true;
     setCoachingBusy(true);
     setCoachingError('');
@@ -347,16 +347,18 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
       .catch(() => { if (active) setCoachingError('Today’s coaching isn’t ready yet.'); })
       .finally(() => { if (active) setCoachingBusy(false); });
     return () => { active = false; };
-  }, [applyCoaching, coachingCheck, profile, user]);
+  }, [applyCoaching, coachingCheck, profile, saving, user]);
 
-  const regenerateCoaching = useCallback(async () => {
+  const refreshCoaching = useCallback(async (forceRegenerate = false) => {
     if (!user || !profile || coachingBusy) return;
     setCoachingBusy(true);
     setCoachingError('');
     try {
-      applyCoaching(await loadDailyCoaching(user, profile, { refresh: true }));
+      applyCoaching(await loadDailyCoaching(user, profile, { freshSources: true, refresh: forceRegenerate }));
     } catch {
-      setCoachingError('Today’s coaching could not be rewritten. Please try again.');
+      setCoachingError(forceRegenerate
+        ? 'Today’s coaching could not be rewritten. Please try again.'
+        : 'Today’s coaching isn’t ready yet.');
     } finally {
       setCoachingBusy(false);
     }
@@ -557,11 +559,15 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
           : sleepData ?? snapshot.sleepData,
       };
       setSnapshot(saved);
+      void screenCache.write(draftOwner, TODAY_CACHE_NAME, TODAY_CACHE_VERSION, saved).catch(() => undefined);
+      // The transcript also supplies recent user context to daily coaching.
+      // Let it settle before generation so this same check-in cannot invalidate
+      // the report while the model is working. Its failure must not undo a save.
+      try { await chat?.onCheckinComplete?.(finalConversation.turns); }
+      catch { /* The saved check-in still supplies the user's notes. */ }
       // Finishing updates the snapshot without reloading the day. Schedule
       // coaching from the saved evidence so it starts while this screen stays open.
       setCoachingCheck({ evidence: dailyCoachingEvidence(saved) });
-      void screenCache.write(draftOwner, TODAY_CACHE_NAME, TODAY_CACHE_VERSION, saved).catch(() => undefined);
-      void chat?.onCheckinComplete?.(finalConversation.turns);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Your check-in was not saved. Please try finishing again.');
     } finally {
@@ -883,7 +889,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
                     accessibilityRole="button"
                     disabled={coachingBusy}
                     hitSlop={10}
-                    onPress={() => void regenerateCoaching()}
+                    onPress={() => void refreshCoaching(true)}
                     style={({ pressed }) => [styles.regenerate, pressed && styles.pressed]}
                   >
                     {coachingBusy
@@ -899,7 +905,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
               </View>
             )}
             {!!coachingError && (
-              <Pressable accessibilityRole="button" onPress={() => void regenerateCoaching()}>
+              <Pressable accessibilityRole="button" disabled={coachingBusy} onPress={() => void refreshCoaching()}>
                 <Text style={styles.reportLoadingText}>{coachingError} Tap to try again.</Text>
               </Pressable>
             )}

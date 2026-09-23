@@ -51,7 +51,7 @@ afterEach(async () => {
   delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
 });
 
-async function openReadyCheckin(sleepData: TodaySnapshot['sleepData']) {
+async function openReadyCheckin(sleepData: TodaySnapshot['sleepData'], onCheckinComplete?: () => Promise<void>) {
   let snapshot: TodaySnapshot = {
     date: '2026-09-23', dayNumber: 3, checkin: null, sleepData,
     dailyCoaching: null, commitment: null, previousCommitment: null,
@@ -68,7 +68,10 @@ async function openReadyCheckin(sleepData: TodaySnapshot['sleepData']) {
     updateCommitmentStatus: vi.fn(), saveManualSleepScore: vi.fn(), clearManualSleepScore: vi.fn(),
   };
   await act(async () => {
-    screen = create(createElement(TodayScreen, { user, profile, repository }));
+    screen = create(createElement(TodayScreen, { user, profile, repository,
+      chat: onCheckinComplete ? { onCheckinComplete, messages: [], renderMessage: () => null,
+        onSend: async () => true, sending: false, disabled: false, error: '' } : undefined,
+    }));
   });
   const finish = () => screen!.root.findAllByType('Pressable' as any)
     .find(button => button.findAllByType('Text' as any)
@@ -121,4 +124,38 @@ it('does not generate when saving fails, and generates after a successful retry'
   await act(async () => finish().props.onPress());
   expect(repository.saveCheckin).toHaveBeenCalledTimes(2);
   expect(loadDailyCoaching).toHaveBeenCalledExactlyOnceWith(user, profile, { freshSources: true });
+});
+
+it('waits for the transcript so the check-in cannot change context mid-generation', async () => {
+  let finishTranscript!: () => void;
+  const onCheckinComplete = vi.fn(() => new Promise<void>(resolve => { finishTranscript = resolve; }));
+  const { finish, publishReport } = await openReadyCheckin({ status: 'wearable', score: 79, source: 'oura' }, onCheckinComplete);
+  vi.mocked(loadDailyCoaching).mockImplementation(async () => { publishReport(); return coaching; });
+  await act(async () => finish().props.onPress());
+  expect(onCheckinComplete).toHaveBeenCalledOnce();
+  expect(loadDailyCoaching).not.toHaveBeenCalled();
+  await act(async () => finishTranscript());
+  expect(loadDailyCoaching).toHaveBeenCalledOnce();
+});
+
+it('still generates from the saved check-in if its transcript fails', async () => {
+  const { finish, publishReport } = await openReadyCheckin({ status: 'wearable', score: 79, source: 'oura' }, async () => { throw new Error('Transcript unavailable'); });
+  vi.mocked(loadDailyCoaching).mockImplementation(async () => { publishReport(); return coaching; });
+  await act(async () => finish().props.onPress());
+  expect(loadDailyCoaching).toHaveBeenCalledOnce();
+  expect(screen!.root.findByType('ChatComposer' as any).props.error).toBeFalsy();
+});
+
+it('retries with cache reuse, while an explicit Rewrite remains a forced generation', async () => {
+  const { finish, publishReport } = await openReadyCheckin({ status: 'wearable', score: 79, source: 'oura' });
+  vi.mocked(loadDailyCoaching).mockRejectedValueOnce(new Error('Connection lost'));
+  await act(async () => finish().props.onPress());
+  const retry = screen!.root.findAllByType('Pressable' as any).find(button =>
+    button.findAllByType('Text' as any).some(text => [text.props.children].flat().join('').includes('Tap to try again.')))!;
+  vi.mocked(loadDailyCoaching).mockImplementation(async () => { publishReport(); return coaching; });
+  await act(async () => retry.props.onPress());
+  expect(vi.mocked(loadDailyCoaching).mock.calls[1][2]).toEqual({ freshSources: true, refresh: false });
+  const rewrite = screen!.root.findByProps({ accessibilityLabel: 'Rewrite today’s coaching' });
+  await act(async () => rewrite.props.onPress());
+  expect(vi.mocked(loadDailyCoaching).mock.calls[2][2]).toEqual({ freshSources: true, refresh: true });
 });

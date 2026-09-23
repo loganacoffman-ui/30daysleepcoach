@@ -1568,12 +1568,14 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
       if (currentCommitmentError) throw currentCommitmentError;
 
-      const { data: existing } = await supabase
+      const { data: existing, error: existingError } = await supabase
         .from("coach_recommendations")
         .select("pattern, meaning, action, why, generated_at, prompt_version, source_context")
         .eq("user_id", user.id)
         .eq("recommendation_date", recommendationDate)
         .maybeSingle();
+      // An unavailable cache is not evidence that a new report is needed.
+      if (existingError) throw existingError;
 
       if (!forceRegenerate && isDailyCoachCacheReusable(existing, sourceFingerprint)) {
         const commitmentError = await syncDailyExperimentCommitment(

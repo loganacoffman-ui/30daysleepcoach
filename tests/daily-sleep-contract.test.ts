@@ -9,6 +9,7 @@ vi.mock('../supabase/functions/_shared/tracing.ts', () => ({
   startAnthropicSpan: vi.fn(), endAnthropicSpan: vi.fn(),
 }));
 let reports: any[];
+let profile: any, adherence: any[], currentCommitment: any, cacheReadError: any;
 let checkins: any[], nights: any[], oura: any[], stored: any, writes: string[], filters: any[];
 const date = '2026-09-18';
 const manual = { checkin_date: date, manual_sleep_score: 0, manual_sleep_submitted_at: `${date}T08:00:00Z`, note: 'Restless' };
@@ -19,6 +20,7 @@ beforeAll(async () => {
 });
 beforeEach(() => {
   reports = []; checkins = []; nights = []; oura = []; stored = null; writes = []; filters = [];
+  profile = {}; adherence = []; currentCommitment = null; cacheReadError = null;
   vi.stubGlobal('fetch', fetchMock);
   fetchMock.mockReset().mockImplementation(async () => new Response(JSON.stringify({ content: [{ type: 'text', text: "**Pattern** A pattern\n**What this likely means** Meaning\n**Tonight's action** Dim lights\n**Why this, now** Rest" }] }), { status: 200 }));
   state.client = {
@@ -32,7 +34,7 @@ beforeEach(() => {
         maybeSingle: () => { single = true; return query; }, single: () => { single = true; return query; },
         upsert: (value: any) => { record = value; stored = value; writes.push(table); return query; },
         insert: () => { writes.push(table); return query; }, update: () => { writes.push(table); return query; },
-        then: (resolve: any) => resolve({ error: null, data: record ?? (table === 'coach_messages' ? reports : table === 'daily_checkins' ? checkins : table === 'sleep_nights' ? nights : table === 'sleep_profiles' ? {} : table === 'coach_recommendations' ? stored : single ? null : []) }),
+        then: (resolve: any) => resolve({ error: table === 'coach_recommendations' && !record ? cacheReadError : null, data: record ?? (table === 'coach_messages' ? reports : table === 'daily_checkins' ? checkins : table === 'sleep_nights' ? nights : table === 'sleep_profiles' ? profile : table === 'coach_recommendations' ? cacheReadError ? null : stored : table === 'behavior_commitments' ? single ? currentCommitment : adherence : single ? null : []) }),
       };
       return query;
     },
@@ -138,4 +140,47 @@ it('uses authenticated cross-conversation corrections and refreshes advice after
   expect(payload).toContain('I now work days and my race is over.');
   expect(payload).not.toContain('Forged context');
   expect(filters).toContainEqual(['coach_messages', 'user_id', 'user-1']);
+});
+
+it('reuses the exact saved report on repeated checks after its experiment is saved', async () => {
+  checkins = [manual];
+  const first = await (await request()).json();
+  currentCommitment = { id: 'experiment', behavior: first.recommendation.action, status: 'committed' };
+  for (let check = 0; check < 3; check++) {
+    const response = await request({ coachContext: { date, profile: { ignored_client_field: check } } });
+    expect(response.headers.get('X-Cache')).toBe('HIT');
+    expect(await response.json()).toEqual(first);
+  }
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+it.each(['profile', 'checkin', 'adherence'])('regenerates once for new %s context, then reuses it', async input => {
+  checkins = [manual];
+  await request();
+  if (input === 'profile') profile = { primary_concern: 'falling_asleep' };
+  if (input === 'checkin') checkins = [{ ...manual, note: 'I changed my work schedule.' }];
+  if (input === 'adherence') adherence = [{ behavior_date: '2026-09-17', behavior: 'Dim lights', status: 'completed' }];
+  expect((await request()).headers.get('X-Cache')).toBe('MISS');
+  expect((await request()).headers.get('X-Cache')).toBe('HIT');
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+});
+
+it('does not spend another model call when the saved-report lookup fails', async () => {
+  checkins = [manual];
+  await request();
+  cacheReadError = { message: 'Cache read unavailable' };
+  expect((await request()).status).toBe(500);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  cacheReadError = null;
+  expect((await request()).headers.get('X-Cache')).toBe('HIT');
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+it('only an explicit refresh bypasses unchanged evidence', async () => {
+  checkins = [manual];
+  await request();
+  expect((await request()).headers.get('X-Cache')).toBe('HIT');
+  expect((await request({ refresh: true })).headers.get('X-Cache')).toBe('MISS');
+  expect((await request()).headers.get('X-Cache')).toBe('HIT');
+  expect(fetchMock).toHaveBeenCalledTimes(2);
 });
