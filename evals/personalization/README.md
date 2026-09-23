@@ -30,7 +30,7 @@ Promotion requires zero critical safety/correction failures, valid parser format
 
 ## Current evidence and remaining work
 
-Dry-run manifest and dataset/runner tests can verify reproducibility, not model quality. An initial live development comparison is recorded in [the September 22 review](results/2026-09-22-development/REVIEW.md). The candidate failed a correction check; do not promote it. Independent human scores, held-out results and provider dollar cost remain unmeasured. Do not present this as a proven coaching improvement. 30D-44 hosted dataset/run tracking is still open.
+Dry-run manifest and dataset/runner tests verify reproducibility, not model quality. The [initial comparison](results/2026-09-22-development/REVIEW.md) failed a correction check. The [refinement review](results/2026-09-22-refinement/REVIEW.md) records three development revisions and one frozen holdout run: the final candidate produced 12/12 parsable answers under 85 words, with no critical correction/safety failures observed in unblinded Codex review. It still produces repetitive sparse-data advice and has not been independently reviewed or integrated. All cases have one measured night, so richer-history validation is still needed. Holdout has now been consumed; do not tune against it and claim it remains unseen. Hosted Braintrust work remains under 30D-44.
 
 After evaluation passes, a separate reviewed change can import the candidate into the server, bump the daily prompt version in both runtime contracts and confirm parser/client compatibility. Rollback keeps the frozen baseline and restores the prior versioned prompt. Nothing here merges, deploys or creates a TestFlight build.
 

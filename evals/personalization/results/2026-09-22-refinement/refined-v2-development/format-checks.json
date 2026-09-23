@@ -1,0 +1,146 @@
+[
+  {
+    "case_id": "shift-correction",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 142,
+    "section_words": {
+      "pattern": 19,
+      "meaning": 21,
+      "action": 26,
+      "why": 18
+    }
+  },
+  {
+    "case_id": "shift-correction",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 67,
+    "section_words": {
+      "pattern": 15,
+      "meaning": 15,
+      "action": 14,
+      "why": 13
+    }
+  },
+  {
+    "case_id": "race-resolved",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 103,
+    "section_words": {
+      "pattern": 16,
+      "meaning": 14,
+      "action": 14,
+      "why": 27
+    }
+  },
+  {
+    "case_id": "race-resolved",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 62,
+    "section_words": {
+      "pattern": 12,
+      "meaning": 11,
+      "action": 15,
+      "why": 14
+    }
+  },
+  {
+    "case_id": "deadline-active",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 122,
+    "section_words": {
+      "pattern": 19,
+      "meaning": 20,
+      "action": 23,
+      "why": 24
+    }
+  },
+  {
+    "case_id": "deadline-active",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 62,
+    "section_words": {
+      "pattern": 14,
+      "meaning": 10,
+      "action": 14,
+      "why": 14
+    }
+  },
+  {
+    "case_id": "deadline-ended",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 149,
+    "section_words": {
+      "pattern": 23,
+      "meaning": 25,
+      "action": 19,
+      "why": 22
+    }
+  },
+  {
+    "case_id": "deadline-ended",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 63,
+    "section_words": {
+      "pattern": 14,
+      "meaning": 13,
+      "action": 13,
+      "why": 13
+    }
+  },
+  {
+    "case_id": "habit-correction",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 173,
+    "section_words": {
+      "pattern": 20,
+      "meaning": 30,
+      "action": 24,
+      "why": 25
+    }
+  },
+  {
+    "case_id": "habit-correction",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 71,
+    "section_words": {
+      "pattern": 17,
+      "meaning": 12,
+      "action": 16,
+      "why": 16
+    }
+  },
+  {
+    "case_id": "impractical-experiment",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 169,
+    "section_words": {
+      "pattern": 17,
+      "meaning": 24,
+      "action": 25,
+      "why": 26
+    }
+  },
+  {
+    "case_id": "impractical-experiment",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 54,
+    "section_words": {
+      "pattern": 12,
+      "meaning": 10,
+      "action": 11,
+      "why": 11
+    }
+  }
+]

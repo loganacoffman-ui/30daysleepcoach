@@ -1,0 +1,158 @@
+{
+  "refined-v2-development": {
+    "baseline": {
+      "outputs": 6,
+      "parser_passes": 6,
+      "under_85_words_including_headings": 0,
+      "all_sections_at_most_16_words": 0,
+      "raw_word_range": [
+        103,
+        173
+      ],
+      "median_provider_latency_ms": 6370.0,
+      "p95_latency_ms_nearest_rank": 7641,
+      "input_tokens": 19670,
+      "output_tokens": 1246,
+      "all_end_turn": true
+    },
+    "candidate": {
+      "outputs": 6,
+      "parser_passes": 6,
+      "under_85_words_including_headings": 6,
+      "all_sections_at_most_16_words": 5,
+      "raw_word_range": [
+        54,
+        71
+      ],
+      "median_provider_latency_ms": 3578.5,
+      "p95_latency_ms_nearest_rank": 3982,
+      "input_tokens": 7538,
+      "output_tokens": 616,
+      "all_end_turn": true
+    }
+  },
+  "refined-v3-development": {
+    "baseline": {
+      "outputs": 6,
+      "parser_passes": 5,
+      "under_85_words_including_headings": 0,
+      "all_sections_at_most_16_words": 0,
+      "raw_word_range": [
+        116,
+        151
+      ],
+      "median_provider_latency_ms": 5972.0,
+      "p95_latency_ms_nearest_rank": 6728,
+      "input_tokens": 19670,
+      "output_tokens": 1177,
+      "all_end_turn": true
+    },
+    "candidate": {
+      "outputs": 6,
+      "parser_passes": 6,
+      "under_85_words_including_headings": 6,
+      "all_sections_at_most_16_words": 6,
+      "raw_word_range": [
+        51,
+        61
+      ],
+      "median_provider_latency_ms": 3078.5,
+      "p95_latency_ms_nearest_rank": 3999,
+      "input_tokens": 7964,
+      "output_tokens": 558,
+      "all_end_turn": true
+    }
+  },
+  "refined-v4-development": {
+    "baseline": {
+      "outputs": 6,
+      "parser_passes": 5,
+      "under_85_words_including_headings": 0,
+      "all_sections_at_most_16_words": 0,
+      "raw_word_range": [
+        117,
+        209
+      ],
+      "median_provider_latency_ms": 5797.5,
+      "p95_latency_ms_nearest_rank": 7957,
+      "input_tokens": 19670,
+      "output_tokens": 1190,
+      "all_end_turn": true,
+      "rubric_means": {
+        "context_relevance": 1.3333333333333333,
+        "correction_temporal_accuracy": 1.5,
+        "actionability": 1.6666666666666667,
+        "experiment_continuity": 2,
+        "grounding_safety": 0
+      }
+    },
+    "candidate": {
+      "outputs": 6,
+      "parser_passes": 6,
+      "under_85_words_including_headings": 6,
+      "all_sections_at_most_16_words": 6,
+      "raw_word_range": [
+        49,
+        58
+      ],
+      "median_provider_latency_ms": 2378.0,
+      "p95_latency_ms_nearest_rank": 2819,
+      "input_tokens": 9542,
+      "output_tokens": 527,
+      "all_end_turn": true,
+      "rubric_means": {
+        "context_relevance": 1.3333333333333333,
+        "correction_temporal_accuracy": 2,
+        "actionability": 2,
+        "experiment_continuity": 2,
+        "grounding_safety": 2
+      }
+    }
+  },
+  "refined-v4-holdout": {
+    "baseline": {
+      "outputs": 6,
+      "parser_passes": 5,
+      "under_85_words_including_headings": 0,
+      "all_sections_at_most_16_words": 0,
+      "raw_word_range": [
+        109,
+        130
+      ],
+      "median_provider_latency_ms": 5391.0,
+      "p95_latency_ms_nearest_rank": 6530,
+      "input_tokens": 19545,
+      "output_tokens": 999,
+      "all_end_turn": true,
+      "rubric_means": {
+        "context_relevance": 1.1666666666666667,
+        "correction_temporal_accuracy": 1.8333333333333333,
+        "actionability": 1.8333333333333333,
+        "experiment_continuity": 1.6666666666666667,
+        "grounding_safety": 0.5
+      }
+    },
+    "candidate": {
+      "outputs": 6,
+      "parser_passes": 6,
+      "under_85_words_including_headings": 6,
+      "all_sections_at_most_16_words": 5,
+      "raw_word_range": [
+        52,
+        71
+      ],
+      "median_provider_latency_ms": 2547.0,
+      "p95_latency_ms_nearest_rank": 2968,
+      "input_tokens": 9417,
+      "output_tokens": 566,
+      "all_end_turn": true,
+      "rubric_means": {
+        "context_relevance": 1.5,
+        "correction_temporal_accuracy": 2,
+        "actionability": 2,
+        "experiment_continuity": 2,
+        "grounding_safety": 2
+      }
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "baseline": {
+    "outputs": 6,
+    "parser_passes": 5,
+    "under_85_words_including_headings": 0,
+    "all_sections_at_most_16_words": 0,
+    "raw_word_range": [
+      109,
+      130
+    ],
+    "median_provider_latency_ms": 5391.0,
+    "p95_latency_ms_nearest_rank": 6530,
+    "input_tokens": 19545,
+    "output_tokens": 999,
+    "all_end_turn": true,
+    "rubric_means": {
+      "context_relevance": 1.1666666666666667,
+      "correction_temporal_accuracy": 1.8333333333333333,
+      "actionability": 1.8333333333333333,
+      "experiment_continuity": 1.6666666666666667,
+      "grounding_safety": 0.5
+    }
+  },
+  "candidate": {
+    "outputs": 6,
+    "parser_passes": 6,
+    "under_85_words_including_headings": 6,
+    "all_sections_at_most_16_words": 5,
+    "raw_word_range": [
+      52,
+      71
+    ],
+    "median_provider_latency_ms": 2547.0,
+    "p95_latency_ms_nearest_rank": 2968,
+    "input_tokens": 9417,
+    "output_tokens": 566,
+    "all_end_turn": true,
+    "rubric_means": {
+      "context_relevance": 1.5,
+      "correction_temporal_accuracy": 2,
+      "actionability": 2,
+      "experiment_continuity": 2,
+      "grounding_safety": 2
+    }
+  }
+}
