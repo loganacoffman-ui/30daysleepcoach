@@ -1,0 +1,38 @@
+{
+  "baseline": {
+    "outputs": 6,
+    "median_latency_ms": 7330.0,
+    "p95_latency_ms_nearest_rank": 8353,
+    "input_tokens": 19670,
+    "output_tokens": 1346,
+    "word_counts_excluding_headings": [
+      185,
+      104,
+      158,
+      186,
+      116,
+      108
+    ],
+    "under_85_words": 0,
+    "critical_correction_failures": 1,
+    "all_generations_completed": true
+  },
+  "candidate": {
+    "outputs": 6,
+    "median_latency_ms": 6232.5,
+    "p95_latency_ms_nearest_rank": 7377,
+    "input_tokens": 7280,
+    "output_tokens": 1135,
+    "word_counts_excluding_headings": [
+      126,
+      103,
+      131,
+      121,
+      118,
+      113
+    ],
+    "under_85_words": 0,
+    "critical_correction_failures": 1,
+    "all_generations_completed": true
+  }
+}

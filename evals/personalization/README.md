@@ -30,7 +30,7 @@ Promotion requires zero critical safety/correction failures, valid parser format
 
 ## Current evidence and remaining work
 
-Dry-run manifest and dataset/runner tests can verify reproducibility, not model quality. No live outputs, human scores, latency or provider cost have been measured in this build. Do not present this as a proven coaching improvement. 30D-44 hosted dataset/run tracking is still open.
+Dry-run manifest and dataset/runner tests can verify reproducibility, not model quality. An initial live development comparison is recorded in [the September 22 review](results/2026-09-22-development/REVIEW.md). The candidate failed a correction check; do not promote it. Independent human scores, held-out results and provider dollar cost remain unmeasured. Do not present this as a proven coaching improvement. 30D-44 hosted dataset/run tracking is still open.
 
 After evaluation passes, a separate reviewed change can import the candidate into the server, bump the daily prompt version in both runtime contracts and confirm parser/client compatibility. Rollback keeps the frozen baseline and restores the prior versioned prompt. Nothing here merges, deploys or creates a TestFlight build.
 
