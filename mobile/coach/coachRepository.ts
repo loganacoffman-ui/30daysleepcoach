@@ -453,10 +453,31 @@ export const loadStoredDailyCoaching = async (userId: string, date: string): Pro
 
 // The server reuses matching evidence. A changed day snapshot needs fresh source
 // reads, while only the explicit `refresh` action forces a new generation.
+const dailyCoachingRequests = new Map<string, Promise<DailyCoaching>>();
+
 export const loadDailyCoaching = async (
   user: User,
   profile: SleepProfile,
   options: { refresh?: boolean; freshSources?: boolean } = {},
+): Promise<DailyCoaching> => {
+  const key = `${user.id}:${localDate()}`;
+  // A refresh during generation must wait for its result to be stored before
+  // checking the server cache. Still perform the later check: new chat context
+  // may have arrived while the first request was running.
+  const previous = dailyCoachingRequests.get(key);
+  const request = (previous ? previous.catch(() => undefined) : Promise.resolve())
+    .then(() => fetchDailyCoaching(user, profile, options));
+  dailyCoachingRequests.set(key, request);
+  try { return await request; }
+  finally {
+    if (dailyCoachingRequests.get(key) === request) dailyCoachingRequests.delete(key);
+  }
+};
+
+const fetchDailyCoaching = async (
+  user: User,
+  profile: SleepProfile,
+  options: { refresh?: boolean; freshSources?: boolean },
 ): Promise<DailyCoaching> => {
   if (options.refresh || options.freshSources) invalidateCoachContext(user.id);
   const coachContext = await loadCoachContext(user, profile);

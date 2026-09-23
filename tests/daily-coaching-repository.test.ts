@@ -64,3 +64,53 @@ it('preserves manual reports alongside wearable evidence during revalidation', a
   const request = vi.mocked(supabase.functions.invoke).mock.calls.find(([name]) => name === 'sleep-coach');
   expect(request?.[1]?.body).toMatchObject({ refresh: false, coachContext: { subjective_checkins: [expect.objectContaining({ manual_sleep_score: 60, note: 'Restless night' })], wearable_sleep: [{ day: localDate(), score: 79, source: 'oura' }] } });
 });
+
+it('serializes overlapping requests and reads changed input after the first result is saved', async () => {
+  const invoke = vi.mocked(supabase.functions.invoke);
+  const original = invoke.getMockImplementation()!;
+  let release!: () => void;
+  let held = false;
+  invoke.mockImplementation(async (...args) => {
+    if (args[0] === 'sleep-coach' && !held) {
+      held = true;
+      await new Promise<void>(resolve => { release = resolve; });
+    }
+    return original(...args);
+  });
+  const requests = () => invoke.mock.calls.filter(([name]) => name === 'sleep-coach');
+  const first = loadDailyCoaching(user, profile, { freshSources: true });
+  await vi.waitFor(() => expect(requests()).toHaveLength(1));
+  const second = loadDailyCoaching(user, profile, { freshSources: true });
+  // Let context loads and invoke settle if a second request incorrectly starts.
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(requests()).toHaveLength(1);
+  score = 88;
+  release();
+  await Promise.all([first, second]);
+  expect(requests()).toHaveLength(2);
+  expect(requests()[0][1]?.body).toMatchObject({ refresh: false, coachContext: { wearable_sleep: [{ score: 79, day: localDate(), source: 'oura' }] } });
+  expect(requests()[1][1]?.body).toMatchObject({ refresh: false, coachContext: { wearable_sleep: [{ score: 88, day: localDate(), source: 'oura' }] } });
+});
+
+it('allows a queued retry after a failed request without forcing regeneration', async () => {
+  const invoke = vi.mocked(supabase.functions.invoke);
+  const original = invoke.getMockImplementation()!;
+  let fail!: () => void;
+  let held = false;
+  invoke.mockImplementation(async (...args) => {
+    if (args[0] === 'sleep-coach' && !held) {
+      held = true;
+      await new Promise<void>((_resolve, reject) => { fail = () => reject(new Error('Connection lost')); });
+    }
+    return original(...args);
+  });
+  const first = loadDailyCoaching(user, profile, { freshSources: true }).catch(error => error);
+  await vi.waitFor(() => expect(held).toBe(true));
+  const retry = loadDailyCoaching(user, profile, { freshSources: true });
+  fail();
+  expect(await first).toMatchObject({ message: 'Connection lost' });
+  expect(await retry).toMatchObject({ action: report.action });
+  const requests = invoke.mock.calls.filter(([name]) => name === 'sleep-coach');
+  expect(requests).toHaveLength(2);
+  expect(requests[1][1]?.body).toMatchObject({ refresh: false });
+});
