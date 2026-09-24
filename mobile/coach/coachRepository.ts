@@ -15,7 +15,7 @@ import { supabase, supabasePublicKey, supabaseUrl } from '../supabase';
 import type { MorningFeeling } from '../today/feeling';
 import { normalizeMorningFeeling } from '../today/feeling';
 
-export type DailyCoaching = { pattern: string; meaning: string; action: string; why: string; generatedAt: string };
+export type DailyCoaching = { decision?: 'continue' | 'simplify' | 'replace' | 'clarify'; pattern: string; meaning: string; action: string; why: string; generatedAt: string };
 export type CoachToolCallStatus = 'pending' | 'completed' | 'cancelled' | 'failed' | 'expired';
 export type CoachToolCall = {
   id: string;
@@ -483,7 +483,7 @@ const fetchDailyCoaching = async (
   const coachContext = await loadCoachContext(user, profile);
   const { data, error } = await supabase.functions.invoke<{
     status?: string;
-    recommendation?: { pattern: string; meaning: string; action: string; why: string; generated_at: string };
+    recommendation?: { decision?: DailyCoaching['decision']; pattern: string; meaning: string; action: string; why: string; generated_at: string };
   }>('sleep-coach', {
     body: { mode: 'daily_coach', coachContext, refresh: options.refresh === true },
   });
@@ -496,6 +496,7 @@ const fetchDailyCoaching = async (
     action: data.recommendation.action,
     why: data.recommendation.why,
     generatedAt: data.recommendation.generated_at,
+    decision: data.recommendation.decision,
   };
 };
 

@@ -34,6 +34,8 @@ export type DailyCoachingReport = {
   meaning: string;
   action: string;
   generatedAt: string;
+  decision?: 'continue' | 'simplify' | 'replace' | 'clarify';
+  why?: string;
 };
 
 export type TodaySnapshot = {

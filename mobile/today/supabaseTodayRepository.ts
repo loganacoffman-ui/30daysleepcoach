@@ -53,13 +53,6 @@ export const createSupabaseTodayRepository = (user: User, greetingName: string |
 
     const history = historyResult.data ?? [];
     const current = commitmentResult.data;
-    const firstDifferentExperiment = current
-      ? history.findIndex(item => item.behavior !== current.behavior)
-      : 0;
-    const previousRunNights = firstDifferentExperiment === -1
-      ? history.length
-      : firstDifferentExperiment;
-
     const previous = history.find(item => item.status === 'committed') ?? null;
     const checkin = checkinResult.data;
     const wearableRows: WearableSleep[] = [];
@@ -103,6 +96,8 @@ export const createSupabaseTodayRepository = (user: User, greetingName: string |
         meaning: recommendation.meaning,
         action: recommendation.action,
         generatedAt: recommendation.generated_at,
+        decision: recommendation.source_context?.decision?.kind,
+        why: recommendation.why,
       } : null,
       // A score the user submitted themselves is their correction of the night,
       // so it outranks whatever the wearable reported for the same date.
@@ -118,8 +113,6 @@ export const createSupabaseTodayRepository = (user: User, greetingName: string |
         behavior: current.behavior,
         why: recommendation?.action === current.behavior ? recommendation?.why : undefined,
         status: current.status,
-        runDay: Math.min(3, previousRunNights + 1),
-        runLength: 3,
       } : null,
       previousCommitment: previous ? { id:previous.id, behaviorDate:previous.behavior_date, behavior:previous.behavior, status:previous.status } : null,
     };

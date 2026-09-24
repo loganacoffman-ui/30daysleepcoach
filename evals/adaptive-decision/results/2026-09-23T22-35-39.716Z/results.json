@@ -1,0 +1,626 @@
+[
+  {
+    "case_id": "schedule-correction",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2375,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 221,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 5621,
+    "output": "{\"decision\":\"replace\",\"reason\":\"User explicitly corrected to a 9–5 day schedule; the prior experiment targeted daytime sleep, which no longer applies.\",\"pattern\":\"They now sleep 11 pm–7 am and report checking work email in bed as the main disruption.\",\"meaning\":\"A manual score of 65 with a tired morning feeling signals poor rest, but one night is too sparse to confirm a cause.\",\"action\":\"Keep your phone out of arm's reach at bedtime so checking work email requires a deliberate effort to get up.\",\"why\":\"Email in bed is their stated obstacle, and adding friction directly addresses the habit without requiring extra time.\"}",
+    "split": "regression",
+    "expected": "replace",
+    "rubric": "Reject obsolete daytime-sleep advice; choose an action relevant to email in bed without changing sleep hours.",
+    "parsed": {
+      "decision": "replace",
+      "reason": "User explicitly corrected to a 9–5 day schedule; the prior experiment targeted daytime sleep, which no longer applies.",
+      "pattern": "They now sleep 11 pm–7 am and report checking work email in bed as the main disruption.",
+      "meaning": "A manual score of 65 with a tired morning feeling signals poor rest, but one night is too sparse to confirm a cause.",
+      "action": "Keep your phone out of arm's reach at bedtime so checking work email requires a deliberate effort to get up.",
+      "why": "Email in bed is their stated obstacle, and adding friction directly addresses the habit without requiring extra time."
+    },
+    "displayed": {
+      "decision": "replace",
+      "reason": "User explicitly corrected to a 9–5 day schedule; the prior experiment targeted daytime sleep, which no longer applies.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A manual score of 65 with a tired morning feeling signals poor rest, but one night is too sparse to confirm a cause.",
+      "action": "Keep your phone out of arm's reach at bedtime so checking work email requires a deliberate effort to get up.",
+      "why": "Email in bed is their stated obstacle, and adding friction directly addresses the habit without requiring extra time."
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "less-time",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2348,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 222,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 5135,
+    "output": "{\"decision\":\"simplify\",\"reason\":\"User partially completed the 20-minute reading experiment and explicitly requested a shorter version due to new family responsibilities leaving only two minutes.\",\"pattern\":\"Reading felt settling but the 20-minute format was only partially completed under new time constraints.\",\"meaning\":\"A self-score of 65 with a tired morning feeling suggests sleep wasn't restorative, though one partial night can't confirm reading as the cause.\",\"action\":\"Read for two minutes before bed — even a page or two counts.\",\"why\":\"You said reading helps you settle and that two minutes is what's currently available, so preserving the habit in a smaller form keeps it feasible.\"}",
+    "split": "regression",
+    "expected": "simplify",
+    "rubric": "Reduce burden while retaining the useful reading intent.",
+    "parsed": {
+      "decision": "simplify",
+      "reason": "User partially completed the 20-minute reading experiment and explicitly requested a shorter version due to new family responsibilities leaving only two minutes.",
+      "pattern": "Reading felt settling but the 20-minute format was only partially completed under new time constraints.",
+      "meaning": "A self-score of 65 with a tired morning feeling suggests sleep wasn't restorative, though one partial night can't confirm reading as the cause.",
+      "action": "Read for two minutes before bed — even a page or two counts.",
+      "why": "You said reading helps you settle and that two minutes is what's currently available, so preserving the habit in a smaller form keeps it feasible."
+    },
+    "displayed": {
+      "decision": "simplify",
+      "reason": "User partially completed the 20-minute reading experiment and explicitly requested a shorter version due to new family responsibilities leaving only two minutes.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A self-score of 65 with a tired morning feeling suggests sleep wasn't restorative, though one partial night can't confirm reading as the cause.",
+      "action": "Read for two minutes before bed — even a page or two counts.",
+      "why": "You said reading helps you settle and that two minutes is what's currently available, so preserving the habit in a smaller form keeps it feasible."
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "useful-despite-change",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2358,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 205,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 5162,
+    "output": "{\"decision\":\"continue\",\"reason\":\"User explicitly reports the song habit helps them settle and fits their bedtime despite a busier job schedule.\",\"pattern\":\"Last night's adherence was partial, and this morning's self-rated score was 65 with a tired feeling.\",\"meaning\":\"A single partial night and one self-rating can't tell us whether the habit is working overall, but the user finds it helpful and manageable.\",\"action\":\"Listen to one quiet song before bed.\",\"why\":\"The user wants to keep this habit and says it helps them settle, even with a busier new job.\"}",
+    "split": "regression",
+    "expected": "continue",
+    "rubric": "Keep the useful feasible action despite changed life context.",
+    "parsed": {
+      "decision": "continue",
+      "reason": "User explicitly reports the song habit helps them settle and fits their bedtime despite a busier job schedule.",
+      "pattern": "Last night's adherence was partial, and this morning's self-rated score was 65 with a tired feeling.",
+      "meaning": "A single partial night and one self-rating can't tell us whether the habit is working overall, but the user finds it helpful and manageable.",
+      "action": "Listen to one quiet song before bed.",
+      "why": "The user wants to keep this habit and says it helps them settle, even with a busier new job."
+    },
+    "displayed": {
+      "decision": "continue",
+      "reason": "User explicitly reports the song habit helps them settle and fits their bedtime despite a busier job schedule.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A single partial night and one self-rating can't tell us whether the habit is working overall, but the user finds it helpful and manageable.",
+      "action": "Listen to one quiet song before bed.",
+      "why": "The user wants to keep this habit and says it helps them settle, even with a busier new job."
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "essential-unknown",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2293,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 202,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 4901,
+    "output": "{\"decision\":\"clarify\",\"reason\":\"User's shifts just changed and next sleep window is unknown, making a specific nap time impossible to recommend safely.\",\"pattern\":\"No sleep window or shift schedule is currently on record after the employer change.\",\"meaning\":\"Without knowing your next shift time, any nap timing I suggest could conflict with your actual sleep opportunity.\",\"action\":\"What time does your next shift start, and roughly when do you plan to sleep before it?\",\"why\":\"Nap timing depends entirely on your new shift start and intended sleep window, neither of which is known yet.\"}",
+    "split": "regression",
+    "expected": "clarify",
+    "rubric": "Ask the one essential schedule question; do not invent a clock time or commit a question as an experiment.",
+    "parsed": {
+      "decision": "clarify",
+      "reason": "User's shifts just changed and next sleep window is unknown, making a specific nap time impossible to recommend safely.",
+      "pattern": "No sleep window or shift schedule is currently on record after the employer change.",
+      "meaning": "Without knowing your next shift time, any nap timing I suggest could conflict with your actual sleep opportunity.",
+      "action": "What time does your next shift start, and roughly when do you plan to sleep before it?",
+      "why": "Nap timing depends entirely on your new shift start and intended sleep window, neither of which is known yet."
+    },
+    "displayed": {
+      "decision": "clarify",
+      "reason": "User's shifts just changed and next sleep window is unknown, making a specific nap time impossible to recommend safely.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "Without knowing your next shift time, any nap timing I suggest could conflict with your actual sleep opportunity.",
+      "action": "What time does your next shift start, and roughly when do you plan to sleep before it?",
+      "why": "Nap timing depends entirely on your new shift start and intended sleep window, neither of which is known yet."
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "family-calls",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2364,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 225,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 5701,
+    "output": "{\"decision\":\"replace\",\"reason\":\"User reports phone-outside experiment was only partial and created a new obstacle: missing urgent overnight family calls.\",\"pattern\":\"Keeping the phone outside reduced scrolling but conflicts with a real need to stay reachable overnight.\",\"meaning\":\"A manual score of 65 with a tired morning reflects self-reported sleep quality, but we can't confirm a cause from one night.\",\"action\":\"Keep the phone nearby but enable Do Not Disturb with \\\"Allow Calls From\\\" set to your family contacts only, so notifications are silenced while urgent calls still ring through.\",\"why\":\"This preserves the scrolling barrier while directly addressing the overnight family call requirement you reported.\"}",
+    "split": "regression",
+    "expected": "adapt",
+    "rubric": "Preserve urgent-call access while reducing scrolling; do not repeat the impossible action or ask an unnecessary motive question.",
+    "parsed": {
+      "decision": "replace",
+      "reason": "User reports phone-outside experiment was only partial and created a new obstacle: missing urgent overnight family calls.",
+      "pattern": "Keeping the phone outside reduced scrolling but conflicts with a real need to stay reachable overnight.",
+      "meaning": "A manual score of 65 with a tired morning reflects self-reported sleep quality, but we can't confirm a cause from one night.",
+      "action": "Keep the phone nearby but enable Do Not Disturb with \"Allow Calls From\" set to your family contacts only, so notifications are silenced while urgent calls still ring through.",
+      "why": "This preserves the scrolling barrier while directly addressing the overnight family call requirement you reported."
+    },
+    "displayed": {
+      "decision": "replace",
+      "reason": "User reports phone-outside experiment was only partial and created a new obstacle: missing urgent overnight family calls.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A manual score of 65 with a tired morning reflects self-reported sleep quality, but we can't confirm a cause from one night.",
+      "action": "Keep the phone nearby but enable Do Not Disturb with \"Allow Calls From\" set to your family contacts only, so notifications are silenced while urgent calls still ring through.",
+      "why": "This preserves the scrolling barrier while directly addressing the overnight family call requirement you reported."
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "resolved-deadline",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2376,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 232,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 5129,
+    "output": "{\"decision\":\"replace\",\"reason\":\"User reports project is done, work rumination has ended, and writing work tasks now increases alertness rather than helping.\",\"pattern\":\"The task-writing experiment was partially tried but its original purpose no longer applies now that the project is complete.\",\"meaning\":\"A manual score of 65 with a tired morning feeling tells us sleep felt poor, but we can't attribute that to any single cause.\",\"action\":\"At 10:45 pm, put on one quiet, familiar song and let it play as you settle into bed at 11 pm.\",\"why\":\"You reported that a quiet familiar song feels relaxing and is unrelated to work, fitting your stated bedtime of 11 pm.\"}",
+    "split": "regression",
+    "expected": "replace",
+    "rubric": "Do not invent lingering deadline stress or new free time; choose an unrelated feasible action.",
+    "parsed": {
+      "decision": "replace",
+      "reason": "User reports project is done, work rumination has ended, and writing work tasks now increases alertness rather than helping.",
+      "pattern": "The task-writing experiment was partially tried but its original purpose no longer applies now that the project is complete.",
+      "meaning": "A manual score of 65 with a tired morning feeling tells us sleep felt poor, but we can't attribute that to any single cause.",
+      "action": "At 10:45 pm, put on one quiet, familiar song and let it play as you settle into bed at 11 pm.",
+      "why": "You reported that a quiet familiar song feels relaxing and is unrelated to work, fitting your stated bedtime of 11 pm."
+    },
+    "displayed": {
+      "decision": "replace",
+      "reason": "User reports project is done, work rumination has ended, and writing work tasks now increases alertness rather than helping.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A manual score of 65 with a tired morning feeling tells us sleep felt poor, but we can't attribute that to any single cause.",
+      "action": "At 10:45 pm, put on one quiet, familiar song and let it play as you settle into bed at 11 pm.",
+      "why": "You reported that a quiet familiar song feels relaxing and is unrelated to work, fitting your stated bedtime of 11 pm."
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "long-useful-run",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2348,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 182,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 4379,
+    "output": "{\"decision\":\"continue\",\"reason\":\"User reports eight nights of adherence, finds the habit settling and easy, and explicitly wants to continue.\",\"pattern\":\"Reading one page before bed has felt manageable across eight nights.\",\"meaning\":\"A self-rated 65 with a tired morning tells us sleep felt poor today, but can't tell us why.\",\"action\":\"Read one page before bed.\",\"why\":\"You've reported consistent ease and a settling effect, making continuation the right fit right now.\"}",
+    "split": "regression",
+    "expected": "continue",
+    "rubric": "Keep the useful experiment rather than rotating it after a fixed duration.",
+    "parsed": {
+      "decision": "continue",
+      "reason": "User reports eight nights of adherence, finds the habit settling and easy, and explicitly wants to continue.",
+      "pattern": "Reading one page before bed has felt manageable across eight nights.",
+      "meaning": "A self-rated 65 with a tired morning tells us sleep felt poor today, but can't tell us why.",
+      "action": "Read one page before bed.",
+      "why": "You've reported consistent ease and a settling effect, making continuation the right fit right now."
+    },
+    "displayed": {
+      "decision": "continue",
+      "reason": "User reports eight nights of adherence, finds the habit settling and easy, and explicitly wants to continue.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A self-rated 65 with a tired morning tells us sleep felt poor today, but can't tell us why.",
+      "action": "Read one page before bed.",
+      "why": "You've reported consistent ease and a settling effect, making continuation the right fit right now."
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "sensitive-context",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2361,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 222,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 5210,
+    "output": "{\"decision\":\"simplify\",\"reason\":\"The twenty-minute routine was only partially completed, and the user now reports only one minute available for winding down due to a current personal stressor.\",\"pattern\":\"The twenty-minute routine was partially done and one minute is the realistic wind-down window tonight.\",\"meaning\":\"A self-score of 65 with a tired morning feeling signals disrupted rest, though sparse data can't confirm a cause.\",\"action\":\"Play one familiar, calming song as your entire wind-down signal before bed tonight.\",\"why\":\"You said familiar music helps and one minute is all that's currently available, making a single song both feasible and personally meaningful.\"}",
+    "split": "regression",
+    "expected": "adapt",
+    "rubric": "Offer a feasible small action without repeating unnecessary sensitive details or inventing a diagnosis.",
+    "parsed": {
+      "decision": "simplify",
+      "reason": "The twenty-minute routine was only partially completed, and the user now reports only one minute available for winding down due to a current personal stressor.",
+      "pattern": "The twenty-minute routine was partially done and one minute is the realistic wind-down window tonight.",
+      "meaning": "A self-score of 65 with a tired morning feeling signals disrupted rest, though sparse data can't confirm a cause.",
+      "action": "Play one familiar, calming song as your entire wind-down signal before bed tonight.",
+      "why": "You said familiar music helps and one minute is all that's currently available, making a single song both feasible and personally meaningful."
+    },
+    "displayed": {
+      "decision": "simplify",
+      "reason": "The twenty-minute routine was only partially completed, and the user now reports only one minute available for winding down due to a current personal stressor.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A self-score of 65 with a tired morning feeling signals disrupted rest, though sparse data can't confirm a cause.",
+      "action": "Play one familiar, calming song as your entire wind-down signal before bed tonight.",
+      "why": "You said familiar music helps and one minute is all that's currently available, making a single song both feasible and personally meaningful."
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "move-with-continuity",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2313,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 180,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 4146,
+    "output": "{\"decision\":\"continue\",\"reason\":\"User explicitly reports the one-song routine still helps and wants to keep it after moving apartments.\",\"pattern\":\"Sleep scored 65 (manual) with a tired morning feeling on the first night after moving.\",\"meaning\":\"A single post-move night is too sparse to distinguish routine sleep from adjustment effects.\",\"action\":\"Listen to one quiet song before bed.\",\"why\":\"The routine is working by your own report, and the new room already feels comfortable.\"}",
+    "split": "regression",
+    "expected": "continue",
+    "rubric": "An unrelated life change should not force replacement of an effective feasible habit.",
+    "parsed": {
+      "decision": "continue",
+      "reason": "User explicitly reports the one-song routine still helps and wants to keep it after moving apartments.",
+      "pattern": "Sleep scored 65 (manual) with a tired morning feeling on the first night after moving.",
+      "meaning": "A single post-move night is too sparse to distinguish routine sleep from adjustment effects.",
+      "action": "Listen to one quiet song before bed.",
+      "why": "The routine is working by your own report, and the new room already feels comfortable."
+    },
+    "displayed": {
+      "decision": "continue",
+      "reason": "User explicitly reports the one-song routine still helps and wants to keep it after moving apartments.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A single post-move night is too sparse to distinguish routine sleep from adjustment effects.",
+      "action": "Listen to one quiet song before bed.",
+      "why": "The routine is working by your own report, and the new room already feels comfortable."
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "disliked-writing",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2315,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 200,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 5573,
+    "output": "{\"decision\":\"replace\",\"reason\":\"User reports writing worries increased rumination and they dislike journaling; quiet instrumental music is their preferred relaxation approach.\",\"pattern\":\"The worry-writing experiment made winding down harder rather than easier.\",\"meaning\":\"A manual score of 65 with a tired morning feeling reflects how they felt, but cannot tell us what caused it.\",\"action\":\"Play quiet instrumental music for two minutes as you get into bed tonight.\",\"why\":\"The user explicitly dislikes journaling, finds music relaxing, and asked for a two-minute alternative.\"}",
+    "split": "regression",
+    "expected": "replace",
+    "rubric": "Use reported failure and preferences to choose a different feasible action without inventing a diagnosis.",
+    "parsed": {
+      "decision": "replace",
+      "reason": "User reports writing worries increased rumination and they dislike journaling; quiet instrumental music is their preferred relaxation approach.",
+      "pattern": "The worry-writing experiment made winding down harder rather than easier.",
+      "meaning": "A manual score of 65 with a tired morning feeling reflects how they felt, but cannot tell us what caused it.",
+      "action": "Play quiet instrumental music for two minutes as you get into bed tonight.",
+      "why": "The user explicitly dislikes journaling, finds music relaxing, and asked for a two-minute alternative."
+    },
+    "displayed": {
+      "decision": "replace",
+      "reason": "User reports writing worries increased rumination and they dislike journaling; quiet instrumental music is their preferred relaxation approach.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A manual score of 65 with a tired morning feeling reflects how they felt, but cannot tell us what caused it.",
+      "action": "Play quiet instrumental music for two minutes as you get into bed tonight.",
+      "why": "The user explicitly dislikes journaling, finds music relaxing, and asked for a two-minute alternative."
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "unexpected-noise",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2314,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 210,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 4823,
+    "output": "{\"decision\":\"replace\",\"reason\":\"User reports evening construction noise makes silence unavailable this week, making the current experiment infeasible.\",\"pattern\":\"Evening construction is disrupting the planned pre-bed silence routine this week.\",\"meaning\":\"A self-score of 65 with a tired morning feeling suggests rest wasn't fully restorative, though one night is too sparse to identify a cause.\",\"action\":\"Put on quiet, familiar music through headphones for ten minutes before bed instead of silence.\",\"why\":\"You noted that quiet familiar music helps when silence isn't available, preserving the wind-down intent within the noise constraint.\"}",
+    "split": "regression",
+    "expected": "adapt",
+    "rubric": "Recognize a temporary practical constraint and choose an available alternative rather than insist on silence.",
+    "parsed": {
+      "decision": "replace",
+      "reason": "User reports evening construction noise makes silence unavailable this week, making the current experiment infeasible.",
+      "pattern": "Evening construction is disrupting the planned pre-bed silence routine this week.",
+      "meaning": "A self-score of 65 with a tired morning feeling suggests rest wasn't fully restorative, though one night is too sparse to identify a cause.",
+      "action": "Put on quiet, familiar music through headphones for ten minutes before bed instead of silence.",
+      "why": "You noted that quiet familiar music helps when silence isn't available, preserving the wind-down intent within the noise constraint."
+    },
+    "displayed": {
+      "decision": "replace",
+      "reason": "User reports evening construction noise makes silence unavailable this week, making the current experiment infeasible.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A self-score of 65 with a tired morning feeling suggests rest wasn't fully restorative, though one night is too sparse to identify a cause.",
+      "action": "Put on quiet, familiar music through headphones for ten minutes before bed instead of silence.",
+      "why": "You noted that quiet familiar music helps when silence isn't available, preserving the wind-down intent within the noise constraint."
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "uncertain-availability",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2289,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 222,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 5657,
+    "output": "{\"decision\":\"clarify\",\"reason\":\"User is on call tonight but doesn't yet know the required coverage hours, making any fixed bedtime infeasible to set now.\",\"pattern\":\"No quantitative sleep data is available; today's manual score of 65 with a tired morning feeling is the only record.\",\"meaning\":\"A single self-reported score can tell us how you felt this morning but cannot reveal a trend or cause.\",\"action\":\"What hours do you need to cover tonight — once you know, I can recommend the best available sleep window around them.\",\"why\":\"Setting a specific bedtime before the on-call schedule is confirmed risks advice that conflicts with your actual coverage hours.\"}",
+    "split": "regression",
+    "expected": "clarify",
+    "rubric": "Ask the essential timing question rather than invent a bedtime or change mandatory work hours.",
+    "parsed": {
+      "decision": "clarify",
+      "reason": "User is on call tonight but doesn't yet know the required coverage hours, making any fixed bedtime infeasible to set now.",
+      "pattern": "No quantitative sleep data is available; today's manual score of 65 with a tired morning feeling is the only record.",
+      "meaning": "A single self-reported score can tell us how you felt this morning but cannot reveal a trend or cause.",
+      "action": "What hours do you need to cover tonight — once you know, I can recommend the best available sleep window around them.",
+      "why": "Setting a specific bedtime before the on-call schedule is confirmed risks advice that conflicts with your actual coverage hours."
+    },
+    "displayed": {
+      "decision": "clarify",
+      "reason": "User is on call tonight but doesn't yet know the required coverage hours, making any fixed bedtime infeasible to set now.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A single self-reported score can tell us how you felt this morning but cannot reveal a trend or cause.",
+      "action": "What hours do you need to cover tonight — once you know, I can recommend the best available sleep window around them.",
+      "why": "Setting a specific bedtime before the on-call schedule is confirmed risks advice that conflicts with your actual coverage hours."
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "shorter-audio",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2322,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 234,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 5083,
+    "output": "{\"decision\":\"simplify\",\"reason\":\"User reports audiobooks help relaxation but new routine allows only 90 seconds before bed, making a full chapter infeasible.\",\"pattern\":\"Audiobooks are helpful for winding down, but the current full-chapter format no longer fits the available pre-bed window.\",\"meaning\":\"A manual score of 65 with a tired morning feeling reflects how sleep felt, though we can't determine the cause from this alone.\",\"action\":\"Set a 90-second audiobook timer before bed each night, letting it cut off naturally when time is up.\",\"why\":\"You want to keep the relaxing benefit of audiobooks in a way that actually fits your new 90-second pre-bed window.\"}",
+    "split": "holdout",
+    "expected": "simplify",
+    "rubric": "Specify an audio duration at or below 90 seconds without assuming a chapter fits.",
+    "parsed": {
+      "decision": "simplify",
+      "reason": "User reports audiobooks help relaxation but new routine allows only 90 seconds before bed, making a full chapter infeasible.",
+      "pattern": "Audiobooks are helpful for winding down, but the current full-chapter format no longer fits the available pre-bed window.",
+      "meaning": "A manual score of 65 with a tired morning feeling reflects how sleep felt, though we can't determine the cause from this alone.",
+      "action": "Set a 90-second audiobook timer before bed each night, letting it cut off naturally when time is up.",
+      "why": "You want to keep the relaxing benefit of audiobooks in a way that actually fits your new 90-second pre-bed window."
+    },
+    "displayed": {
+      "decision": "simplify",
+      "reason": "User reports audiobooks help relaxation but new routine allows only 90 seconds before bed, making a full chapter infeasible.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A manual score of 65 with a tired morning feeling reflects how sleep felt, though we can't determine the cause from this alone.",
+      "action": "Set a 90-second audiobook timer before bed each night, letting it cut off naturally when time is up.",
+      "why": "You want to keep the relaxing benefit of audiobooks in a way that actually fits your new 90-second pre-bed window."
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "necessary-device",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2327,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 224,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 5497,
+    "output": "{\"decision\":\"replace\",\"reason\":\"User explicitly states moving the tablet away is not possible due to a caregiving monitor need, making the current experiment infeasible.\",\"pattern\":\"The tablet must stay bedside for caregiving, but entertainment apps are disrupting sleep.\",\"meaning\":\"A manual score of 65 with morning tiredness suggests poor sleep, though one night cannot confirm a cause.\",\"action\":\"Before bed, enable Guided Access (iOS) or Screen Pinning (Android) to lock the tablet to the monitor app only, so entertainment apps are inaccessible without a passcode.\",\"why\":\"This keeps the monitor available while removing the entertainment distraction you identified as the obstacle.\"}",
+    "split": "holdout",
+    "expected": "adapt",
+    "rubric": "Address entertainment access directly while preserving monitor access; do not conflate notification reduction with preventing entertainment use.",
+    "parsed": {
+      "decision": "replace",
+      "reason": "User explicitly states moving the tablet away is not possible due to a caregiving monitor need, making the current experiment infeasible.",
+      "pattern": "The tablet must stay bedside for caregiving, but entertainment apps are disrupting sleep.",
+      "meaning": "A manual score of 65 with morning tiredness suggests poor sleep, though one night cannot confirm a cause.",
+      "action": "Before bed, enable Guided Access (iOS) or Screen Pinning (Android) to lock the tablet to the monitor app only, so entertainment apps are inaccessible without a passcode.",
+      "why": "This keeps the monitor available while removing the entertainment distraction you identified as the obstacle."
+    },
+    "displayed": {
+      "decision": "replace",
+      "reason": "User explicitly states moving the tablet away is not possible due to a caregiving monitor need, making the current experiment infeasible.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A manual score of 65 with morning tiredness suggests poor sleep, though one night cannot confirm a cause.",
+      "action": "Before bed, enable Guided Access (iOS) or Screen Pinning (Android) to lock the tablet to the monitor app only, so entertainment apps are inaccessible without a passcode.",
+      "why": "This keeps the monitor available while removing the entertainment distraction you identified as the obstacle."
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "unchanged-under-stress",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2316,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 194,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 4304,
+    "output": "{\"decision\":\"continue\",\"reason\":\"User explicitly reports the music habit still helps, still fits, and does not want to replace it despite a more stressful commute this month.\",\"pattern\":\"You rated sleep 65 and woke feeling tired, with added commute stress this month.\",\"meaning\":\"A tired morning alongside commute stress doesn't tell us the music routine isn't working.\",\"action\":\"Listen to two minutes of calm music before bed.\",\"why\":\"You said it still helps and fits your schedule, and you want to keep it.\"}",
+    "split": "holdout",
+    "expected": "continue",
+    "rubric": "Retain useful feasible behavior despite new stress without inferring that it stopped helping.",
+    "parsed": {
+      "decision": "continue",
+      "reason": "User explicitly reports the music habit still helps, still fits, and does not want to replace it despite a more stressful commute this month.",
+      "pattern": "You rated sleep 65 and woke feeling tired, with added commute stress this month.",
+      "meaning": "A tired morning alongside commute stress doesn't tell us the music routine isn't working.",
+      "action": "Listen to two minutes of calm music before bed.",
+      "why": "You said it still helps and fits your schedule, and you want to keep it."
+    },
+    "displayed": {
+      "decision": "continue",
+      "reason": "User explicitly reports the music habit still helps, still fits, and does not want to replace it despite a more stressful commute this month.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A tired morning alongside commute stress doesn't tell us the music routine isn't working.",
+      "action": "Listen to two minutes of calm music before bed.",
+      "why": "You said it still helps and fits your schedule, and you want to keep it."
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "unknown-sleep-window",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2290,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 210,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 4991,
+    "output": "{\"decision\":\"clarify\",\"reason\":\"User explicitly states departure time, arrival time, and time zones are unknown, and these are all required to build a feasible travel sleep plan.\",\"pattern\":\"You rated sleep 65 and woke feeling tired, with travel starting tomorrow.\",\"meaning\":\"A travel sleep plan requires specific times and zones that you've noted haven't been shared yet.\",\"action\":\"What are your departure time and location, arrival time and location, and destination time zone for tomorrow's trip?\",\"why\":\"Without those details, any sleep timing recommendation would be a guess that may not match your actual itinerary.\"}",
+    "split": "holdout",
+    "expected": "clarify",
+    "rubric": "Ask for essential travel timing rather than invent a schedule or time zone.",
+    "parsed": {
+      "decision": "clarify",
+      "reason": "User explicitly states departure time, arrival time, and time zones are unknown, and these are all required to build a feasible travel sleep plan.",
+      "pattern": "You rated sleep 65 and woke feeling tired, with travel starting tomorrow.",
+      "meaning": "A travel sleep plan requires specific times and zones that you've noted haven't been shared yet.",
+      "action": "What are your departure time and location, arrival time and location, and destination time zone for tomorrow's trip?",
+      "why": "Without those details, any sleep timing recommendation would be a guess that may not match your actual itinerary."
+    },
+    "displayed": {
+      "decision": "clarify",
+      "reason": "User explicitly states departure time, arrival time, and time zones are unknown, and these are all required to build a feasible travel sleep plan.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A travel sleep plan requires specific times and zones that you've noted haven't been shared yet.",
+      "action": "What are your departure time and location, arrival time and location, and destination time zone for tomorrow's trip?",
+      "why": "Without those details, any sleep timing recommendation would be a guess that may not match your actual itinerary."
+    },
+    "decision_check": true
+  }
+]

@@ -5,6 +5,7 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "vitest": "^3.2.1"
   }
 }

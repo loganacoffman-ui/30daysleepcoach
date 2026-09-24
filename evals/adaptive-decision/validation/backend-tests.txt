@@ -1,0 +1,50 @@
+Check supabase/functions/_shared/checkinReply_test.ts
+Check supabase/functions/_shared/coachTools_test.ts
+Check supabase/functions/_shared/coaching-cache_test.ts
+Check supabase/functions/_shared/helpers_test.ts
+Check supabase/functions/_shared/memory_test.ts
+running 5 tests from ./supabase/functions/_shared/checkinReply_test.ts
+check-in interpretation sends the question and full reply to the model and validates its result ... ok (20ms)
+check-in model failure never becomes an unanswered question or a guessed category ... ok (1ms)
+check-in contract rejects invalid categories, missing answers, and premature completion ... ok (454µs)
+check-in contract permits contextual clarifications, uncategorized factors, and natural finish intent ... ok (82µs)
+check-in input validates step, role, text, and context limits before calling the model ... ok (279µs)
+running 4 tests from ./supabase/functions/_shared/coachTools_test.ts
+coach tools find tool use without losing text blocks ... ok (486µs)
+coach tools validate experiment proposal input ... ok (144µs)
+coach tools reject unsupported tools and invented empty reasons ... ok (328µs)
+coach tools expose only confirmation-safe proposal fields ... ok (129µs)
+running 11 tests from ./supabase/functions/_shared/coaching-cache_test.ts
+wearable readiness requires a scored row for the requested day ... ok (492µs)
+daily coach fingerprint is stable across object key order ... ok (13ms)
+unchanged sources reuse the stored daily recommendation ... ok (331µs)
+newer Oura data invalidates once, then reuses the refreshed row ... ok (23ms)
+corrected Oura data invalidates once, then reuses the refreshed row ... ok (248µs)
+manual, qualitative, profile, and prior adherence changes invalidate coaching ... ok (340µs)
+saving today's experiment does not invalidate its own coaching ... ok (273µs)
+the sleep profile stays cached across days until its evidence changes ... ok (173µs)
+the daily artifact keeps one wire shape for reused and fresh rows ... ok (77µs)
+a sleep profile response always carries a usable summary ... ok (88µs)
+latest wearable summary selects the newest available day ... ok (46µs)
+running 14 tests from ./supabase/functions/_shared/helpers_test.ts
+sanitizeRedirect: returns fallback for non-string input ... ok (468µs)
+sanitizeRedirect: returns fallback for invalid URL string ... ok (437µs)
+sanitizeRedirect: allows 30daysleepcoach.com ... ok (179µs)
+sanitizeRedirect: allows localhost ... ok (76µs)
+sanitizeRedirect: allows 127.0.0.1 ... ok (58µs)
+sanitizeRedirect: allows *.netlify.app ... ok (10ms)
+sanitizeRedirect: rejects arbitrary domains ... ok (521µs)
+sanitizeRedirect: rejects javascript: protocol ... ok (44µs)
+redirectWithStatus: builds redirect with query param ... ok (4ms)
+redirectWithStatus: preserves existing query params ... ok (106µs)
+jsonResponse: returns JSON with correct status and CORS ... ok (859µs)
+jsonResponse: sets custom status ... ok (75µs)
+ALLOWED_ENDPOINTS contains expected values ... ok (37µs)
+ALLOWED_ENDPOINTS rejects unknown endpoints ... ok (40µs)
+running 4 tests from ./supabase/functions/_shared/memory_test.ts
+createMemoryProvider: disables memory without an API key ... ok (492µs)
+Mem0MemoryProvider: translates neutral search input to Mem0 v3 ... ok (22ms)
+Mem0MemoryProvider: sends conversations with temporal context ... ok (247µs)
+Mem0MemoryProvider: deletes memories using the verified user scope ... ok (401µs)
+
+ok | 38 passed | 0 failed (225ms)
