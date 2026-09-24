@@ -1,8 +1,0 @@
-
-(() => {
-const root=document.getElementById('sleep-navy-concept');
-const content={morning:{greeting:'Good morning.',sub:'Let’s start with how you feel.',label:'YOUR DAILY CHECK-IN',title:'How was last night?',body:'How rested do you feel? Tell your coach how you slept and anything that might have affected your night.',action:'Start check-in ↗'},evening:{greeting:'Build on what’s working.',sub:'Your sleep data, with your context.',label:'TONIGHT’S EXPERIMENT',title:'Keep your three anchors tonight.',body:'Your sleep score averaged 15 points higher on nights with an 11 a.m. caffeine cutoff, a cool room, and a 15-minute brain dump this past week. Keep them consistent and see if the pattern holds.',action:'I’ll try this tonight ✓'},reflect:{greeting:'Look back. Learn a little.',sub:'Notice what felt different this week.',label:'YOUR WEEKLY REFLECTION',title:'What’s working for you?',body:'Look back at your check-ins and experiments. Talk with your coach about what to keep or adjust.',action:'Add a reflection ↗'}};
-root.querySelectorAll('[data-scroll]').forEach(button=>button.addEventListener('click',()=>root.querySelector('#'+button.dataset.scroll).scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'})));
-root.querySelectorAll('[data-phase]').forEach(button=>button.addEventListener('click',()=>{root.querySelectorAll('[data-phase]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));const d=content[button.dataset.phase];root.querySelectorAll('[data-copy]').forEach(el=>el.textContent=d[el.dataset.copy]);root.querySelector('[data-sample-action]').textContent='Get early access ↗';}));
-
-})();
