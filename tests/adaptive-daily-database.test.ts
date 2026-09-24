@@ -79,10 +79,32 @@ it.each(recorded)('preserves live decision $case_id through database publication
  const {parseDailyDecision}=await import('../supabase/functions/_shared/dailyDecision');
  const fixture=fixtures.find((c:any)=>c.id===sample.case_id);
  if(fixture.current)await db.query('insert into behavior_commitments(user_id,behavior_date,behavior,status) values($1,$2,$3,$4)',[alice,date,fixture.current.behavior,'committed']);
- const before=await row();const parsed=parseDailyDecision(sample.output,before)!;expect(parsed).not.toBeNull();
+ const before=await row();const parsed=parseDailyDecision(JSON.stringify({fit:{obstacle:'Historical fixture',preserved_need:'',time_budget_seconds:null,duration_seconds:null},...JSON.parse(sample.output)}),before)!;expect(parsed).not.toBeNull();
  const rec={...record(parsed.decision,parsed.action),pattern:sample.displayed.pattern,meaning:parsed.meaning,why:parsed.why,source_context:{decision:{kind:parsed.decision,reason:parsed.reason}}};
  const result=await publish(before,rec);
  expect(result.status).toBe('ok');expect(result.recommendation.action).toBe(parsed.action);
  if(parsed.decision==='clarify')expect(await row()).toEqual(before);
  else expect((await row()).behavior).toBe(parsed.action);
+});
+
+// Current protocol samples include rejected drafts. Rejection is expected here,
+// and remains a release-quality failure in the live evaluation report.
+const releaseSamples=JSON.parse(readFileSync(new URL('../evals/adaptive-decision/results/2026-09-24T01-44-44.435Z/results.json',import.meta.url),'utf8'));
+it.each(releaseSamples)('handles current live output $case_id sample $sample without replacing its action',async sample=>{
+ const {parseDailyDecision,boundedDailyAction}=await import('../supabase/functions/_shared/dailyDecision');
+ const fixture=fixtures.find((c:any)=>c.id===sample.case_id);
+ if(fixture.current)await db.query('insert into behavior_commitments(user_id,behavior_date,behavior,status) values($1,$2,$3,$4)',[alice,date,fixture.current.behavior,'committed']);
+ const before=await row();const parsed=parseDailyDecision(sample.output,before);
+ if(!sample.parsed){
+  expect(parsed).toBeNull();
+  expect((await db.query('select * from coach_recommendations')).rows).toHaveLength(0);
+  expect(await row()).toEqual(before);
+  return;
+ }
+ expect(parsed).not.toBeNull();
+ const action=boundedDailyAction(parsed!);
+ const result=await publish(before,record(parsed!.decision,action));
+ expect(result.status).toBe('ok');expect(result.recommendation.action).toBe(action);
+ if(parsed!.decision==='clarify')expect(await row()).toEqual(before);
+ else expect((await row()).behavior).toBe(action);
 });

@@ -1,0 +1,28 @@
+{
+  "acceptance": "FAIL",
+  "reviewer": "Codex, unblinded synthetic review",
+  "mechanical": "7/8 responses valid after at most one retry; both drafts in bedside-mobility sample 1 exceeded the 90-word limit.",
+  "blocking_findings": [
+    {
+      "case": "family-calls",
+      "sample": 1,
+      "finding": "Invents notification cues as the cause of scrolling; silencing notifications does not directly change voluntary app access."
+    },
+    {
+      "case": "family-calls",
+      "sample": 2,
+      "finding": "Face-down placement offers weak friction; contact-specific ringtone is not enough to establish that urgent calls bypass silent mode."
+    },
+    {
+      "case": "bedside-mobility",
+      "sample": 1,
+      "finding": "Both generated drafts rejected for length; no publishable advice."
+    }
+  ],
+  "other_findings": [
+    "Some meaning sentences still categorize a manual rating without a defined threshold.",
+    "Continuity preserved in both unchanged-useful samples.",
+    "Device and mobility alternatives show feasible adaptation in other samples."
+  ],
+  "release_decision": "Hold combined PR as draft. No production merge or deployment."
+}

@@ -17,7 +17,7 @@ This change is stacked on PR #77, commit `834fb5a7442b407f621a71ce8987abf98c633e
 
 ## Verification
 
-- **340 app/endpoint/database/UI assertions passed** across 33 test files. This includes 16 real-output replays through the shipped parser and actual PostgreSQL publication function using PGlite. Those replays verify propagation and persistence, not advice quality.
+- **349 app/endpoint/database/UI assertions passed** across 33 test files. This includes 16 real-output replays through the shipped parser and actual PostgreSQL publication function using PGlite. Those replays verify propagation and persistence, not advice quality.
 - **38 backend helper tests passed.** Mobile TypeScript and backend Deno checks passed.
 - **iOS JavaScript export passed**, 832 modules. This is not a native device build or a physical-device test.
 - Database checks cover account isolation, atomic rollback, conflicting updates, preservation of completed/partial/skipped outcomes, and keeping questions out of experiment records.
@@ -27,7 +27,7 @@ Logs are in [validation](validation/). The key endpoint test reproduces the stal
 
 ## Live model evaluation
 
-The final candidate uses the single-call structured protocol evaluated in [2026-09-23T22-35-39.716Z](results/2026-09-23T22-35-39.716Z/results.json). Exact prompts, requests, dataset snapshots, hashes, outputs, usage and cleanup records are retained. No real user records, production coaching code or production database schema were changed. Temporary fixed-case functions used existing server-side Anthropic access, rejected requests without their access token, expired automatically, and were deleted afterward.
+The initial PR candidate used the single-call structured protocol evaluated in [2026-09-23T22-35-39.716Z](results/2026-09-23T22-35-39.716Z/results.json). Exact prompts, requests, dataset snapshots, hashes, outputs, usage and cleanup records are retained. No real user records, production coaching code or production database schema were changed. Temporary fixed-case functions used existing server-side Anthropic access, rejected requests without their access token, expired automatically, and were deleted afterward.
 
 All **16/16** final-candidate responses parsed, selected an appropriate broad decision category, and propagated unchanged through the database replay. Median observed provider latency was **5.13 seconds**. This single small sample does not establish general performance or high-quality personalization.
 
@@ -44,10 +44,10 @@ The [review JSON](results/2026-09-23T22-35-39.716Z/review.json) marks quality ac
 
 - 22:30:04: eight plain-JSON cases; two failed parsing/length validation. Replaced the transport with a structured tool response.
 - 22:32:51: twelve structured cases; all parsed, but qualitative review identified the two feasibility problems above.
-- 22:35:39: sixteen cases after general feasibility guidance; all parsed; the same two substantive problems remained. **This is the final code's candidate.**
+- 22:35:39: sixteen cases after general feasibility guidance; all parsed; the same two substantive problems remained. This was the initial PR candidate.
 - 22:38:42: a separate model review of each proposed action added another model call. It still missed the same two problems, so that extra call was removed from the implementation. Its outputs are retained as a rejected experiment, not promoted evidence.
 
-A total of 68 model calls were made across these bounded runs (8 + 12 + 16 + 32). The final runtime normally makes one call for fresh advice, no call for a cache hit, and at most one retry for invalid output. No new paid service was added.
+Initially, 68 model calls were made across these bounded runs (8 + 12 + 16 + 32). The runtime normally makes one call for fresh advice, no call for a cache hit, and at most one retry for invalid output. No new paid service was added.
 
 ## Reproduce
 
@@ -70,3 +70,34 @@ The protocol follows [Anthropic's tool definition and tool-choice interface](htt
 5. Record acceptance evidence and privacy/release dependencies in 30D-39, 30D-26 and 30D-27 before Done.
 
 Rollback: restore the previous function and coordinated mobile prompt version. The additive audit table/function can remain; reverting code does not require deleting audit history. Do not destructively revert completed user records.
+
+## Release preparation — September 23, 2026 (Pacific)
+
+**Still blocked: do not merge the combined release to main or deploy production.**
+
+The combined release will be held in PR #77 after merging stacked PR #79 into that feature branch. This consolidates the implementation without triggering production deployment. The original two quality failures are not silently reclassified as passes.
+
+Improvements now included:
+
+- The structured response identifies the obstacle, required ability and explicit time budget. Code rejects a missing or excessive duration and appends an explicit stop time for new timed activities. This keeps model-chosen activities bounded; it does not select a cohort-specific action.
+- Only visible advice is persisted to coaching memory; structured feasibility metadata stays in the recommendation context.
+- Ordered deployment workflow changes are prepared locally on `codex/prepared-ordered-release` (commit `99973ff`), but GitHub rejected their push because the current OAuth login lacks `workflow` scope. They are NOT included in the remote candidate: the existing deployment workflows still run independently. Before main merge, an authorized workflow update must make migrations finish before functions deploy.
+- The evaluator supports bounded repeats/model comparisons, preserves rejected drafts, and uses the same maximum one retry as production. Category success is still separate from qualitative review.
+
+Additional live synthetic evidence:
+
+| Run (UTC) | Result |
+| --- | --- |
+| 01:32:39 | Stronger-model pilot did not resolve feasibility; not adopted. |
+| 01:35:08 | Explicit time budgeting made the rendered activity bounded; notification-only advice remained. |
+| 01:36:41 | Adaptive reasoning added latency without reliably fixing advice; not adopted. |
+| 01:41:25 | General mechanism guidance produced mixed phone advice in repeat samples. |
+| 01:42:30 | Broad run stopped after 13 responses when another response failed validation. New reserved scenarios were not reached. |
+| 01:44:02 | Targeted run stopped at a validation failure; cleanup succeeded. |
+| 01:44:44 | Current candidate, four scenarios repeated twice: see results and review for remaining failures. |
+
+The current candidate still sometimes confuses silencing notifications with reducing voluntary scrolling and overstates the benefit. The fresh limited-mobility case also produced two overlong drafts in one sample, which correctly failed closed. These are release blockers, not a successful acceptance run. Current tests remain green because they verify mechanics and rejection behavior, not arbitrary model quality.
+
+The added `bedside-mobility` case has now been used; the other three new cases have not yet been evaluated. None of these small, unblinded synthetic runs establishes general coaching effectiveness.
+
+Before production: resolve remaining quality/reliability failures, freeze a candidate, evaluate fresh cases and repeated regressions, pass combined PR CI, then merge main. Verify the ordered deployment, run authenticated synthetic end-to-end flows with cleanup, and build/submit the matching iOS app to TestFlight. Physical-device checks and acceptance remain required before Done. No production code/schema deployment or new TestFlight build has occurred during this preparation.

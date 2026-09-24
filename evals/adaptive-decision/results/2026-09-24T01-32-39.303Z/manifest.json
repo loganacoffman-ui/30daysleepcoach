@@ -1,0 +1,17 @@
+{
+  "tool_schema_sha256": "ebe89091c2c7f3878ed6055ddbd64a0e53098fdc7f3e0c84823b1e4bfcd0e539",
+  "model": "claude-opus-4-6",
+  "max_tokens": 1000,
+  "repetitions": 2,
+  "cases": [
+    "less-time",
+    "useful-despite-change",
+    "family-calls",
+    "sensitive-context"
+  ],
+  "prompt_sha256": "a1183098a52e19bd348ff947b937f48893c7892ac6c2a0be3990553042e7bdc5",
+  "dataset_sha256": "37c94e182a6d6b54e413b33d1d46a61c8302199936f94c15b6a6429ca9339782",
+  "message_sha256": "6884874c7aa5ab94a32e1fb1a438d7ba9ef6c984adf9fbb8ba65a869fc214859",
+  "run": "2026-09-24T01-32-39.303Z",
+  "transport": "fixed synthetic cases through temporary protected function"
+}

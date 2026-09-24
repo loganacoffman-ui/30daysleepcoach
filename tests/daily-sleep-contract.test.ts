@@ -16,7 +16,7 @@ const date = '2026-09-18';
 const manual = { checkin_date: date, manual_sleep_score: 0, manual_sleep_submitted_at: `${date}T08:00:00Z`, note: 'Restless' };
 const fetchMock = vi.fn();
 function modelResponse(payload: any, init?: ResponseInit) {
-  let input;try {input=JSON.parse(payload.content[0].text);}catch {input={};}
+  let input;try {input={fit:{obstacle:'Current concern',preserved_need:'',time_budget_seconds:null,duration_seconds:null},...JSON.parse(payload.content[0].text)};}catch {input={};}
   return new Response(JSON.stringify({stop_reason:'tool_use',content:[{type:'tool_use',name:DAILY_DECISION_TOOL.name,input}]}),init);
 }
 beforeAll(async () => {

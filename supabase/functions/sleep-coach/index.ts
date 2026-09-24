@@ -44,7 +44,7 @@ import {
   startAnthropicSpan,
   tracedAnthropic,
 } from "../_shared/tracing.ts";
-import { parseDailyDecision, DAILY_DECISION_TOOL, dailyDecisionToolChoice, dailyDecisionOutput } from "../_shared/dailyDecision.ts";
+import { parseDailyDecision, boundedDailyAction, DAILY_DECISION_GENERATION, DAILY_DECISION_TOOL, dailyDecisionToolChoice, dailyDecisionOutput } from "../_shared/dailyDecision.ts";
 import { interpretCheckinReply } from "../_shared/checkinReply.ts";
 import { parseCheckinReplyRequest } from "../_shared/checkinReplyContract.ts";
 
@@ -587,7 +587,7 @@ async function callAnthropicText(
     model: "claude-sonnet-4-6",
     max_tokens: maxTokens,
     system: system + formatMemoryContext(memories),
-    ...(dailyDecision ? {tools:[DAILY_DECISION_TOOL],tool_choice:dailyDecisionToolChoice} : {}),
+    ...(dailyDecision ? {...DAILY_DECISION_GENERATION,tools:[DAILY_DECISION_TOOL],tool_choice:dailyDecisionToolChoice} : {}),
     messages: [{ role: "user", content: userMessage }],
     stream: false,
   };
@@ -1610,6 +1610,7 @@ Deno.serve(async (req: Request) => {
         });
       }
 
+      sections.action = boundedDailyAction(sections);
       sections.pattern = groundedDailyPattern(dailyContext) ?? sections.pattern;
 
       const generatedAt = new Date().toISOString();
@@ -1621,7 +1622,7 @@ Deno.serve(async (req: Request) => {
         action: sections.action,
         why: sections.why,
         source_context: {
-          decision: { kind: sections.decision, reason: sections.reason },
+          decision: { kind: sections.decision, reason: sections.reason, fit: sections.fit },
           subjective_checkin_count:
             Array.isArray(dailyContext?.subjective_checkins)
               ? dailyContext.subjective_checkins.length
@@ -1664,7 +1665,7 @@ Deno.serve(async (req: Request) => {
         user.id,
         memoryMode,
         buildMemoryObservation(memoryMode, messages, sleepData, dailyContext),
-        Object.values(sections).join("\n"),
+        [sections.pattern, sections.meaning, sections.action, sections.why].join("\n"),
       ));
 
       return new Response(
@@ -1782,7 +1783,7 @@ Deno.serve(async (req: Request) => {
         user.id,
         memoryMode,
         buildMemoryObservation(memoryMode, messages, sleepData, coachContext),
-        rawText ?? Object.values(sections).join("\n"),
+        rawText ?? [sections.pattern, sections.meaning, sections.action, sections.why].join("\n"),
       ));
 
       // Fire-and-forget cache write (same pattern as briefing)
