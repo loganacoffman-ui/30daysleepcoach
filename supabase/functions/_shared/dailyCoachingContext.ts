@@ -29,13 +29,13 @@ export function withDailySleepSummary(context: Record<string, unknown>) {
     interpretation: 'Compare scores only within the same source and version. Associations do not prove causes; manual reports remain separate.' } };
 }
 
-export const DAILY_COACH_REQUEST_INSTRUCTIONS = "Generate today's four-section coaching recommendation from this combined context. Subjective check-ins and notes describe how the user felt and what they think affected sleep. Experiment adherence shows what they actually tried. Wearable sleep is the quantitative layer when Apple Health or Oura is connected; the source field identifies whether a score is app-derived or provider-owned. The sleep_resolution selects the preferred quantitative source for the requested night: wearable first, otherwise an explicitly submitted manual score. Preserve manual scores as self-reports and qualitative context, never as wearable measurements. Use relevant long-term memory to follow up on earlier goals, experiments, and outcomes. Be honest when data is sparse; do not invent measurements. Always return all four required sections.";
+export const DAILY_COACH_REQUEST_INSTRUCTIONS = "Choose today's coaching decision and recommendation from this combined context. Subjective check-ins and notes describe how the user felt and what they think affected sleep. Experiment adherence shows what they actually tried. Wearable sleep is the quantitative layer when Apple Health or Oura is connected; the source field identifies whether a score is app-derived or provider-owned. The sleep_resolution selects the preferred quantitative source for the requested night: wearable first, otherwise an explicitly submitted manual score. Preserve manual scores as self-reports and qualitative context, never as wearable measurements. Use relevant long-term memory to follow up on earlier goals, experiments, and outcomes. Be honest when data is sparse; do not invent measurements. Return the decision and fields specified by the system instructions.";
 
 export function buildDailyCoachingMessage(context: Record<string, unknown>, current: { behavior: string; status: string } | null = null) {
   const input = { ...withDailySleepSummary(context), current_daily_experiment: current
     ? { behavior: current.behavior, status: current.status } : null };
   return DAILY_COACH_REQUEST_INSTRUCTIONS + "\n\n" + JSON.stringify(input, null, 2)
-    + (current ? "\nToday's current_daily_experiment is already saved. Keep its exact behavior text and respect its recorded status; changes require the separate Coach confirmation flow." : "");
+    + "\nUse current_daily_experiment as context for deciding whether to continue, simplify, replace, or clarify; preserve the truth of its recorded outcome.";
 }
 
 // The visible numeric pattern is factual UI copy, not model arithmetic.

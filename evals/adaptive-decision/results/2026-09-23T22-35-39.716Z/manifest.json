@@ -1,0 +1,28 @@
+{
+  "tool_schema_sha256": "ebe89091c2c7f3878ed6055ddbd64a0e53098fdc7f3e0c84823b1e4bfcd0e539",
+  "model": "claude-sonnet-4-6",
+  "max_tokens": 1000,
+  "cases": [
+    "schedule-correction",
+    "less-time",
+    "useful-despite-change",
+    "essential-unknown",
+    "family-calls",
+    "resolved-deadline",
+    "long-useful-run",
+    "sensitive-context",
+    "move-with-continuity",
+    "disliked-writing",
+    "unexpected-noise",
+    "uncertain-availability",
+    "shorter-audio",
+    "necessary-device",
+    "unchanged-under-stress",
+    "unknown-sleep-window"
+  ],
+  "prompt_sha256": "a1183098a52e19bd348ff947b937f48893c7892ac6c2a0be3990553042e7bdc5",
+  "dataset_sha256": "847afb6071ae5cc0098f552f1b10f4bddda452fce15f9cc21ed7b65a49df4b8a",
+  "message_sha256": "3b8aae33c3c50e0746f36ce5a0f7ae313405c6ee49bd2a86274fcff41155f9ca",
+  "run": "2026-09-23T22-35-39.716Z",
+  "transport": "fixed synthetic cases through temporary protected function"
+}

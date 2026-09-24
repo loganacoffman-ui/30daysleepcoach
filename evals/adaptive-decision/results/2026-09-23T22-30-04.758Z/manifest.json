@@ -1,0 +1,19 @@
+{
+  "model": "claude-sonnet-4-6",
+  "max_tokens": 1000,
+  "cases": [
+    "schedule-correction",
+    "less-time",
+    "useful-despite-change",
+    "essential-unknown",
+    "family-calls",
+    "resolved-deadline",
+    "long-useful-run",
+    "sensitive-context"
+  ],
+  "prompt_sha256": "34521c1f97847b474758230153a17e915b94900662ce224c6fe98bbe8e746547",
+  "dataset_sha256": "fd64a9761e11cd1ca4458f404ac274f11723d38dc12f78b62a17e7dbfda7a8b0",
+  "message_sha256": "e1a33ecba5e3d1c53bc4de4d1db2089a495dbb9054eeb1ecbc61c8063591df67",
+  "run": "2026-09-23T22-30-04.758Z",
+  "transport": "fixed synthetic cases through temporary protected function"
+}

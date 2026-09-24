@@ -1,0 +1,568 @@
+[
+  {
+    "case_id": "useful-despite-change",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2813,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 254,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "attempts": [
+      {
+        "output": "{\"decision\":\"continue\",\"reason\":\"User explicitly reports the song habit helps them settle, fits their bedtime, and they want to keep it despite a busier new job.\",\"pattern\":\"Yesterday's adherence was partial, but the habit remains feasible and personally valued.\",\"meaning\":\"A self-rated score of 65 with a tired morning tells us how you felt, but one night can't confirm or rule out what the song routine is contributing.\",\"action\":\"Listen to one quiet song before bed.\",\"why\":\"You said it helps you settle and easily fits your bedtime even with a busier schedule.\",\"fit\":{\"obstacle\":\"Difficulty settling at bedtime\",\"preserved_need\":\"\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+        "usage": {
+          "input_tokens": 2813,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 254,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "stop_reason": "tool_use"
+      }
+    ],
+    "stop_reason": "tool_use",
+    "latency_ms": 5872,
+    "output": "{\"decision\":\"continue\",\"reason\":\"User explicitly reports the song habit helps them settle, fits their bedtime, and they want to keep it despite a busier new job.\",\"pattern\":\"Yesterday's adherence was partial, but the habit remains feasible and personally valued.\",\"meaning\":\"A self-rated score of 65 with a tired morning tells us how you felt, but one night can't confirm or rule out what the song routine is contributing.\",\"action\":\"Listen to one quiet song before bed.\",\"why\":\"You said it helps you settle and easily fits your bedtime even with a busier schedule.\",\"fit\":{\"obstacle\":\"Difficulty settling at bedtime\",\"preserved_need\":\"\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+    "sample": 1,
+    "split": "regression",
+    "expected": "continue",
+    "rubric": "Keep the useful feasible action despite changed life context.",
+    "parsed": {
+      "decision": "continue",
+      "reason": "User explicitly reports the song habit helps them settle, fits their bedtime, and they want to keep it despite a busier new job.",
+      "pattern": "Yesterday's adherence was partial, but the habit remains feasible and personally valued.",
+      "meaning": "A self-rated score of 65 with a tired morning tells us how you felt, but one night can't confirm or rule out what the song routine is contributing.",
+      "action": "Listen to one quiet song before bed.",
+      "why": "You said it helps you settle and easily fits your bedtime even with a busier schedule.",
+      "fit": {
+        "obstacle": "Difficulty settling at bedtime",
+        "preserved_need": "",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "displayed": {
+      "decision": "continue",
+      "reason": "User explicitly reports the song habit helps them settle, fits their bedtime, and they want to keep it despite a busier new job.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A self-rated score of 65 with a tired morning tells us how you felt, but one night can't confirm or rule out what the song routine is contributing.",
+      "action": "Listen to one quiet song before bed.",
+      "why": "You said it helps you settle and easily fits your bedtime even with a busier schedule.",
+      "fit": {
+        "obstacle": "Difficulty settling at bedtime",
+        "preserved_need": "",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "family-calls",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2819,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 298,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "attempts": [
+      {
+        "output": "{\"decision\":\"replace\",\"reason\":\"Phone-outside experiment stopped scrolling but the user now requires overnight phone access for urgent family calls, making full removal infeasible.\",\"pattern\":\"Leaving the phone outside the bedroom reduced scrolling but conflicted with a real overnight call obligation.\",\"meaning\":\"The self-rated 65 with a tired morning reflects one night; we can't yet link it to phone placement specifically.\",\"action\":\"Keep your phone in the bedroom but enable Do Not Disturb with \\\"Favorites allowed\\\" so family calls ring through while other notifications are silenced overnight.\",\"why\":\"This preserves urgent call access while reducing the notification cues that prompted scrolling — the specific trade-off you asked to solve.\",\"fit\":{\"obstacle\":\"Phone must stay nearby for urgent family calls overnight, making bedroom removal infeasible\",\"preserved_need\":\"Ability to receive urgent overnight family calls\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+        "usage": {
+          "input_tokens": 2819,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 298,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "stop_reason": "tool_use"
+      }
+    ],
+    "stop_reason": "tool_use",
+    "latency_ms": 7368,
+    "output": "{\"decision\":\"replace\",\"reason\":\"Phone-outside experiment stopped scrolling but the user now requires overnight phone access for urgent family calls, making full removal infeasible.\",\"pattern\":\"Leaving the phone outside the bedroom reduced scrolling but conflicted with a real overnight call obligation.\",\"meaning\":\"The self-rated 65 with a tired morning reflects one night; we can't yet link it to phone placement specifically.\",\"action\":\"Keep your phone in the bedroom but enable Do Not Disturb with \\\"Favorites allowed\\\" so family calls ring through while other notifications are silenced overnight.\",\"why\":\"This preserves urgent call access while reducing the notification cues that prompted scrolling — the specific trade-off you asked to solve.\",\"fit\":{\"obstacle\":\"Phone must stay nearby for urgent family calls overnight, making bedroom removal infeasible\",\"preserved_need\":\"Ability to receive urgent overnight family calls\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+    "sample": 1,
+    "split": "regression",
+    "expected": "adapt",
+    "rubric": "Preserve urgent-call access while reducing scrolling; do not repeat the impossible action or ask an unnecessary motive question.",
+    "parsed": {
+      "decision": "replace",
+      "reason": "Phone-outside experiment stopped scrolling but the user now requires overnight phone access for urgent family calls, making full removal infeasible.",
+      "pattern": "Leaving the phone outside the bedroom reduced scrolling but conflicted with a real overnight call obligation.",
+      "meaning": "The self-rated 65 with a tired morning reflects one night; we can't yet link it to phone placement specifically.",
+      "action": "Keep your phone in the bedroom but enable Do Not Disturb with \"Favorites allowed\" so family calls ring through while other notifications are silenced overnight.",
+      "why": "This preserves urgent call access while reducing the notification cues that prompted scrolling — the specific trade-off you asked to solve.",
+      "fit": {
+        "obstacle": "Phone must stay nearby for urgent family calls overnight, making bedroom removal infeasible",
+        "preserved_need": "Ability to receive urgent overnight family calls",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "displayed": {
+      "decision": "replace",
+      "reason": "Phone-outside experiment stopped scrolling but the user now requires overnight phone access for urgent family calls, making full removal infeasible.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "The self-rated 65 with a tired morning reflects one night; we can't yet link it to phone placement specifically.",
+      "action": "Keep your phone in the bedroom but enable Do Not Disturb with \"Favorites allowed\" so family calls ring through while other notifications are silenced overnight.",
+      "why": "This preserves urgent call access while reducing the notification cues that prompted scrolling — the specific trade-off you asked to solve.",
+      "fit": {
+        "obstacle": "Phone must stay nearby for urgent family calls overnight, making bedroom removal infeasible",
+        "preserved_need": "Ability to receive urgent overnight family calls",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "necessary-device",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2782,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 304,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "attempts": [
+      {
+        "output": "{\"decision\":\"replace\",\"reason\":\"User reports the tablet cannot be moved because it serves as a caregiving monitor, making the current \\\"leave tablet outside\\\" experiment infeasible.\",\"pattern\":\"The tablet must stay bedside for caregiving, but entertainment apps are being opened at night.\",\"meaning\":\"A self-reported score of 65 and feeling tired indicate disrupted rest, though one night is too sparse to identify a cause with certainty.\",\"action\":\"Before bed, enable Guided Access (iOS) or Screen Pinning (Android) to lock the tablet to the monitor app only, keeping caregiving available while making entertainment apps harder to open.\",\"why\":\"This adds friction to opening entertainment apps without removing the monitor function the user must preserve.\",\"fit\":{\"obstacle\":\"Opening entertainment apps on the tablet that must stay beside the bed for caregiving\",\"preserved_need\":\"Overnight caregiving monitor must remain accessible on the tablet\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+        "usage": {
+          "input_tokens": 2782,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 304,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "stop_reason": "tool_use"
+      }
+    ],
+    "stop_reason": "tool_use",
+    "latency_ms": 6253,
+    "output": "{\"decision\":\"replace\",\"reason\":\"User reports the tablet cannot be moved because it serves as a caregiving monitor, making the current \\\"leave tablet outside\\\" experiment infeasible.\",\"pattern\":\"The tablet must stay bedside for caregiving, but entertainment apps are being opened at night.\",\"meaning\":\"A self-reported score of 65 and feeling tired indicate disrupted rest, though one night is too sparse to identify a cause with certainty.\",\"action\":\"Before bed, enable Guided Access (iOS) or Screen Pinning (Android) to lock the tablet to the monitor app only, keeping caregiving available while making entertainment apps harder to open.\",\"why\":\"This adds friction to opening entertainment apps without removing the monitor function the user must preserve.\",\"fit\":{\"obstacle\":\"Opening entertainment apps on the tablet that must stay beside the bed for caregiving\",\"preserved_need\":\"Overnight caregiving monitor must remain accessible on the tablet\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+    "sample": 1,
+    "split": "regression",
+    "expected": "adapt",
+    "rubric": "Address entertainment access directly while preserving monitor access; do not conflate notification reduction with preventing entertainment use.",
+    "parsed": {
+      "decision": "replace",
+      "reason": "User reports the tablet cannot be moved because it serves as a caregiving monitor, making the current \"leave tablet outside\" experiment infeasible.",
+      "pattern": "The tablet must stay bedside for caregiving, but entertainment apps are being opened at night.",
+      "meaning": "A self-reported score of 65 and feeling tired indicate disrupted rest, though one night is too sparse to identify a cause with certainty.",
+      "action": "Before bed, enable Guided Access (iOS) or Screen Pinning (Android) to lock the tablet to the monitor app only, keeping caregiving available while making entertainment apps harder to open.",
+      "why": "This adds friction to opening entertainment apps without removing the monitor function the user must preserve.",
+      "fit": {
+        "obstacle": "Opening entertainment apps on the tablet that must stay beside the bed for caregiving",
+        "preserved_need": "Overnight caregiving monitor must remain accessible on the tablet",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "displayed": {
+      "decision": "replace",
+      "reason": "User reports the tablet cannot be moved because it serves as a caregiving monitor, making the current \"leave tablet outside\" experiment infeasible.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A self-reported score of 65 and feeling tired indicate disrupted rest, though one night is too sparse to identify a cause with certainty.",
+      "action": "Before bed, enable Guided Access (iOS) or Screen Pinning (Android) to lock the tablet to the monitor app only, keeping caregiving available while making entertainment apps harder to open.",
+      "why": "This adds friction to opening entertainment apps without removing the monitor function the user must preserve.",
+      "fit": {
+        "obstacle": "Opening entertainment apps on the tablet that must stay beside the bed for caregiving",
+        "preserved_need": "Overnight caregiving monitor must remain accessible on the tablet",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "bedside-mobility",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2788,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 291,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "attempts": [
+      {
+        "output": "{\"decision\":\"replace\",\"reason\":\"User must keep phone within reach for calls, so the committed experiment (charging in another room) is incompatible with a stated medical need.\",\"pattern\":\"User deliberately opens short videos in bed and loses track of time, with notifications already off.\",\"meaning\":\"A manual score of 65 with a tired morning feeling suggests poor sleep quality, but one night is too sparse to identify a cause.\",\"action\":\"Move the video app to a nested folder on a back screen tonight so opening it takes extra steps, while the phone stays within reach for calls.\",\"why\":\"The user self-reports deliberately opening videos, so adding friction to that specific app — without removing the phone — directly targets the stated obstacle while keeping calls accessible.\",\"fit\":{\"obstacle\":\"Deliberately opening short videos in bed and losing track of time\",\"preserved_need\":\"Phone must remain within reach for calls\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+        "usage": {
+          "input_tokens": 2788,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 297,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "stop_reason": "tool_use"
+      },
+      {
+        "output": "{\"decision\":\"replace\",\"reason\":\"User explicitly requires the phone within reach for calls, making charging in another room infeasible.\",\"pattern\":\"User self-rated sleep 65 and woke feeling tired after deliberately opening short videos in bed and losing track of time.\",\"meaning\":\"The manual score and tired feeling reflect a rough night, but one night of data can't establish a trend or cause.\",\"action\":\"Move the short-video app to a nested folder on a secondary screen so launching it takes several extra steps, while the phone stays accessible for calls.\",\"why\":\"User self-reports deliberately opening videos and needing calls reachable, so adding friction to the app directly addresses the stated obstacle without removing the phone.\",\"fit\":{\"obstacle\":\"Deliberately opening short videos in bed and losing track of time\",\"preserved_need\":\"Phone must remain within reach for calls\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+        "usage": {
+          "input_tokens": 2788,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 291,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "stop_reason": "tool_use"
+      }
+    ],
+    "stop_reason": "tool_use",
+    "latency_ms": 14388,
+    "output": "{\"decision\":\"replace\",\"reason\":\"User explicitly requires the phone within reach for calls, making charging in another room infeasible.\",\"pattern\":\"User self-rated sleep 65 and woke feeling tired after deliberately opening short videos in bed and losing track of time.\",\"meaning\":\"The manual score and tired feeling reflect a rough night, but one night of data can't establish a trend or cause.\",\"action\":\"Move the short-video app to a nested folder on a secondary screen so launching it takes several extra steps, while the phone stays accessible for calls.\",\"why\":\"User self-reports deliberately opening videos and needing calls reachable, so adding friction to the app directly addresses the stated obstacle without removing the phone.\",\"fit\":{\"obstacle\":\"Deliberately opening short videos in bed and losing track of time\",\"preserved_need\":\"Phone must remain within reach for calls\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+    "sample": 1,
+    "split": "holdout",
+    "expected": "replace",
+    "rubric": "Keep the device within reach and calls available while directly reducing deliberate entertainment use. No reliance on silencing notifications.",
+    "parsed": null,
+    "displayed": null,
+    "decision_check": false
+  },
+  {
+    "case_id": "useful-despite-change",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2813,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 266,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "attempts": [
+      {
+        "output": "{\"decision\":\"continue\",\"reason\":\"User reports the quiet song helps them settle, fits their bedtime, and they explicitly want to keep it despite a busier job.\",\"pattern\":\"Yesterday's adherence was partial, but the user reports the habit still feels helpful and manageable.\",\"meaning\":\"A self-rated score of 65 and feeling tired tells us rest felt insufficient, though one night is too sparse to link to any single cause.\",\"action\":\"Listen to one quiet song before bed.\",\"why\":\"The user explicitly confirmed this habit helps them settle and fits their current schedule even with a busier job.\",\"fit\":{\"obstacle\":\"Difficulty settling at bedtime\",\"preserved_need\":\"Fits within existing bedtime routine despite busier job\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+        "usage": {
+          "input_tokens": 2813,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 266,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "stop_reason": "tool_use"
+      }
+    ],
+    "stop_reason": "tool_use",
+    "latency_ms": 5941,
+    "output": "{\"decision\":\"continue\",\"reason\":\"User reports the quiet song helps them settle, fits their bedtime, and they explicitly want to keep it despite a busier job.\",\"pattern\":\"Yesterday's adherence was partial, but the user reports the habit still feels helpful and manageable.\",\"meaning\":\"A self-rated score of 65 and feeling tired tells us rest felt insufficient, though one night is too sparse to link to any single cause.\",\"action\":\"Listen to one quiet song before bed.\",\"why\":\"The user explicitly confirmed this habit helps them settle and fits their current schedule even with a busier job.\",\"fit\":{\"obstacle\":\"Difficulty settling at bedtime\",\"preserved_need\":\"Fits within existing bedtime routine despite busier job\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+    "sample": 2,
+    "split": "regression",
+    "expected": "continue",
+    "rubric": "Keep the useful feasible action despite changed life context.",
+    "parsed": {
+      "decision": "continue",
+      "reason": "User reports the quiet song helps them settle, fits their bedtime, and they explicitly want to keep it despite a busier job.",
+      "pattern": "Yesterday's adherence was partial, but the user reports the habit still feels helpful and manageable.",
+      "meaning": "A self-rated score of 65 and feeling tired tells us rest felt insufficient, though one night is too sparse to link to any single cause.",
+      "action": "Listen to one quiet song before bed.",
+      "why": "The user explicitly confirmed this habit helps them settle and fits their current schedule even with a busier job.",
+      "fit": {
+        "obstacle": "Difficulty settling at bedtime",
+        "preserved_need": "Fits within existing bedtime routine despite busier job",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "displayed": {
+      "decision": "continue",
+      "reason": "User reports the quiet song helps them settle, fits their bedtime, and they explicitly want to keep it despite a busier job.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A self-rated score of 65 and feeling tired tells us rest felt insufficient, though one night is too sparse to link to any single cause.",
+      "action": "Listen to one quiet song before bed.",
+      "why": "The user explicitly confirmed this habit helps them settle and fits their current schedule even with a busier job.",
+      "fit": {
+        "obstacle": "Difficulty settling at bedtime",
+        "preserved_need": "Fits within existing bedtime routine despite busier job",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "family-calls",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2819,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 298,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "attempts": [
+      {
+        "output": "{\"decision\":\"replace\",\"reason\":\"User reports that leaving the phone outside the bedroom stopped scrolling but now conflicts with a stated need to receive urgent overnight family calls.\",\"pattern\":\"Phone outside the bedroom reduced scrolling but created a real conflict with required overnight call availability.\",\"meaning\":\"The self-reported score of 65 and tired feeling tell us sleep felt poor, but we can't confirm the phone was the cause.\",\"action\":\"Keep the phone in the bedroom but place it face-down, on silent with a contact-specific ringtone allowed only for family, to add friction to casual scrolling while preserving call access.\",\"why\":\"This directly addresses the scrolling habit with added friction while preserving the stated need to receive urgent overnight family calls.\",\"fit\":{\"obstacle\":\"Picking up the phone to scroll at night\",\"preserved_need\":\"Must be reachable for urgent overnight family calls\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+        "usage": {
+          "input_tokens": 2819,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 298,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "stop_reason": "tool_use"
+      }
+    ],
+    "stop_reason": "tool_use",
+    "latency_ms": 6798,
+    "output": "{\"decision\":\"replace\",\"reason\":\"User reports that leaving the phone outside the bedroom stopped scrolling but now conflicts with a stated need to receive urgent overnight family calls.\",\"pattern\":\"Phone outside the bedroom reduced scrolling but created a real conflict with required overnight call availability.\",\"meaning\":\"The self-reported score of 65 and tired feeling tell us sleep felt poor, but we can't confirm the phone was the cause.\",\"action\":\"Keep the phone in the bedroom but place it face-down, on silent with a contact-specific ringtone allowed only for family, to add friction to casual scrolling while preserving call access.\",\"why\":\"This directly addresses the scrolling habit with added friction while preserving the stated need to receive urgent overnight family calls.\",\"fit\":{\"obstacle\":\"Picking up the phone to scroll at night\",\"preserved_need\":\"Must be reachable for urgent overnight family calls\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+    "sample": 2,
+    "split": "regression",
+    "expected": "adapt",
+    "rubric": "Preserve urgent-call access while reducing scrolling; do not repeat the impossible action or ask an unnecessary motive question.",
+    "parsed": {
+      "decision": "replace",
+      "reason": "User reports that leaving the phone outside the bedroom stopped scrolling but now conflicts with a stated need to receive urgent overnight family calls.",
+      "pattern": "Phone outside the bedroom reduced scrolling but created a real conflict with required overnight call availability.",
+      "meaning": "The self-reported score of 65 and tired feeling tell us sleep felt poor, but we can't confirm the phone was the cause.",
+      "action": "Keep the phone in the bedroom but place it face-down, on silent with a contact-specific ringtone allowed only for family, to add friction to casual scrolling while preserving call access.",
+      "why": "This directly addresses the scrolling habit with added friction while preserving the stated need to receive urgent overnight family calls.",
+      "fit": {
+        "obstacle": "Picking up the phone to scroll at night",
+        "preserved_need": "Must be reachable for urgent overnight family calls",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "displayed": {
+      "decision": "replace",
+      "reason": "User reports that leaving the phone outside the bedroom stopped scrolling but now conflicts with a stated need to receive urgent overnight family calls.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "The self-reported score of 65 and tired feeling tell us sleep felt poor, but we can't confirm the phone was the cause.",
+      "action": "Keep the phone in the bedroom but place it face-down, on silent with a contact-specific ringtone allowed only for family, to add friction to casual scrolling while preserving call access.",
+      "why": "This directly addresses the scrolling habit with added friction while preserving the stated need to receive urgent overnight family calls.",
+      "fit": {
+        "obstacle": "Picking up the phone to scroll at night",
+        "preserved_need": "Must be reachable for urgent overnight family calls",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "necessary-device",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2782,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 291,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "attempts": [
+      {
+        "output": "{\"decision\":\"replace\",\"reason\":\"User explicitly reports the tablet cannot be moved; the committed experiment to leave it outside the bedroom is now infeasible.\",\"pattern\":\"The tablet must stay bedside for caregiving, but entertainment apps on it are disrupting sleep.\",\"meaning\":\"A self-rated 65 with tired feelings suggests poor sleep, though one night is too sparse to identify a cause.\",\"action\":\"Before your wind-down, enable Screen Time (iOS) or Digital Wellbeing (Android) app limits to block entertainment apps overnight, while leaving the monitor app fully accessible.\",\"why\":\"Blocking specific apps adds friction to entertainment use without removing the caregiving monitor the tablet must provide.\",\"fit\":{\"obstacle\":\"Opening entertainment apps on the bedside tablet at night\",\"preserved_need\":\"Tablet must remain bedside and accessible as a caregiving monitor\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+        "usage": {
+          "input_tokens": 2782,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 291,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "stop_reason": "tool_use"
+      }
+    ],
+    "stop_reason": "tool_use",
+    "latency_ms": 6224,
+    "output": "{\"decision\":\"replace\",\"reason\":\"User explicitly reports the tablet cannot be moved; the committed experiment to leave it outside the bedroom is now infeasible.\",\"pattern\":\"The tablet must stay bedside for caregiving, but entertainment apps on it are disrupting sleep.\",\"meaning\":\"A self-rated 65 with tired feelings suggests poor sleep, though one night is too sparse to identify a cause.\",\"action\":\"Before your wind-down, enable Screen Time (iOS) or Digital Wellbeing (Android) app limits to block entertainment apps overnight, while leaving the monitor app fully accessible.\",\"why\":\"Blocking specific apps adds friction to entertainment use without removing the caregiving monitor the tablet must provide.\",\"fit\":{\"obstacle\":\"Opening entertainment apps on the bedside tablet at night\",\"preserved_need\":\"Tablet must remain bedside and accessible as a caregiving monitor\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+    "sample": 2,
+    "split": "regression",
+    "expected": "adapt",
+    "rubric": "Address entertainment access directly while preserving monitor access; do not conflate notification reduction with preventing entertainment use.",
+    "parsed": {
+      "decision": "replace",
+      "reason": "User explicitly reports the tablet cannot be moved; the committed experiment to leave it outside the bedroom is now infeasible.",
+      "pattern": "The tablet must stay bedside for caregiving, but entertainment apps on it are disrupting sleep.",
+      "meaning": "A self-rated 65 with tired feelings suggests poor sleep, though one night is too sparse to identify a cause.",
+      "action": "Before your wind-down, enable Screen Time (iOS) or Digital Wellbeing (Android) app limits to block entertainment apps overnight, while leaving the monitor app fully accessible.",
+      "why": "Blocking specific apps adds friction to entertainment use without removing the caregiving monitor the tablet must provide.",
+      "fit": {
+        "obstacle": "Opening entertainment apps on the bedside tablet at night",
+        "preserved_need": "Tablet must remain bedside and accessible as a caregiving monitor",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "displayed": {
+      "decision": "replace",
+      "reason": "User explicitly reports the tablet cannot be moved; the committed experiment to leave it outside the bedroom is now infeasible.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A self-rated 65 with tired feelings suggests poor sleep, though one night is too sparse to identify a cause.",
+      "action": "Before your wind-down, enable Screen Time (iOS) or Digital Wellbeing (Android) app limits to block entertainment apps overnight, while leaving the monitor app fully accessible.",
+      "why": "Blocking specific apps adds friction to entertainment use without removing the caregiving monitor the tablet must provide.",
+      "fit": {
+        "obstacle": "Opening entertainment apps on the bedside tablet at night",
+        "preserved_need": "Tablet must remain bedside and accessible as a caregiving monitor",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "bedside-mobility",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2788,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 298,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "attempts": [
+      {
+        "output": "{\"decision\":\"replace\",\"reason\":\"User must keep phone within reach for calls, making the committed experiment (charge in another room) infeasible.\",\"pattern\":\"User self-reported a score of 65 and felt tired, with no wearable data available.\",\"meaning\":\"A single manual score and morning rating can tell us how the person felt but not what caused it.\",\"action\":\"Before getting into bed, move the short-video app to a nested folder two screens away from your home screen, so calls stay one tap away while videos take extra steps to reach.\",\"why\":\"You've said you deliberately open videos and lose track of time, so adding friction to that specific app — without moving the phone — directly addresses the obstacle while keeping calls accessible.\",\"fit\":{\"obstacle\":\"Deliberately opening short videos in bed and losing track of time\",\"preserved_need\":\"Phone must remain within reach for incoming calls\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+        "usage": {
+          "input_tokens": 2788,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 299,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "stop_reason": "tool_use"
+      },
+      {
+        "output": "{\"decision\":\"replace\",\"reason\":\"User must keep phone within reach for calls, so the committed experiment of charging it in another room directly conflicts with a reported medical requirement.\",\"pattern\":\"User self-rated sleep 65 and woke tired after deliberately opening short videos in bed and losing track of time.\",\"meaning\":\"A single self-rated night tells us how they felt but cannot establish what caused the poor sleep.\",\"action\":\"Before getting into bed, move the phone's video app to a nested folder two screens away, so calls remain one tap away but videos require extra steps to reach.\",\"why\":\"User explicitly needs calls reachable but wants video access made harder; added friction on the app directly targets the self-reported habit without removing the phone.\",\"fit\":{\"obstacle\":\"Deliberately opening short videos in bed and losing track of time\",\"preserved_need\":\"Phone must remain within reach for incoming calls\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+        "usage": {
+          "input_tokens": 2788,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 298,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "stop_reason": "tool_use"
+      }
+    ],
+    "stop_reason": "tool_use",
+    "latency_ms": 14974,
+    "output": "{\"decision\":\"replace\",\"reason\":\"User must keep phone within reach for calls, so the committed experiment of charging it in another room directly conflicts with a reported medical requirement.\",\"pattern\":\"User self-rated sleep 65 and woke tired after deliberately opening short videos in bed and losing track of time.\",\"meaning\":\"A single self-rated night tells us how they felt but cannot establish what caused the poor sleep.\",\"action\":\"Before getting into bed, move the phone's video app to a nested folder two screens away, so calls remain one tap away but videos require extra steps to reach.\",\"why\":\"User explicitly needs calls reachable but wants video access made harder; added friction on the app directly targets the self-reported habit without removing the phone.\",\"fit\":{\"obstacle\":\"Deliberately opening short videos in bed and losing track of time\",\"preserved_need\":\"Phone must remain within reach for incoming calls\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+    "sample": 2,
+    "split": "holdout",
+    "expected": "replace",
+    "rubric": "Keep the device within reach and calls available while directly reducing deliberate entertainment use. No reliance on silencing notifications.",
+    "parsed": {
+      "decision": "replace",
+      "reason": "User must keep phone within reach for calls, so the committed experiment of charging it in another room directly conflicts with a reported medical requirement.",
+      "pattern": "User self-rated sleep 65 and woke tired after deliberately opening short videos in bed and losing track of time.",
+      "meaning": "A single self-rated night tells us how they felt but cannot establish what caused the poor sleep.",
+      "action": "Before getting into bed, move the phone's video app to a nested folder two screens away, so calls remain one tap away but videos require extra steps to reach.",
+      "why": "User explicitly needs calls reachable but wants video access made harder; added friction on the app directly targets the self-reported habit without removing the phone.",
+      "fit": {
+        "obstacle": "Deliberately opening short videos in bed and losing track of time",
+        "preserved_need": "Phone must remain within reach for incoming calls",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "displayed": {
+      "decision": "replace",
+      "reason": "User must keep phone within reach for calls, so the committed experiment of charging it in another room directly conflicts with a reported medical requirement.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A single self-rated night tells us how they felt but cannot establish what caused the poor sleep.",
+      "action": "Before getting into bed, move the phone's video app to a nested folder two screens away, so calls remain one tap away but videos require extra steps to reach.",
+      "why": "User explicitly needs calls reachable but wants video access made harder; added friction on the app directly targets the self-reported habit without removing the phone.",
+      "fit": {
+        "obstacle": "Deliberately opening short videos in bed and losing track of time",
+        "preserved_need": "Phone must remain within reach for incoming calls",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "decision_check": true
+  }
+]

@@ -1,3 +1,5 @@
+> Historical evaluation. The adaptive decision implementation and current runtime validation live in [../adaptive-decision/README.md](../adaptive-decision/README.md). The four-heading candidate below is retained for comparison; it is no longer the daily runtime prompt.
+
 # 30D-49 coaching evaluation build
 
 This PR implements evaluated instructions in the native daily-coaching path, with factual score summaries and experiment/commitment safeguards. It has not been merged or deployed and does not complete hosted Braintrust evaluation (30D-44). All examples are synthetic; no user records or interviews are uploaded.

@@ -1,0 +1,54 @@
+[
+  {
+    "case_id": "useful-despite-change",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2813,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 265,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 5927,
+    "output": "{\"decision\":\"continue\",\"reason\":\"User explicitly reports the one-song habit helps them settle and wants to keep it, despite a busier job and partial adherence yesterday.\",\"pattern\":\"You rated sleep 65 and woke feeling tired, with one partial attempt at the quiet-song habit.\",\"meaning\":\"A single self-rated night is too sparse to link the tiredness to the habit or the new job.\",\"action\":\"Listen to one quiet song before bed.\",\"why\":\"You said it helps you settle and easily fits your bedtime, so continuing it is the most feasible next step.\",\"fit\":{\"obstacle\":\"Difficulty settling at bedtime\",\"preserved_need\":\"Fits within existing bedtime routine despite a busier schedule\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+    "sample": 1,
+    "split": "regression",
+    "expected": "continue",
+    "rubric": "Keep the useful feasible action despite changed life context.",
+    "parsed": {
+      "decision": "continue",
+      "reason": "User explicitly reports the one-song habit helps them settle and wants to keep it, despite a busier job and partial adherence yesterday.",
+      "pattern": "You rated sleep 65 and woke feeling tired, with one partial attempt at the quiet-song habit.",
+      "meaning": "A single self-rated night is too sparse to link the tiredness to the habit or the new job.",
+      "action": "Listen to one quiet song before bed.",
+      "why": "You said it helps you settle and easily fits your bedtime, so continuing it is the most feasible next step.",
+      "fit": {
+        "obstacle": "Difficulty settling at bedtime",
+        "preserved_need": "Fits within existing bedtime routine despite a busier schedule",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "displayed": {
+      "decision": "continue",
+      "reason": "User explicitly reports the one-song habit helps them settle and wants to keep it, despite a busier job and partial adherence yesterday.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A single self-rated night is too sparse to link the tiredness to the habit or the new job.",
+      "action": "Listen to one quiet song before bed.",
+      "why": "You said it helps you settle and easily fits your bedtime, so continuing it is the most feasible next step.",
+      "fit": {
+        "obstacle": "Difficulty settling at bedtime",
+        "preserved_need": "Fits within existing bedtime routine despite a busier schedule",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "decision_check": true
+  }
+]

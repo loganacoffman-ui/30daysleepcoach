@@ -22,7 +22,7 @@ it('both versions retain the required output headings', () => {
   }
 });
 
-it('evaluates the exact prompt imported by the daily endpoint', async () => {
+it('preserves the earlier evaluated prompt for historical comparisons', async () => {
   const { DAILY_COACH_SYSTEM_PROMPT } = await import('../supabase/functions/_shared/dailyCoachingPrompt.ts');
   expect(DAILY_COACH_SYSTEM_PROMPT).toBe(readFileSync(new URL('candidate.txt', base), 'utf8'));
 });

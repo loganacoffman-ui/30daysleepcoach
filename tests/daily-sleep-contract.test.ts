@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, expect, it, vi } from 'vitest';
+import { DAILY_DECISION_TOOL } from '../supabase/functions/_shared/dailyDecision';
 import { resolveSleep } from '../mobile/sleep/dailySleepContract';
 
 const state = vi.hoisted(() => ({ client: null as any, handler: null as any }));
@@ -14,6 +15,10 @@ let checkins: any[], nights: any[], oura: any[], stored: any, writes: string[], 
 const date = '2026-09-18';
 const manual = { checkin_date: date, manual_sleep_score: 0, manual_sleep_submitted_at: `${date}T08:00:00Z`, note: 'Restless' };
 const fetchMock = vi.fn();
+function modelResponse(payload: any, init?: ResponseInit) {
+  let input;try {input={fit:{obstacle:'Current concern',preserved_need:'',time_budget_seconds:null,duration_seconds:null},...JSON.parse(payload.content[0].text)};}catch {input={};}
+  return new Response(JSON.stringify({stop_reason:'tool_use',content:[{type:'tool_use',name:DAILY_DECISION_TOOL.name,input}]}),init);
+}
 beforeAll(async () => {
   vi.stubGlobal('Deno', { env: { get: () => undefined }, serve: (handler: unknown) => { state.handler = handler; } });
   await import('../supabase/functions/sleep-coach/index');
@@ -22,9 +27,21 @@ beforeEach(() => {
   reports = []; checkins = []; nights = []; oura = []; stored = null; writes = []; filters = [];
   profile = {}; adherence = []; currentCommitment = null; cacheReadError = null;
   vi.stubGlobal('fetch', fetchMock);
-  fetchMock.mockReset().mockImplementation(async () => new Response(JSON.stringify({ content: [{ type: 'text', text: "**Pattern** A pattern\n**What this likely means** Meaning\n**Tonight's action** Dim lights\n**Why this, now** Rest" }] }), { status: 200 }));
+  fetchMock.mockReset().mockImplementation(async () => modelResponse({ content: [{ type: 'text', text: JSON.stringify({decision:'replace',reason:'Current context supports this action',pattern:'A pattern',meaning:'Meaning',action:'Dim lights',why:'Rest'}) }] }, { status: 200 }));
   state.client = {
     auth: { getUser: async () => ({ data: { user: { id: 'user-1' } } }) },
+    rpc: vi.fn(async (_name, args) => {
+      const record = args.p_record;
+      writes.push('coach_recommendations');
+      if (record.source_context.decision.kind !== 'clarify' && (!currentCommitment || currentCommitment.status === 'committed')) {
+        if (!currentCommitment || currentCommitment.behavior !== record.action) {
+          writes.push('behavior_commitments');
+          currentCommitment = {id: currentCommitment?.id ?? 'experiment',behavior:record.action,status:'committed',updated_at:record.generated_at};
+        }
+      }
+      stored = {...record, source_context:{...record.source_context,commitment_snapshot:currentCommitment}};
+      return {data:{status:'ok',recommendation:stored},error:null};
+    }),
     functions: { invoke: vi.fn(async () => ({ data: { data: oura }, error: null })) },
     from: (table: string) => {
       let single = false; let record: any;
@@ -88,7 +105,7 @@ it('corrected authenticated wearable evidence regenerates once and keeps the res
   expect(corrected.headers.get('X-Cache')).toBe('MISS');
   const correctedBody = await corrected.json();
   expect(Object.keys(correctedBody.recommendation)).toEqual(Object.keys(firstBody.recommendation));
-  expect(Object.keys(correctedBody.recommendation)).toEqual(['pattern', 'meaning', 'action', 'why', 'generated_at']);
+  expect(Object.keys(correctedBody.recommendation)).toEqual(['decision', 'pattern', 'meaning', 'action', 'why', 'generated_at']);
   const reused = await request();
   expect(reused.headers.get('X-Cache')).toBe('HIT');
   expect(await reused.json()).toEqual(correctedBody);
@@ -145,7 +162,7 @@ it('uses authenticated cross-conversation corrections and refreshes advice after
 it('reuses the exact saved report on repeated checks after its experiment is saved', async () => {
   checkins = [manual];
   const first = await (await request()).json();
-  currentCommitment = { id: 'experiment', behavior: first.recommendation.action, status: 'committed' };
+  expect(currentCommitment.behavior).toBe(first.recommendation.action);
   for (let check = 0; check < 3; check++) {
     const response = await request({ coachContext: { date, profile: { ignored_client_field: check } } });
     expect(response.headers.get('X-Cache')).toBe('HIT');
@@ -186,11 +203,11 @@ it('only an explicit refresh bypasses unchanged evidence', async () => {
 });
 
 it('uses the evaluated daily instructions and current prompt version', async () => {
-  const { DAILY_COACH_SYSTEM_PROMPT } = await import('../supabase/functions/_shared/dailyCoachingPrompt');
+  const { ADAPTIVE_DAILY_SYSTEM_PROMPT } = await import('../supabase/functions/_shared/dailyCoachingPrompt');
   const { DAILY_COACH_PROMPT_VERSION } = await import('../supabase/functions/_shared/dailySleepContract');
   checkins = [manual];
   await request();
-  expect(JSON.parse(fetchMock.mock.calls[0][1].body).system).toBe(DAILY_COACH_SYSTEM_PROMPT);
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body).system).toBe(ADAPTIVE_DAILY_SYSTEM_PROMPT);
   expect(stored.prompt_version).toBe(DAILY_COACH_PROMPT_VERSION);
 });
 
@@ -204,11 +221,11 @@ it('publishes an adapted action instead of overwriting it with a short prior exp
   expect(stored.action).not.toBe(adherence[0].behavior);
 });
 
-it.each(['committed', 'completed', 'partial', 'skipped'])('does not reset today’s %s experiment on refresh or cache hit', async status => {
+it.each(['completed', 'partial', 'skipped'])('does not reset today’s %s experiment on refresh or cache hit', async status => {
   checkins = [manual];
   currentCommitment = { id: 'current', behavior: 'Read two pages', status };
   const first = await (await request()).json();
-  expect(first.recommendation.action).toBe('Read two pages');
+  expect(first.recommendation.action).toBe('Dim lights');
   expect(JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content).toContain('current_daily_experiment');
   expect(writes).not.toContain('behavior_commitments');
   expect((await request()).headers.get('X-Cache')).toBe('HIT');
@@ -217,13 +234,13 @@ it.each(['committed', 'completed', 'partial', 'skipped'])('does not reset today�
   expect(currentCommitment.status).toBe(status);
 });
 
-it('does not let a cached recommendation undo a confirmed Coach experiment change', async () => {
+it('invalidates cache when the current experiment changes and uses the new model decision', async () => {
   checkins = [manual];
   await request();
   currentCommitment = { id: 'confirmed-change', behavior: 'Read two pages', status: 'committed' };
   const response = await request();
   expect(response.headers.get('X-Cache')).toBe('MISS');
-  expect((await response.json()).recommendation.action).toBe('Read two pages');
+  expect((await response.json()).recommendation.action).toBe('Dim lights');
   expect((await request()).headers.get('X-Cache')).toBe('HIT');
 });
 
@@ -237,7 +254,7 @@ it('regenerates a report cached under the old prompt version once', async () => 
 
 it('retries an overlong daily response once and does not store it if still invalid', async () => {
   checkins = [manual];
-  fetchMock.mockImplementation(async () => new Response(JSON.stringify({ content: [{ type: 'text', text: '**Pattern** ' + 'word '.repeat(90) + "\n**What this likely means** Meaning\n**Tonight's action** Action\n**Why this, now** Why" }] })));
+  fetchMock.mockImplementation(async () => modelResponse({ content: [{ type: 'text', text: '**Pattern** ' + 'word '.repeat(90) + "\n**What this likely means** Meaning\n**Tonight's action** Action\n**Why this, now** Why" }] }));
   expect((await (await request()).json()).status).toBe('generation_failed');
   expect(fetchMock).toHaveBeenCalledTimes(2);
   expect(writes).toEqual([]);
@@ -261,4 +278,36 @@ it('publishes the grounded score summary even when the model invents a numeric p
   const body = await (await request()).json();
   expect(body.recommendation.pattern).toBe('Oura scored 74; your own sleep rating was 0.');
   expect(stored.pattern).toBe(body.recommendation.pattern);
+});
+
+it('replaces the saved night-shift action after a correction and persists the model decision',async()=>{
+ checkins=[manual];currentCommitment={id:'current',behavior:'Wear glasses before daytime sleep.',status:'committed'};
+ reports=[{id:'correction',role:'user',content:'I now work days and check email in bed.',created_at:new Date().toISOString()}];
+ const result=await(await request()).json();
+ expect(result.recommendation.action).toBe('Dim lights');
+ expect(currentCommitment.behavior).toBe(result.recommendation.action);
+ expect(stored.source_context.decision.kind).toBe('replace');
+ expect(state.client.rpc).toHaveBeenCalledWith('publish_daily_coaching',expect.objectContaining({p_expected_experiment:expect.objectContaining({behavior:'Wear glasses before daytime sleep.'})}));
+ expect((await request()).headers.get('X-Cache')).toBe('HIT');
+});
+it('caches a clarification without creating a question-shaped experiment',async()=>{
+ checkins=[manual];
+ fetchMock.mockImplementation(async()=>modelResponse({content:[{type:'text',text:JSON.stringify({decision:'clarify',reason:'Sleep opportunity is unknown.',pattern:'One sleep report.',meaning:'Your next schedule is unclear.',action:'When can you next sleep?',why:'That determines which step fits.'})}]}));
+ const first=await(await request()).json();
+ expect(first.recommendation.decision).toBe('clarify');
+ expect(currentCommitment).toBeNull();expect(writes).not.toContain('behavior_commitments');
+ expect((await request()).headers.get('X-Cache')).toBe('HIT');
+});
+it('continues a useful saved action even when other context changes',async()=>{
+ checkins=[manual];currentCommitment={id:'current',behavior:'Read one page.',status:'committed'};
+ reports=[{id:'new',role:'user',content:'Work is busy, but reading still helps and fits.',created_at:new Date().toISOString()}];
+ fetchMock.mockImplementation(async()=>modelResponse({content:[{type:'text',text:JSON.stringify({decision:'continue',reason:'The user reports continued benefit and feasibility.',pattern:'One sleep report.',meaning:'Your routine remains useful.',action:'Read one page.',why:'Reading still helps you settle.'})}]}));
+ expect((await(await request()).json()).recommendation.action).toBe('Read one page.');
+ expect(writes).not.toContain('behavior_commitments');
+});
+it('fails closed when transactional publication reports a race or storage failure',async()=>{
+ checkins=[manual];state.client.rpc.mockResolvedValueOnce({data:{status:'experiment_changed'},error:null});
+ expect((await request()).status).toBe(409);
+ state.client.rpc.mockResolvedValueOnce({data:null,error:{message:'offline'}});
+ expect((await request()).status).toBe(500);expect(stored).toBeNull();
 });

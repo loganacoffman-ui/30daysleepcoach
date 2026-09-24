@@ -1,0 +1,19 @@
+{
+  "cases": 16,
+  "parsed": 16,
+  "category_matches": 16,
+  "median_latency_ms": 5132.0,
+  "input_tokens": 37309,
+  "output_tokens": 3385,
+  "reviewer": "Codex, unblinded single-sample review",
+  "quality_acceptance": "FAIL",
+  "failed_cases": [
+    "family-calls",
+    "sensitive-context"
+  ],
+  "notes": [
+    "DND reduces notifications but does not itself prevent scrolling.",
+    "A whole song is not demonstrably within a one-minute budget.",
+    "Other outputs retain weak or unnecessary framing; category agreement does not establish broad quality."
+  ]
+}

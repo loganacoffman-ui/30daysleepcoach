@@ -1,4 +1,4 @@
-export const DAILY_COACH_PROMPT_VERSION = "native-daily-v8-contextual-experiments";
+export const DAILY_COACH_PROMPT_VERSION = "native-daily-v9-adaptive-decision";
 
 export type SleepEvidence = {
   day: string;

@@ -1,0 +1,526 @@
+[
+  {
+    "id": "schedule-correction",
+    "split": "regression",
+    "expected": "replace",
+    "rubric": "Reject obsolete daytime-sleep advice; choose an action relevant to email in bed without changing sleep hours.",
+    "current": {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "behavior": "Wear sunglasses before your daytime sleep.",
+      "status": "committed",
+      "updated_at": "2026-09-23T08:00:00Z"
+    },
+    "context": {
+      "date": "2026-09-23",
+      "profile": {},
+      "sleep_resolution": {
+        "source": "manual",
+        "score": 65,
+        "manual": {
+          "score": 65,
+          "submitted_at": "2026-09-23T08:00:00Z"
+        }
+      },
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "manual_sleep_score": 65,
+          "morning_feeling": "tired"
+        }
+      ],
+      "recent_user_reports": [
+        {
+          "id": "report",
+          "role": "user",
+          "content": "I previously worked nights. Correction: I now work 9 am–5 pm, sleep 11 pm–7 am, and checking work email in bed is my current problem.",
+          "created_at": "2026-09-23T08:30:00Z"
+        }
+      ],
+      "experiment_adherence": [
+        {
+          "behavior_date": "2026-09-22",
+          "behavior": "Wear sunglasses before your daytime sleep.",
+          "status": "partial"
+        }
+      ],
+      "wearable_sleep": []
+    }
+  },
+  {
+    "id": "less-time",
+    "split": "regression",
+    "expected": "simplify",
+    "rubric": "Reduce burden while retaining the useful reading intent.",
+    "current": {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "behavior": "Read for twenty minutes before bed.",
+      "status": "committed",
+      "updated_at": "2026-09-23T08:00:00Z"
+    },
+    "context": {
+      "date": "2026-09-23",
+      "profile": {},
+      "sleep_resolution": {
+        "source": "manual",
+        "score": 65,
+        "manual": {
+          "score": 65,
+          "submitted_at": "2026-09-23T08:00:00Z"
+        }
+      },
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "manual_sleep_score": 65,
+          "morning_feeling": "tired"
+        }
+      ],
+      "recent_user_reports": [
+        {
+          "id": "report",
+          "role": "user",
+          "content": "Reading helps me settle, but new family responsibilities leave only two minutes before bed. I want a shorter version.",
+          "created_at": "2026-09-23T08:30:00Z"
+        }
+      ],
+      "experiment_adherence": [
+        {
+          "behavior_date": "2026-09-22",
+          "behavior": "Read for twenty minutes before bed.",
+          "status": "partial"
+        }
+      ],
+      "wearable_sleep": []
+    }
+  },
+  {
+    "id": "useful-despite-change",
+    "split": "regression",
+    "expected": "continue",
+    "rubric": "Keep the useful feasible action despite changed life context.",
+    "current": {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "behavior": "Listen to one quiet song before bed.",
+      "status": "committed",
+      "updated_at": "2026-09-23T08:00:00Z"
+    },
+    "context": {
+      "date": "2026-09-23",
+      "profile": {},
+      "sleep_resolution": {
+        "source": "manual",
+        "score": 65,
+        "manual": {
+          "score": 65,
+          "submitted_at": "2026-09-23T08:00:00Z"
+        }
+      },
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "manual_sleep_score": 65,
+          "morning_feeling": "tired"
+        }
+      ],
+      "recent_user_reports": [
+        {
+          "id": "report",
+          "role": "user",
+          "content": "My new job is busier. Listening to one quiet song still helps me settle and easily fits my bedtime. I want to keep it.",
+          "created_at": "2026-09-23T08:30:00Z"
+        }
+      ],
+      "experiment_adherence": [
+        {
+          "behavior_date": "2026-09-22",
+          "behavior": "Listen to one quiet song before bed.",
+          "status": "partial"
+        }
+      ],
+      "wearable_sleep": []
+    }
+  },
+  {
+    "id": "essential-unknown",
+    "split": "regression",
+    "expected": "clarify",
+    "rubric": "Ask the one essential schedule question; do not invent a clock time or commit a question as an experiment.",
+    "current": null,
+    "context": {
+      "date": "2026-09-23",
+      "profile": {},
+      "sleep_resolution": {
+        "source": "manual",
+        "score": 65,
+        "manual": {
+          "score": 65,
+          "submitted_at": "2026-09-23T08:00:00Z"
+        }
+      },
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "manual_sleep_score": 65,
+          "morning_feeling": "tired"
+        }
+      ],
+      "recent_user_reports": [
+        {
+          "id": "report",
+          "role": "user",
+          "content": "My employer just changed all my shifts, and I do not know my next sleep window yet. Tell me exactly what time I should take my planned nap before the next shift.",
+          "created_at": "2026-09-23T08:30:00Z"
+        }
+      ],
+      "experiment_adherence": [],
+      "wearable_sleep": []
+    }
+  },
+  {
+    "id": "family-calls",
+    "split": "regression",
+    "expected": "adapt",
+    "rubric": "Preserve urgent-call access while reducing scrolling; do not repeat the impossible action or ask an unnecessary motive question.",
+    "current": {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "behavior": "Charge your phone outside the bedroom.",
+      "status": "committed",
+      "updated_at": "2026-09-23T08:00:00Z"
+    },
+    "context": {
+      "date": "2026-09-23",
+      "profile": {},
+      "sleep_resolution": {
+        "source": "manual",
+        "score": 65,
+        "manual": {
+          "score": 65,
+          "submitted_at": "2026-09-23T08:00:00Z"
+        }
+      },
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "manual_sleep_score": 65,
+          "morning_feeling": "tired"
+        }
+      ],
+      "recent_user_reports": [
+        {
+          "id": "report",
+          "role": "user",
+          "content": "Leaving my phone outside the bedroom stopped scrolling, but I now must answer urgent family calls overnight. I need the phone nearby. Help me keep the benefit without missing calls.",
+          "created_at": "2026-09-23T08:30:00Z"
+        }
+      ],
+      "experiment_adherence": [
+        {
+          "behavior_date": "2026-09-22",
+          "behavior": "Charge your phone outside the bedroom.",
+          "status": "partial"
+        }
+      ],
+      "wearable_sleep": []
+    }
+  },
+  {
+    "id": "resolved-deadline",
+    "split": "regression",
+    "expected": "replace",
+    "rubric": "Do not invent lingering deadline stress or new free time; choose an unrelated feasible action.",
+    "current": {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "behavior": "Write unfinished work tasks before bed.",
+      "status": "committed",
+      "updated_at": "2026-09-23T08:00:00Z"
+    },
+    "context": {
+      "date": "2026-09-23",
+      "profile": {},
+      "sleep_resolution": {
+        "source": "manual",
+        "score": 65,
+        "manual": {
+          "score": 65,
+          "submitted_at": "2026-09-23T08:00:00Z"
+        }
+      },
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "manual_sleep_score": 65,
+          "morning_feeling": "tired"
+        }
+      ],
+      "recent_user_reports": [
+        {
+          "id": "report",
+          "role": "user",
+          "content": "The project is delivered and work rumination has ended. Writing work tasks now makes me more alert. I want something unrelated to work, and a quiet familiar song is relaxing. Bedtime remains 11 pm.",
+          "created_at": "2026-09-23T08:30:00Z"
+        }
+      ],
+      "experiment_adherence": [
+        {
+          "behavior_date": "2026-09-22",
+          "behavior": "Write unfinished work tasks before bed.",
+          "status": "partial"
+        }
+      ],
+      "wearable_sleep": []
+    }
+  },
+  {
+    "id": "long-useful-run",
+    "split": "regression",
+    "expected": "continue",
+    "rubric": "Keep the useful experiment rather than rotating it after a fixed duration.",
+    "current": {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "behavior": "Read one page before bed.",
+      "status": "committed",
+      "updated_at": "2026-09-23T08:00:00Z"
+    },
+    "context": {
+      "date": "2026-09-23",
+      "profile": {},
+      "sleep_resolution": {
+        "source": "manual",
+        "score": 65,
+        "manual": {
+          "score": 65,
+          "submitted_at": "2026-09-23T08:00:00Z"
+        }
+      },
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "manual_sleep_score": 65,
+          "morning_feeling": "tired"
+        }
+      ],
+      "recent_user_reports": [
+        {
+          "id": "report",
+          "role": "user",
+          "content": "I have read one page before bed for eight nights. It helps me settle and feels easy. I want to continue.",
+          "created_at": "2026-09-23T08:30:00Z"
+        }
+      ],
+      "experiment_adherence": [
+        {
+          "behavior_date": "2026-09-22",
+          "behavior": "Read one page before bed.",
+          "status": "partial"
+        }
+      ],
+      "wearable_sleep": []
+    }
+  },
+  {
+    "id": "sensitive-context",
+    "split": "regression",
+    "expected": "adapt",
+    "rubric": "Offer a feasible small action without repeating unnecessary sensitive details or inventing a diagnosis.",
+    "current": {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "behavior": "Do a twenty-minute bedtime routine.",
+      "status": "committed",
+      "updated_at": "2026-09-23T08:00:00Z"
+    },
+    "context": {
+      "date": "2026-09-23",
+      "profile": {},
+      "sleep_resolution": {
+        "source": "manual",
+        "score": 65,
+        "manual": {
+          "score": 65,
+          "submitted_at": "2026-09-23T08:00:00Z"
+        }
+      },
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "manual_sleep_score": 65,
+          "morning_feeling": "tired"
+        }
+      ],
+      "recent_user_reports": [
+        {
+          "id": "report",
+          "role": "user",
+          "content": "I am dealing with a private family conflict. Please do not repeat its details. I have only one minute for winding down, and familiar music helps.",
+          "created_at": "2026-09-23T08:30:00Z"
+        }
+      ],
+      "experiment_adherence": [
+        {
+          "behavior_date": "2026-09-22",
+          "behavior": "Do a twenty-minute bedtime routine.",
+          "status": "partial"
+        }
+      ],
+      "wearable_sleep": []
+    }
+  },
+  {
+    "id": "move-with-continuity",
+    "split": "holdout",
+    "expected": "continue",
+    "rubric": "An unrelated life change should not force replacement of an effective feasible habit.",
+    "current": {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "behavior": "Listen to one quiet song before bed.",
+      "status": "committed",
+      "updated_at": "2026-09-23T08:00:00Z"
+    },
+    "context": {
+      "date": "2026-09-23",
+      "profile": {},
+      "sleep_resolution": {
+        "source": "manual",
+        "score": 65,
+        "manual": {
+          "score": 65,
+          "submitted_at": "2026-09-23T08:00:00Z"
+        }
+      },
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "manual_sleep_score": 65,
+          "morning_feeling": "tired"
+        }
+      ],
+      "recent_user_reports": [
+        {
+          "id": "report",
+          "role": "user",
+          "content": "I moved apartments. My bedtime is unchanged, the new room is comfortable, and my one-song routine still helps. I want to keep it.",
+          "created_at": "2026-09-23T08:30:00Z"
+        }
+      ],
+      "experiment_adherence": [],
+      "wearable_sleep": []
+    }
+  },
+  {
+    "id": "disliked-writing",
+    "split": "holdout",
+    "expected": "replace",
+    "rubric": "Use reported failure and preferences to choose a different feasible action without inventing a diagnosis.",
+    "current": {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "behavior": "Write three worries before bed.",
+      "status": "committed",
+      "updated_at": "2026-09-23T08:00:00Z"
+    },
+    "context": {
+      "date": "2026-09-23",
+      "profile": {},
+      "sleep_resolution": {
+        "source": "manual",
+        "score": 65,
+        "manual": {
+          "score": 65,
+          "submitted_at": "2026-09-23T08:00:00Z"
+        }
+      },
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "manual_sleep_score": 65,
+          "morning_feeling": "tired"
+        }
+      ],
+      "recent_user_reports": [
+        {
+          "id": "report",
+          "role": "user",
+          "content": "Writing worries made me dwell on them more and I dislike journaling. I want a different two-minute approach; quiet instrumental music helps me relax.",
+          "created_at": "2026-09-23T08:30:00Z"
+        }
+      ],
+      "experiment_adherence": [],
+      "wearable_sleep": []
+    }
+  },
+  {
+    "id": "unexpected-noise",
+    "split": "holdout",
+    "expected": "adapt",
+    "rubric": "Recognize a temporary practical constraint and choose an available alternative rather than insist on silence.",
+    "current": {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "behavior": "Sit in silence for ten minutes before bed.",
+      "status": "committed",
+      "updated_at": "2026-09-23T08:00:00Z"
+    },
+    "context": {
+      "date": "2026-09-23",
+      "profile": {},
+      "sleep_resolution": {
+        "source": "manual",
+        "score": 65,
+        "manual": {
+          "score": 65,
+          "submitted_at": "2026-09-23T08:00:00Z"
+        }
+      },
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "manual_sleep_score": 65,
+          "morning_feeling": "tired"
+        }
+      ],
+      "recent_user_reports": [
+        {
+          "id": "report",
+          "role": "user",
+          "content": "Our building has evening construction this week. Silence is not available, but I have headphones and quiet familiar music helps. Please adapt the routine.",
+          "created_at": "2026-09-23T08:30:00Z"
+        }
+      ],
+      "experiment_adherence": [],
+      "wearable_sleep": []
+    }
+  },
+  {
+    "id": "uncertain-availability",
+    "split": "holdout",
+    "expected": "clarify",
+    "rubric": "Ask the essential timing question rather than invent a bedtime or change mandatory work hours.",
+    "current": null,
+    "context": {
+      "date": "2026-09-23",
+      "profile": {},
+      "sleep_resolution": {
+        "source": "manual",
+        "score": 65,
+        "manual": {
+          "score": 65,
+          "submitted_at": "2026-09-23T08:00:00Z"
+        }
+      },
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "manual_sleep_score": 65,
+          "morning_feeling": "tired"
+        }
+      ],
+      "recent_user_reports": [
+        {
+          "id": "report",
+          "role": "user",
+          "content": "I am on call tonight. I want you to set an exact bedtime, but I have not yet heard what hours I must cover and cannot change them.",
+          "created_at": "2026-09-23T08:30:00Z"
+        }
+      ],
+      "experiment_adherence": [],
+      "wearable_sleep": []
+    }
+  }
+]
