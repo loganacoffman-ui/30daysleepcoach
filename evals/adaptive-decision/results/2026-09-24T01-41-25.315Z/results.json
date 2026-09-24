@@ -1,0 +1,314 @@
+[
+  {
+    "case_id": "family-calls",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2764,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 308,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 8352,
+    "output": "{\"decision\":\"replace\",\"reason\":\"Phone outside the bedroom was only partially followed because urgent overnight family calls require the phone to stay nearby, making that experiment no longer feasible as designed.\",\"pattern\":\"Leaving the phone outside reduced scrolling but conflicts with a real overnight call obligation.\",\"meaning\":\"A manual score of 65 with a tired morning feeling suggests sleep quality was low, though one night is too little data to link it to any single cause.\",\"action\":\"Enable Do Not Disturb with a Favorites or emergency-bypass exception for family contacts, then place the phone face-down across the room at bedtime.\",\"why\":\"This preserves urgent call availability while removing the scrolling trigger — the specific obstacle the original experiment was meant to address.\",\"fit\":{\"obstacle\":\"Phone nearby enables bedtime scrolling, but moving it outside the room blocks urgent family calls overnight\",\"preserved_need\":\"Must be reachable for urgent overnight family calls\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+    "sample": 1,
+    "split": "regression",
+    "expected": "adapt",
+    "rubric": "Preserve urgent-call access while reducing scrolling; do not repeat the impossible action or ask an unnecessary motive question.",
+    "parsed": {
+      "decision": "replace",
+      "reason": "Phone outside the bedroom was only partially followed because urgent overnight family calls require the phone to stay nearby, making that experiment no longer feasible as designed.",
+      "pattern": "Leaving the phone outside reduced scrolling but conflicts with a real overnight call obligation.",
+      "meaning": "A manual score of 65 with a tired morning feeling suggests sleep quality was low, though one night is too little data to link it to any single cause.",
+      "action": "Enable Do Not Disturb with a Favorites or emergency-bypass exception for family contacts, then place the phone face-down across the room at bedtime.",
+      "why": "This preserves urgent call availability while removing the scrolling trigger — the specific obstacle the original experiment was meant to address.",
+      "fit": {
+        "obstacle": "Phone nearby enables bedtime scrolling, but moving it outside the room blocks urgent family calls overnight",
+        "preserved_need": "Must be reachable for urgent overnight family calls",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "displayed": {
+      "decision": "replace",
+      "reason": "Phone outside the bedroom was only partially followed because urgent overnight family calls require the phone to stay nearby, making that experiment no longer feasible as designed.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A manual score of 65 with a tired morning feeling suggests sleep quality was low, though one night is too little data to link it to any single cause.",
+      "action": "Enable Do Not Disturb with a Favorites or emergency-bypass exception for family contacts, then place the phone face-down across the room at bedtime.",
+      "why": "This preserves urgent call availability while removing the scrolling trigger — the specific obstacle the original experiment was meant to address.",
+      "fit": {
+        "obstacle": "Phone nearby enables bedtime scrolling, but moving it outside the room blocks urgent family calls overnight",
+        "preserved_need": "Must be reachable for urgent overnight family calls",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "sensitive-context",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2761,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 260,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 5812,
+    "output": "{\"decision\":\"simplify\",\"reason\":\"The twenty-minute routine was only partially completed, and the user now reports only one minute is available for winding down.\",\"pattern\":\"The full routine exceeded what was feasible given current circumstances.\",\"meaning\":\"A manual score of 65 with a tired morning feeling reflects a rough night, though one night is too little to draw conclusions.\",\"action\":\"Play one familiar song as a brief wind-down before bed.\",\"why\":\"You have only one minute and reported that familiar music helps, so a single song fits your real constraint right now.\",\"fit\":{\"obstacle\":\"Twenty-minute routine is too long to complete given the one-minute time budget\",\"preserved_need\":\"\",\"time_budget_seconds\":60,\"duration_seconds\":60}}",
+    "sample": 1,
+    "split": "regression",
+    "expected": "adapt",
+    "rubric": "Offer a feasible small action without repeating unnecessary sensitive details or inventing a diagnosis.",
+    "parsed": {
+      "decision": "simplify",
+      "reason": "The twenty-minute routine was only partially completed, and the user now reports only one minute is available for winding down.",
+      "pattern": "The full routine exceeded what was feasible given current circumstances.",
+      "meaning": "A manual score of 65 with a tired morning feeling reflects a rough night, though one night is too little to draw conclusions.",
+      "action": "Play one familiar song as a brief wind-down before bed.",
+      "why": "You have only one minute and reported that familiar music helps, so a single song fits your real constraint right now.",
+      "fit": {
+        "obstacle": "Twenty-minute routine is too long to complete given the one-minute time budget",
+        "preserved_need": "",
+        "time_budget_seconds": 60,
+        "duration_seconds": 60
+      }
+    },
+    "displayed": {
+      "decision": "simplify",
+      "reason": "The twenty-minute routine was only partially completed, and the user now reports only one minute is available for winding down.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A manual score of 65 with a tired morning feeling reflects a rough night, though one night is too little to draw conclusions.",
+      "action": "Play one familiar song as a brief wind-down before bed. Stop after 1 minute.",
+      "why": "You have only one minute and reported that familiar music helps, so a single song fits your real constraint right now.",
+      "fit": {
+        "obstacle": "Twenty-minute routine is too long to complete given the one-minute time budget",
+        "preserved_need": "",
+        "time_budget_seconds": 60,
+        "duration_seconds": 60
+      }
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "necessary-device",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2727,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 295,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 6842,
+    "output": "{\"decision\":\"replace\",\"reason\":\"User explicitly reports the tablet must stay bedside as a caregiving monitor, making the committed experiment of leaving it outside the bedroom infeasible.\",\"pattern\":\"The tablet must remain accessible overnight, but entertainment apps are disrupting sleep.\",\"meaning\":\"A manual score of 65 and feeling tired this morning reflect a difficult night, though we can't pinpoint the exact cause from one data point.\",\"action\":\"Before bed, enable Guided Access (iOS) or Screen Pinning (Android) to lock the tablet to the monitor app only, preventing entertainment apps from being opened.\",\"why\":\"This directly blocks the reported obstacle — opening entertainment apps — while keeping the caregiving monitor fully available bedside.\",\"fit\":{\"obstacle\":\"Opening entertainment apps on the bedside tablet\",\"preserved_need\":\"Tablet must remain beside the bed as an overnight caregiving monitor\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+    "sample": 1,
+    "split": "holdout",
+    "expected": "adapt",
+    "rubric": "Address entertainment access directly while preserving monitor access; do not conflate notification reduction with preventing entertainment use.",
+    "parsed": {
+      "decision": "replace",
+      "reason": "User explicitly reports the tablet must stay bedside as a caregiving monitor, making the committed experiment of leaving it outside the bedroom infeasible.",
+      "pattern": "The tablet must remain accessible overnight, but entertainment apps are disrupting sleep.",
+      "meaning": "A manual score of 65 and feeling tired this morning reflect a difficult night, though we can't pinpoint the exact cause from one data point.",
+      "action": "Before bed, enable Guided Access (iOS) or Screen Pinning (Android) to lock the tablet to the monitor app only, preventing entertainment apps from being opened.",
+      "why": "This directly blocks the reported obstacle — opening entertainment apps — while keeping the caregiving monitor fully available bedside.",
+      "fit": {
+        "obstacle": "Opening entertainment apps on the bedside tablet",
+        "preserved_need": "Tablet must remain beside the bed as an overnight caregiving monitor",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "displayed": {
+      "decision": "replace",
+      "reason": "User explicitly reports the tablet must stay bedside as a caregiving monitor, making the committed experiment of leaving it outside the bedroom infeasible.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A manual score of 65 and feeling tired this morning reflect a difficult night, though we can't pinpoint the exact cause from one data point.",
+      "action": "Before bed, enable Guided Access (iOS) or Screen Pinning (Android) to lock the tablet to the monitor app only, preventing entertainment apps from being opened.",
+      "why": "This directly blocks the reported obstacle — opening entertainment apps — while keeping the caregiving monitor fully available bedside.",
+      "fit": {
+        "obstacle": "Opening entertainment apps on the bedside tablet",
+        "preserved_need": "Tablet must remain beside the bed as an overnight caregiving monitor",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "family-calls",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2764,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 302,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 7337,
+    "output": "{\"decision\":\"replace\",\"reason\":\"User reports the outside-bedroom experiment was only partial because urgent overnight family calls require the phone to be reachable.\",\"pattern\":\"Keeping the phone outside the bedroom reduced scrolling but created a real conflict with overnight call availability.\",\"meaning\":\"A self-reported score of 65 with a tired morning feeling reflects how they felt, but we can't identify a single cause from one night.\",\"action\":\"Enable Do Not Disturb at bedtime, then add your family contacts as starred/favorites so only their calls ring through while all other notifications are silenced.\",\"why\":\"This preserves the benefit of blocking idle scrolling alerts while keeping urgent family calls audible, directly resolving the reported conflict.\",\"fit\":{\"obstacle\":\"Phone must stay nearby for overnight family calls, making the outside-bedroom rule unworkable\",\"preserved_need\":\"Ability to receive urgent overnight family calls\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+    "sample": 2,
+    "split": "regression",
+    "expected": "adapt",
+    "rubric": "Preserve urgent-call access while reducing scrolling; do not repeat the impossible action or ask an unnecessary motive question.",
+    "parsed": {
+      "decision": "replace",
+      "reason": "User reports the outside-bedroom experiment was only partial because urgent overnight family calls require the phone to be reachable.",
+      "pattern": "Keeping the phone outside the bedroom reduced scrolling but created a real conflict with overnight call availability.",
+      "meaning": "A self-reported score of 65 with a tired morning feeling reflects how they felt, but we can't identify a single cause from one night.",
+      "action": "Enable Do Not Disturb at bedtime, then add your family contacts as starred/favorites so only their calls ring through while all other notifications are silenced.",
+      "why": "This preserves the benefit of blocking idle scrolling alerts while keeping urgent family calls audible, directly resolving the reported conflict.",
+      "fit": {
+        "obstacle": "Phone must stay nearby for overnight family calls, making the outside-bedroom rule unworkable",
+        "preserved_need": "Ability to receive urgent overnight family calls",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "displayed": {
+      "decision": "replace",
+      "reason": "User reports the outside-bedroom experiment was only partial because urgent overnight family calls require the phone to be reachable.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A self-reported score of 65 with a tired morning feeling reflects how they felt, but we can't identify a single cause from one night.",
+      "action": "Enable Do Not Disturb at bedtime, then add your family contacts as starred/favorites so only their calls ring through while all other notifications are silenced.",
+      "why": "This preserves the benefit of blocking idle scrolling alerts while keeping urgent family calls audible, directly resolving the reported conflict.",
+      "fit": {
+        "obstacle": "Phone must stay nearby for overnight family calls, making the outside-bedroom rule unworkable",
+        "preserved_need": "Ability to receive urgent overnight family calls",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "sensitive-context",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2761,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 288,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 6974,
+    "output": "{\"decision\":\"simplify\",\"reason\":\"The twenty-minute routine was only partially completed, and the user now reports only one minute available for winding down.\",\"pattern\":\"Last night's routine was partially done; tonight one minute is the realistic limit.\",\"meaning\":\"A manual score of 65 with a tired feeling tells us sleep felt poor, but one night of sparse data can't confirm a cause.\",\"action\":\"Play one familiar, calming song as your entire wind-down before getting into bed.\",\"why\":\"You reported only one minute available and that familiar music helps, so a single song fits both constraints.\",\"fit\":{\"obstacle\":\"Only one minute available for winding down, making a twenty-minute routine infeasible tonight\",\"preserved_need\":\"A brief wind-down that still feels calming and is completable given current constraints\",\"time_budget_seconds\":60,\"duration_seconds\":60}}",
+    "sample": 2,
+    "split": "regression",
+    "expected": "adapt",
+    "rubric": "Offer a feasible small action without repeating unnecessary sensitive details or inventing a diagnosis.",
+    "parsed": {
+      "decision": "simplify",
+      "reason": "The twenty-minute routine was only partially completed, and the user now reports only one minute available for winding down.",
+      "pattern": "Last night's routine was partially done; tonight one minute is the realistic limit.",
+      "meaning": "A manual score of 65 with a tired feeling tells us sleep felt poor, but one night of sparse data can't confirm a cause.",
+      "action": "Play one familiar, calming song as your entire wind-down before getting into bed.",
+      "why": "You reported only one minute available and that familiar music helps, so a single song fits both constraints.",
+      "fit": {
+        "obstacle": "Only one minute available for winding down, making a twenty-minute routine infeasible tonight",
+        "preserved_need": "A brief wind-down that still feels calming and is completable given current constraints",
+        "time_budget_seconds": 60,
+        "duration_seconds": 60
+      }
+    },
+    "displayed": {
+      "decision": "simplify",
+      "reason": "The twenty-minute routine was only partially completed, and the user now reports only one minute available for winding down.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A manual score of 65 with a tired feeling tells us sleep felt poor, but one night of sparse data can't confirm a cause.",
+      "action": "Play one familiar, calming song as your entire wind-down before getting into bed. Stop after 1 minute.",
+      "why": "You reported only one minute available and that familiar music helps, so a single song fits both constraints.",
+      "fit": {
+        "obstacle": "Only one minute available for winding down, making a twenty-minute routine infeasible tonight",
+        "preserved_need": "A brief wind-down that still feels calming and is completable given current constraints",
+        "time_budget_seconds": 60,
+        "duration_seconds": 60
+      }
+    },
+    "decision_check": true
+  },
+  {
+    "case_id": "necessary-device",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input_tokens": 2727,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 293,
+      "service_tier": "standard",
+      "inference_geo": "global"
+    },
+    "stop_reason": "tool_use",
+    "latency_ms": 6612,
+    "output": "{\"decision\":\"replace\",\"reason\":\"The user explicitly cannot move the tablet away — caregiving monitoring requires it beside the bed — so the committed experiment is no longer feasible.\",\"pattern\":\"The user woke feeling tired (manual score 65) with the tablet present and reports opening entertainment apps as the main distraction.\",\"meaning\":\"A single manual score tells us sleep felt poor tonight, but cannot show whether the tablet use caused it.\",\"action\":\"Before lights-out, use Screen Time (iOS) or Digital Wellbeing (Android) to block entertainment apps on the tablet for overnight hours, leaving the monitor app accessible.\",\"why\":\"This directly targets opening entertainment apps without removing the tablet the caregiving monitor depends on.\",\"fit\":{\"obstacle\":\"Opening entertainment apps on the bedside tablet at night\",\"preserved_need\":\"Tablet must remain accessible as an overnight caregiving monitor\",\"time_budget_seconds\":null,\"duration_seconds\":null}}",
+    "sample": 2,
+    "split": "holdout",
+    "expected": "adapt",
+    "rubric": "Address entertainment access directly while preserving monitor access; do not conflate notification reduction with preventing entertainment use.",
+    "parsed": {
+      "decision": "replace",
+      "reason": "The user explicitly cannot move the tablet away — caregiving monitoring requires it beside the bed — so the committed experiment is no longer feasible.",
+      "pattern": "The user woke feeling tired (manual score 65) with the tablet present and reports opening entertainment apps as the main distraction.",
+      "meaning": "A single manual score tells us sleep felt poor tonight, but cannot show whether the tablet use caused it.",
+      "action": "Before lights-out, use Screen Time (iOS) or Digital Wellbeing (Android) to block entertainment apps on the tablet for overnight hours, leaving the monitor app accessible.",
+      "why": "This directly targets opening entertainment apps without removing the tablet the caregiving monitor depends on.",
+      "fit": {
+        "obstacle": "Opening entertainment apps on the bedside tablet at night",
+        "preserved_need": "Tablet must remain accessible as an overnight caregiving monitor",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "displayed": {
+      "decision": "replace",
+      "reason": "The user explicitly cannot move the tablet away — caregiving monitoring requires it beside the bed — so the committed experiment is no longer feasible.",
+      "pattern": "You rated your sleep 65/100; this is a self-reported score.",
+      "meaning": "A single manual score tells us sleep felt poor tonight, but cannot show whether the tablet use caused it.",
+      "action": "Before lights-out, use Screen Time (iOS) or Digital Wellbeing (Android) to block entertainment apps on the tablet for overnight hours, leaving the monitor app accessible.",
+      "why": "This directly targets opening entertainment apps without removing the tablet the caregiving monitor depends on.",
+      "fit": {
+        "obstacle": "Opening entertainment apps on the bedside tablet at night",
+        "preserved_need": "Tablet must remain accessible as an overnight caregiving monitor",
+        "time_budget_seconds": null,
+        "duration_seconds": null
+      }
+    },
+    "decision_check": true
+  }
+]

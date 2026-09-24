@@ -118,7 +118,7 @@ export function sleepProfileResponseBody(
 
 // The daily artifact has one wire shape for both the reused row and a freshly
 // generated one. Shipped clients read exactly these five fields off
-// `recommendation`, so they are projected here rather than at each return.
+// `recommendation`; the optional decision field is additive for updated clients.
 export function dailyCoachRecommendationBody(
   row: {
     pattern?: unknown;
@@ -126,6 +126,8 @@ export function dailyCoachRecommendationBody(
     action?: unknown;
     why?: unknown;
     generated_at?: unknown;
+    source_context?: { [key: string]: unknown; decision?: { kind?: unknown } };
+    decision?: unknown;
   },
 ): {
   pattern: string;
@@ -133,9 +135,12 @@ export function dailyCoachRecommendationBody(
   action: string;
   why: string;
   generated_at: string | null;
+  decision?: string;
 } {
   const text = (value: unknown) => typeof value === "string" ? value : "";
   return {
+    ...(typeof (row.decision ?? row.source_context?.decision?.kind) === "string"
+      ? { decision: String(row.decision ?? row.source_context?.decision?.kind) } : {}),
     pattern: text(row.pattern),
     meaning: text(row.meaning),
     action: text(row.action),

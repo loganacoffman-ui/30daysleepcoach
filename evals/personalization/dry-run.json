@@ -1,0 +1,22 @@
+{
+  "split": "development",
+  "cases": [
+    "shift-correction",
+    "race-resolved",
+    "deadline-active",
+    "deadline-ended",
+    "habit-correction",
+    "impractical-experiment"
+  ],
+  "dataset_sha256": "3760cdae5ff014f1be2dffb74d878e3673cfb3086964011bd67a828a7bd9b307",
+  "prompt_sha256": {
+    "baseline": "4cc0d6b819450f35f85ebef49a987c387cad1ae3c4285bd25e0d89803642bee1",
+    "candidate": "3b449e000eaa71dfa950d97d1a507e6f54516b74df8add0234c09bf89277ad59"
+  },
+  "context_builder_sha256": "d12eb80ceedd4584cdafee2a8bb8b102e0a5ab6bd1598d9f3ffd369c7b483e09",
+  "model": "claude-sonnet-4-6",
+  "max_output_tokens": 800,
+  "temperature": "provider default (matches production)",
+  "calls": 12,
+  "status": "dry-run; no model calls or quality scores"
+}

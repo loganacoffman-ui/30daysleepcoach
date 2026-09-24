@@ -1,0 +1,21 @@
+{
+  "split": "development",
+  "created_at": "2026-09-23T21:58:58.452Z",
+  "model": "claude-sonnet-4-6",
+  "max_output_tokens": 800,
+  "temperature": "provider default",
+  "transport": "temporary Supabase function; existing server-side Anthropic credential",
+  "cases": [
+    "week-helpful-writing",
+    "week-failed-breathing",
+    "week-new-caregiving",
+    "week-manual-conflict"
+  ],
+  "dataset_sha256": "6caa2e4d5dc830090e79d6239bb1036712cf9993d80ee22107fefb3272cdc3e3",
+  "prompt_sha256": {
+    "baseline": "4cc0d6b819450f35f85ebef49a987c387cad1ae3c4285bd25e0d89803642bee1",
+    "candidate": "7ed2dc1bcd38a5ca18a64faf93cbabdb76e732076ba3ffea322fb0e7ec8dbb83"
+  },
+  "request_instructions_sha256": "93da31f86b374bd4ef6c6a3b11f6ea23e31a9fd4d0f092f087ed1b10f8402fba",
+  "context_builder_sha256": "d12eb80ceedd4584cdafee2a8bb8b102e0a5ab6bd1598d9f3ffd369c7b483e09"
+}

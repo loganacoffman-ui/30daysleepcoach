@@ -159,3 +159,18 @@ it('retries with cache reuse, while an explicit Rewrite remains a forced generat
   await act(async () => rewrite.props.onPress());
   expect(vi.mocked(loadDailyCoaching).mock.calls[2][2]).toEqual({ freshSources: true, refresh: true });
 });
+
+it.each(['replace','clarify'] as const)('shows the model’s %s next step rather than the saved old behavior',async decision=>{
+ const old='An obsolete saved behavior';const next=decision==='clarify'?'When is your next sleep opportunity?':'Read one page before bed.';
+ const report={...coaching,action:next,decision};
+ const snapshot:TodaySnapshot={date:'2026-09-23',dayNumber:3,checkin,sleepData:{status:'manual',score:62,source:'manual'},syncedSleep:null,
+  dailyCoaching:report,commitment:{id:'old',behaviorDate:'2026-09-23',behavior:old,status:'completed'},previousCommitment:null};
+ vi.mocked(checkinDraftStorage.load).mockResolvedValue(null);
+ vi.mocked(loadDailyCoaching).mockResolvedValue(report);
+ const repository:TodayRepository={loadToday:vi.fn(async()=>snapshot),saveCheckin:vi.fn(),updateCommitmentStatus:vi.fn(),saveManualSleepScore:vi.fn(),clearManualSleepScore:vi.fn()};
+ await act(async()=>{screen=create(createElement(TodayScreen,{user,profile,repository}))});
+ const rendered=JSON.stringify(screen!.toJSON());
+ expect(rendered).toContain(next);expect(rendered).not.toContain(old);expect(rendered).not.toContain('NIGHT');
+ if(decision==='clarify')expect(rendered).toContain('A QUESTION FOR YOU');
+ expect(repository.updateCommitmentStatus).not.toHaveBeenCalled();
+});

@@ -1,0 +1,22 @@
+{
+  "split": "development",
+  "created_at": "2026-09-23T01:17:32.202Z",
+  "model": "claude-sonnet-4-6",
+  "max_output_tokens": 800,
+  "temperature": "provider default",
+  "transport": "temporary Supabase function; existing server-side Anthropic credential",
+  "cases": [
+    "shift-correction",
+    "race-resolved",
+    "deadline-active",
+    "deadline-ended",
+    "habit-correction",
+    "impractical-experiment"
+  ],
+  "dataset_sha256": "3760cdae5ff014f1be2dffb74d878e3673cfb3086964011bd67a828a7bd9b307",
+  "prompt_sha256": {
+    "baseline": "4cc0d6b819450f35f85ebef49a987c387cad1ae3c4285bd25e0d89803642bee1",
+    "candidate": "a4f9de22344a269f2bb9558c60defcece68452988a3fb62defac9ccafeb4d302"
+  },
+  "request_instructions_sha256": "93da31f86b374bd4ef6c6a3b11f6ea23e31a9fd4d0f092f087ed1b10f8402fba"
+}

@@ -1,0 +1,141 @@
+[
+  {
+    "case_id": "effective-experiment",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 115,
+    "section_words": {
+      "pattern": 26,
+      "meaning": 27,
+      "action": 15,
+      "why": 37
+    }
+  },
+  {
+    "case_id": "effective-experiment",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 71,
+    "section_words": {
+      "pattern": 17,
+      "meaning": 18,
+      "action": 10,
+      "why": 16
+    }
+  },
+  {
+    "case_id": "uncertain-old-event",
+    "variant": "baseline",
+    "parser_valid": false,
+    "raw_words": 109,
+    "section_words": null
+  },
+  {
+    "case_id": "uncertain-old-event",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 61,
+    "section_words": {
+      "pattern": 13,
+      "meaning": 11,
+      "action": 14,
+      "why": 13
+    }
+  },
+  {
+    "case_id": "health-constraint",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 127,
+    "section_words": {
+      "pattern": 22,
+      "meaning": 32,
+      "action": 18,
+      "why": 30
+    }
+  },
+  {
+    "case_id": "health-constraint",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 52,
+    "section_words": {
+      "pattern": 10,
+      "meaning": 10,
+      "action": 11,
+      "why": 11
+    }
+  },
+  {
+    "case_id": "no-context",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 130,
+    "section_words": {
+      "pattern": 21,
+      "meaning": 23,
+      "action": 18,
+      "why": 30
+    }
+  },
+  {
+    "case_id": "no-context",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 52,
+    "section_words": {
+      "pattern": 9,
+      "meaning": 10,
+      "action": 11,
+      "why": 12
+    }
+  },
+  {
+    "case_id": "hostile-memory",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 114,
+    "section_words": {
+      "pattern": 20,
+      "meaning": 27,
+      "action": 16,
+      "why": 20
+    }
+  },
+  {
+    "case_id": "hostile-memory",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 58,
+    "section_words": {
+      "pattern": 14,
+      "meaning": 10,
+      "action": 12,
+      "why": 12
+    }
+  },
+  {
+    "case_id": "changed-training-time",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 111,
+    "section_words": {
+      "pattern": 22,
+      "meaning": 23,
+      "action": 18,
+      "why": 19
+    }
+  },
+  {
+    "case_id": "changed-training-time",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 59,
+    "section_words": {
+      "pattern": 14,
+      "meaning": 10,
+      "action": 12,
+      "why": 13
+    }
+  }
+]

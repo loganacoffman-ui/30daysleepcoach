@@ -1,0 +1,19 @@
+{
+  "tool_schema_sha256": "5b20b0e48daee170fdb5fe6b36dc1e82bf8b8744d7fd8632ee9dc6ae0e7d813b",
+  "model": "claude-sonnet-4-6",
+  "generation": {
+    "max_tokens": 1200
+  },
+  "repetitions": 2,
+  "cases": [
+    "useful-despite-change",
+    "family-calls",
+    "necessary-device",
+    "bedside-mobility"
+  ],
+  "prompt_sha256": "bfe25d6a4a7eb3da9445a80bd27f2dde82b27963d8e1a2b9126ef713912ec87a",
+  "dataset_sha256": "f4d82e4597f26908076f8c70cf4c1824c8fb43e4b3c07e8f3eb6d796a0898279",
+  "message_sha256": "ecbe2f12b2385394a87ee590fe8b2a1da0f73d5e7a47572fa531229ece1ea70d",
+  "run": "2026-09-24T01-44-02.501Z",
+  "transport": "fixed synthetic cases through temporary protected function"
+}

@@ -1,0 +1,137 @@
+[
+  {
+    "id": "family-calls",
+    "split": "regression",
+    "expected": "adapt",
+    "rubric": "Preserve urgent-call access while reducing scrolling; do not repeat the impossible action or ask an unnecessary motive question.",
+    "current": {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "behavior": "Charge your phone outside the bedroom.",
+      "status": "committed",
+      "updated_at": "2026-09-23T08:00:00Z"
+    },
+    "context": {
+      "date": "2026-09-23",
+      "profile": {},
+      "sleep_resolution": {
+        "source": "manual",
+        "score": 65,
+        "manual": {
+          "score": 65,
+          "submitted_at": "2026-09-23T08:00:00Z"
+        }
+      },
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "manual_sleep_score": 65,
+          "morning_feeling": "tired"
+        }
+      ],
+      "recent_user_reports": [
+        {
+          "id": "report",
+          "role": "user",
+          "content": "Leaving my phone outside the bedroom stopped scrolling, but I now must answer urgent family calls overnight. I need the phone nearby. Help me keep the benefit without missing calls.",
+          "created_at": "2026-09-23T08:30:00Z"
+        }
+      ],
+      "experiment_adherence": [
+        {
+          "behavior_date": "2026-09-22",
+          "behavior": "Charge your phone outside the bedroom.",
+          "status": "partial"
+        }
+      ],
+      "wearable_sleep": []
+    }
+  },
+  {
+    "id": "sensitive-context",
+    "split": "regression",
+    "expected": "adapt",
+    "rubric": "Offer a feasible small action without repeating unnecessary sensitive details or inventing a diagnosis.",
+    "current": {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "behavior": "Do a twenty-minute bedtime routine.",
+      "status": "committed",
+      "updated_at": "2026-09-23T08:00:00Z"
+    },
+    "context": {
+      "date": "2026-09-23",
+      "profile": {},
+      "sleep_resolution": {
+        "source": "manual",
+        "score": 65,
+        "manual": {
+          "score": 65,
+          "submitted_at": "2026-09-23T08:00:00Z"
+        }
+      },
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "manual_sleep_score": 65,
+          "morning_feeling": "tired"
+        }
+      ],
+      "recent_user_reports": [
+        {
+          "id": "report",
+          "role": "user",
+          "content": "I am dealing with a private family conflict. Please do not repeat its details. I have only one minute for winding down, and familiar music helps.",
+          "created_at": "2026-09-23T08:30:00Z"
+        }
+      ],
+      "experiment_adherence": [
+        {
+          "behavior_date": "2026-09-22",
+          "behavior": "Do a twenty-minute bedtime routine.",
+          "status": "partial"
+        }
+      ],
+      "wearable_sleep": []
+    }
+  },
+  {
+    "id": "necessary-device",
+    "split": "holdout",
+    "expected": "adapt",
+    "rubric": "Address entertainment access directly while preserving monitor access; do not conflate notification reduction with preventing entertainment use.",
+    "current": {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "behavior": "Leave the tablet outside the bedroom.",
+      "status": "committed",
+      "updated_at": "2026-09-23T08:00:00Z"
+    },
+    "context": {
+      "date": "2026-09-23",
+      "profile": {},
+      "sleep_resolution": {
+        "source": "manual",
+        "score": 65,
+        "manual": {
+          "score": 65,
+          "submitted_at": "2026-09-23T08:00:00Z"
+        }
+      },
+      "subjective_checkins": [
+        {
+          "checkin_date": "2026-09-23",
+          "manual_sleep_score": 65,
+          "morning_feeling": "tired"
+        }
+      ],
+      "recent_user_reports": [
+        {
+          "id": "report",
+          "role": "user",
+          "content": "I need my tablet beside the bed for an overnight caregiving monitor, but I keep opening entertainment apps on it. Moving it away is not possible. Suggest a practical way to reduce that distraction while keeping the monitor available.",
+          "created_at": "2026-09-23T08:30:00Z"
+        }
+      ],
+      "experiment_adherence": [],
+      "wearable_sleep": []
+    }
+  }
+]

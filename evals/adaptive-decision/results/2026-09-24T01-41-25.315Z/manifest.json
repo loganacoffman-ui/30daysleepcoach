@@ -1,0 +1,18 @@
+{
+  "tool_schema_sha256": "5b20b0e48daee170fdb5fe6b36dc1e82bf8b8744d7fd8632ee9dc6ae0e7d813b",
+  "model": "claude-sonnet-4-6",
+  "generation": {
+    "max_tokens": 1200
+  },
+  "repetitions": 2,
+  "cases": [
+    "family-calls",
+    "sensitive-context",
+    "necessary-device"
+  ],
+  "prompt_sha256": "b5ab8ab547059a479dbb9bc0924977556377f2feb0e1617d7086e44e523957e2",
+  "dataset_sha256": "377c5525dc8274959968f3ac734e982bb97167753011b0a977dd80431f8397f3",
+  "message_sha256": "5b5907a3c43215ebda0997070537fad93d576b86dee5993ad311d2330ae0647c",
+  "run": "2026-09-24T01-41-25.315Z",
+  "transport": "fixed synthetic cases through temporary protected function"
+}

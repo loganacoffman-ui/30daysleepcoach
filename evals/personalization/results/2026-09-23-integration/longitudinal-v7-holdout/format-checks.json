@@ -1,0 +1,74 @@
+[
+  {
+    "case_id": "reserved-week-running-correction",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 103,
+    "daily_gate_pass": false,
+    "published_output": "**Pattern**\nLast night scored 69, holding flat in a tight 66–70 band where you've woken tired six of the past seven mornings.\n**What this likely means**\nChecking work email on your phone after lights out likely keeps your nervous system activated past the point where sleep pressure can do its job.\n**Tonight's action**\nLeave your phone at your desk before you go to bed — not face-down on the nightstand, physically out of the room.\n**Why this, now**\nYou already identified this as the lever and said you can do it; tonight is the first test of whether removing it shifts the pattern.",
+    "published_words": 103
+  },
+  {
+    "case_id": "reserved-week-running-correction",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 65,
+    "daily_gate_pass": true,
+    "published_output": "**Pattern**\nOura scored 69; 7 comparable nights ranged from 66 to 70.\n**What this likely means**\nYou identified bedtime email checking as the issue and can leave your phone at your desk.\n**Tonight's action**\nLeave your phone at your desk before getting into bed tonight.\n**Why this, now**\nYou said you check messages after lights out but can leave the phone at your desk.",
+    "published_words": 64
+  },
+  {
+    "case_id": "reserved-week-caregiver-success",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 106,
+    "daily_gate_pass": false,
+    "published_output": "**Pattern**\nYour Oura score has climbed steadily from 63 to 73 over seven nights, and morning feeling shifted from tired to okay.\n**What this likely means**\nSix completed nights of reading before bed instead of scrolling have likely reduced pre-sleep stimulation enough to move the needle on sleep quality.\n**Tonight's action**\nKeep the two-page reading habit, and add one round of 2:1 breathing after you finish — three-second inhale, six-second exhale, for three minutes.\n**Why this, now**\nThe reading experiment has done its job across six nights; layering in a brief exhale-extended breath pattern now tests whether active vagal engagement can push your score past 73.",
+    "published_words": 106
+  },
+  {
+    "case_id": "reserved-week-caregiver-success",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 64,
+    "daily_gate_pass": true,
+    "published_output": "**Pattern**\nOura scored 73; 7 comparable nights ranged from 63 to 73.\n**What this likely means**\nScores and mood improved across the week while you consistently read two pages before bed.\n**Tonight's action**\nBefore bed, read two pages while your partner handles bedtime.\n**Why this, now**\nYou said this routine is manageable and you want to continue it.",
+    "published_words": 58
+  },
+  {
+    "case_id": "reserved-week-shift-change",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 123,
+    "daily_gate_pass": false,
+    "published_output": "**Pattern**\nYour Oura score slipped from 74 to 68 mid-week before recovering slightly to 72, while you've felt tired or just okay every morning this week.\n**What this likely means**\nArriving home from a 7 PM–7 AM shift with roughly two minutes to wind down likely means your nervous system is still in work mode when you try to sleep at 9 AM.\n**Tonight's action**\nWhen you get home, spend four minutes doing 2:1 breathing — inhale three seconds, exhale six seconds — before doing anything else.\n**Why this, now**\nWith no decompression buffer after a 12-hour night shift, a brief but deliberate exhale-heavy breathing practice is the fastest available lever for shifting out of sympathetic overdrive before your 9 AM sleep window.",
+    "published_words": 123
+  },
+  {
+    "case_id": "reserved-week-shift-change",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 66,
+    "daily_gate_pass": true,
+    "published_output": "**Pattern**\nOura scored 72; 7 comparable nights ranged from 68 to 74.\n**What this likely means**\nScores are consistently modest, but no single cause is identifiable from these numbers alone.\n**Tonight's action**\nAfter arriving home, sit still in a dim room for two minutes before sleeping.\n**Why this, now**\nYou said you have two minutes to wind down after getting home from your shift.",
+    "published_words": 64
+  },
+  {
+    "case_id": "reserved-week-mixed-scores",
+    "variant": "baseline",
+    "parser_valid": true,
+    "raw_words": 114,
+    "daily_gate_pass": false,
+    "published_output": "**Pattern**\nYou've felt tired every morning for four straight days, a clear shift from the \"okay\" mornings the prior three days.\n**What this likely means**\nThe device switch four days ago coincides exactly with the tired streak, suggesting either a change in sleep environment or routine around that transition — not necessarily worse sleep itself.\n**Tonight's action**\nAt bedtime, read your paper book for three minutes, then do four minutes of 3-second inhale, 6-second exhale breathing before you close your eyes.\n**Why this, now**\nNo experiments are on record, and you've already flagged reading as feasible — pairing it with a brief breathing practice gives tonight a clear cue and a measurable finish line.",
+    "published_words": 114
+  },
+  {
+    "case_id": "reserved-week-mixed-scores",
+    "variant": "candidate",
+    "parser_valid": true,
+    "raw_words": 59,
+    "daily_gate_pass": true,
+    "published_output": "**Pattern**\nSleep Coach scored 65; 4 comparable nights ranged from 64 to 66.\n**What this likely means**\nProviders differ, so the drop from Oura's 80–82 may reflect scoring differences, not worsened sleep.\n**Tonight's action**\nBefore bed, read your paper book for three minutes.\n**Why this, now**\nYou said you enjoy a paper book and can read for three minutes.",
+    "published_words": 59
+  }
+]

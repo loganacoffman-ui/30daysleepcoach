@@ -1,0 +1,32 @@
+{
+  "baseline": {
+    "outputs": 6,
+    "parser_passes": 5,
+    "under_85_words_including_headings": 0,
+    "all_sections_at_most_16_words": 0,
+    "raw_word_range": [
+      116,
+      151
+    ],
+    "median_provider_latency_ms": 5972.0,
+    "p95_latency_ms_nearest_rank": 6728,
+    "input_tokens": 19670,
+    "output_tokens": 1177,
+    "all_end_turn": true
+  },
+  "candidate": {
+    "outputs": 6,
+    "parser_passes": 6,
+    "under_85_words_including_headings": 6,
+    "all_sections_at_most_16_words": 6,
+    "raw_word_range": [
+      51,
+      61
+    ],
+    "median_provider_latency_ms": 3078.5,
+    "p95_latency_ms_nearest_rank": 3999,
+    "input_tokens": 7964,
+    "output_tokens": 558,
+    "all_end_turn": true
+  }
+}

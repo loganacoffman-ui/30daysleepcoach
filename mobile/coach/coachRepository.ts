@@ -15,7 +15,7 @@ import { supabase, supabasePublicKey, supabaseUrl } from '../supabase';
 import type { MorningFeeling } from '../today/feeling';
 import { normalizeMorningFeeling } from '../today/feeling';
 
-export type DailyCoaching = { pattern: string; meaning: string; action: string; why: string; generatedAt: string };
+export type DailyCoaching = { decision?: 'continue' | 'simplify' | 'replace' | 'clarify'; pattern: string; meaning: string; action: string; why: string; generatedAt: string };
 export type CoachToolCallStatus = 'pending' | 'completed' | 'cancelled' | 'failed' | 'expired';
 export type CoachToolCall = {
   id: string;
@@ -483,10 +483,11 @@ const fetchDailyCoaching = async (
   const coachContext = await loadCoachContext(user, profile);
   const { data, error } = await supabase.functions.invoke<{
     status?: string;
-    recommendation?: { pattern: string; meaning: string; action: string; why: string; generated_at: string };
+    recommendation?: { decision?: DailyCoaching['decision']; pattern: string; meaning: string; action: string; why: string; generated_at: string };
   }>('sleep-coach', {
     body: { mode: 'daily_coach', coachContext, refresh: options.refresh === true },
   });
+  if (data?.status === 'experiment_changed') throw new Error('Your experiment changed while coaching was loading. Please try again.');
   if (data?.status === 'awaiting_sleep_data') throw new Error('Sync sleep data or submit a manual sleep score to unlock today’s coaching.');
   if (error || data?.status !== 'ok' || !data.recommendation) throw error ?? new Error('Your daily coaching could not be generated.');
   return {
@@ -495,6 +496,7 @@ const fetchDailyCoaching = async (
     action: data.recommendation.action,
     why: data.recommendation.why,
     generatedAt: data.recommendation.generated_at,
+    decision: data.recommendation.decision,
   };
 };
 

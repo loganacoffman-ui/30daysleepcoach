@@ -1,0 +1,92 @@
+
+ RUN  v3.2.7 /private/tmp/30d39-adaptive-decision
+
+ ✓ tests/mobile-notifications.test.ts (14 tests) 223ms
+ ✓ tests/sleep-utils.test.mjs (77 tests) 259ms
+ ✓ tests/sleep-profile.test.ts (11 tests) 240ms
+stderr | tests/today-coaching-trigger.test.ts > generates once after finishing with 'apple_health' sleep, without a screen reload
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+(node:92490) ExperimentalWarning: Type Stripping is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:92490) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/30d39-adaptive-decision/supabase/functions/_shared/dailyCoachingContext.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/30d39-adaptive-decision/package.json.
+stderr | tests/today-coaching-trigger.test.ts > generates once after finishing with 'manual' sleep, without a screen reload
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | tests/today-coaching-trigger.test.ts > does not generate when saving fails, and generates after a successful retry
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | tests/today-coaching-trigger.test.ts > waits for the transcript so the check-in cannot change context mid-generation
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | tests/today-coaching-trigger.test.ts > still generates from the saved check-in if its transcript fails
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | tests/today-coaching-trigger.test.ts > retries with cache reuse, while an explicit Rewrite remains a forced generation
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | tests/today-coaching-trigger.test.ts > shows the model’s replace next step rather than the saved old behavior
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ tests/daily-sleep-contract.test.ts (31 tests) 436ms
+stderr | tests/today-coaching-trigger.test.ts > shows the model’s clarify next step rather than the saved old behavior
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ tests/today-coaching-trigger.test.ts (8 tests) 215ms
+(node:92494) ExperimentalWarning: Type Stripping is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:92494) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/30d39-adaptive-decision/supabase/functions/_shared/dailyCoachingContext.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/30d39-adaptive-decision/package.json.
+ ✓ tests/sleep-score-gesture.test.ts (13 tests) 9ms
+(node:92500) ExperimentalWarning: Type Stripping is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:92500) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/30d39-adaptive-decision/supabase/functions/_shared/dailyCoachingContext.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/30d39-adaptive-decision/package.json.
+ ✓ tests/greeting-endpoint.test.ts (4 tests) 99ms
+ ✓ tests/daily-coaching-repository.test.ts (4 tests) 124ms
+(node:92504) ExperimentalWarning: Type Stripping is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:92504) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/30d39-adaptive-decision/supabase/functions/_shared/dailyCoachingContext.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/30d39-adaptive-decision/package.json.
+ ✓ tests/push-reminder.test.ts (11 tests) 59ms
+ ✓ tests/personalization.test.ts (7 tests) 57ms
+(node:92509) ExperimentalWarning: Type Stripping is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:92509) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/30d39-adaptive-decision/supabase/functions/_shared/dailyCoachingContext.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/30d39-adaptive-decision/package.json.
+ ✓ tests/personalization-eval.test.mjs (5 tests) 1013ms
+   ✓ dry run produces reproducible hashes without credentials or generation  849ms
+ ✓ tests/apple-health-sleep.test.ts (15 tests) 51ms
+ ✓ tests/coach-history.test.ts (9 tests) 16ms
+ ✓ tests/daily-coaching-context.test.ts (3 tests) 20ms
+ ✓ tests/context-greeting.test.ts (6 tests) 9ms
+ ✓ tests/progress-insights.test.ts (8 tests) 39ms
+ ✓ tests/journey.test.ts (2 tests) 87ms
+ ✓ tests/checkin-conversation.test.ts (12 tests) 142ms
+ ✓ tests/screen-cache.test.ts (11 tests) 67ms
+ ✓ tests/coach-home.test.ts (5 tests) 17ms
+ ✓ tests/checkin-draft-storage.test.ts (8 tests) 12ms
+ ✓ tests/checkin-reply-repository.test.ts (3 tests) 10ms
+ ✓ tests/checkin-transcript.test.ts (6 tests) 69ms
+ ✓ tests/session-policy.test.ts (3 tests) 8ms
+ ✓ tests/coach-composer.test.ts (4 tests) 13ms
+ ✓ tests/chat-scroll.test.ts (12 tests) 7ms
+ ✓ tests/notification-navigation.test.ts (4 tests) 7ms
+ ✓ tests/today-sleep-resolution.test.ts (3 tests) 23ms
+ ✓ tests/experiments.test.ts (6 tests) 8ms
+ ✓ tests/adaptive-daily-decision.test.ts (4 tests) 7ms
+ ✓ tests/web-theme.test.ts (3 tests) 5ms
+ ✓ tests/coaching-evidence.test.ts (3 tests) 4ms
+ ✓ tests/adaptive-daily-database.test.ts (34 tests) 5523ms
+
+ Test Files  33 passed (33)
+      Tests  349 passed (349)
+   Start at  18:47:08
+   Duration  6.17s (transform 1.48s, setup 0ms, collect 3.51s, tests 8.88s, environment 9ms, prepare 7.56s)
+
