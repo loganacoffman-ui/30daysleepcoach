@@ -11,7 +11,8 @@
 <meta name="theme-color" content="#16213A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>30 Day Sleep Coach</title>
+<title>30 Day Sleep Coach — Your AI-powered sleep coach</title>
+<meta name="description" content="Make sense of your sleep and know what to try tonight. Personal AI sleep coaching built around your sleep data, daily check-ins, and real life.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -1003,69 +1004,32 @@ textarea::placeholder { color: var(--muted2); }
 </style>
 <!-- Shared navy visual system for the web experience. -->
 <link rel="stylesheet" href="web-navy.css">
+<link rel="stylesheet" href="landing.css">
+<script src="landing.js" defer></script>
 </head>
 <body>
 
 <!-- LANDING PAGE -->
 <div id="landing-page">
-  <canvas id="landing-canvas"></canvas>
-  <nav class="landing-nav">
-    <div class="landing-nav-logo"><span>30 Day</span> Sleep Coach</div>
-    <div class="landing-nav-links">
-      <a href="#" onclick="event.preventDefault(); showSignupScreen()">Sign Up</a>
-      <a href="#" class="nav-cta-btn" onclick="event.preventDefault(); showPasswordScreen()">Log In</a>
-    </div>
-  </nav>
-  <div class="landing-banner">
-    A sleep coach. One small experiment each day.
-    <a href="#" onclick="event.preventDefault(); showSignupScreen()">Meet your coach →</a>
-  </div>
-  <div class="landing-box">
-    <div class="landing-logo"><span>30 Day</span> Sleep Coach</div>
-    <p class="landing-sub">Talk it through. Try one change. Learn from your nights.</p>
+<canvas id="landing-canvas" hidden></canvas>
+<div id="landing-welcome">
+<div id="sleep-navy-concept" aria-label="30 Day Sleep Coach">
+  <section class="sc-hero">
+    <nav class="sc-nav" aria-label="Main navigation"><div class="sc-brand"><span>30 day</span> sleep coach</div><div class="sc-navlinks"><button class="sc-login" onclick="showPasswordScreen()">Log in</button><button class="sc-link" data-scroll="sc-how">The approach</button><button class="sc-link" data-scroll="sc-day">A day with your coach</button><button class="sc-pill" onclick="showSignupScreen()">Get early access ↗</button></div></nav>
+    <div class="sc-hero-main"><div><div class="sc-eyebrow">Your AI-powered sleep coach</div><h1><span class="sc-serif">Better nights.</span>More you.</h1><p class="sc-hero-copy">Make sense of your sleep and know what to try tonight. Personal AI coaching that connects your nights with what’s happening in your life.</p><div class="sc-actions"><button class="sc-pill" onclick="showSignupScreen()">Get early access ↗</button><button class="sc-link" data-scroll="sc-how">See how it works ↓</button></div><div class="sc-store-row" aria-label="Mobile apps coming soon"><button class="sc-store-badge" aria-disabled="true" aria-label="App Store — coming soon"><img src="assets/landing/app-store.svg" alt="Download on the App Store"></button><button class="sc-store-badge sc-google" aria-disabled="true" aria-label="Google Play — coming soon"><img src="assets/landing/google-play.png" alt="Get it on Google Play"></button></div><div class="sc-store-note" role="status">App Store &amp; Google Play · Coming soon</div></div>
+    <div class="sc-float"><div class="sc-notice"><div class="sc-notice-head"><span class="sc-moon">☾</span><span>YOUR SLEEP COACH</span><time>Tonight</time></div><h3>Your pattern. Tonight’s plan.</h3><p>Over the past week, your sleep score averaged 15 points higher on nights when you paired an 11 a.m. caffeine cutoff with a cool room and a 15-minute brain dump before bed. Keep those three consistent tonight.</p></div><div class="sc-notice sc-notice-second"><div class="sc-notice-head"><span class="sc-moon">✓</span><span>From your sleep data + check-ins<br>+15 points · A pattern worth testing again</span></div></div><div class="sc-hero-example">Example insight · Illustrative data</div></div></div>
+    <div class="sc-hero-bottom"><span>OPTIMIZE BRIEFLY. LIVE NORMALLY.</span><span>30 days. One useful step at a time.</span></div>
+  </section>
+  <section class="sc-integrations" aria-label="Sleep data integrations"><div class="sc-integration-label">YOUR SLEEP DATA, IN CONTEXT</div><div class="sc-integration-names"><span class="sc-oura"><img src="assets/landing/oura.svg" alt="Oura"></span><span class="sc-health"><img src="assets/landing/apple-health.png" alt=""> Apple Health</span></div><p>Connect your sleep data. Add your side of the story.<br>No wearable? You can log your sleep yourself.</p></section>
+  <section class="sc-intro" id="sc-how"><div class="sc-kicker">From understanding to action</div><h2>Understand your sleep.<br>Know <span class="sc-serif">what to try next.</span></h2><p>Still waking up tired, even when you’re doing the right things? Bring your sleep, routines, and daily check-ins together to explore what might be getting in the way.</p></section>
+  <section class="sc-steps" aria-label="Our approach"><article class="sc-step"><div class="sc-number">01</div><h3>Give your coach the context.</h3><p>Share how you sleep, what your days look like, and what you want to improve. Use wearable data or log your sleep yourself.</p></article><article class="sc-step"><div class="sc-number">02</div><h3>Know what to try tonight.</h3><p>Get one focused behavior to practice, based on your sleep and the context you share. Something practical for your real life.</p></article><article class="sc-step"><div class="sc-number">03</div><h3>Check in. Learn. Adjust.</h3><p>Tell your coach how it went. Look for patterns over time, ask questions, and use what you learn to shape your next step.</p></article></section>
+  <section class="sc-daily" id="sc-day"><div><div class="sc-kicker">A conversation that keeps going</div><h2>A coach for tonight.<br><span class="sc-serif">And the next step.</span></h2><p class="sc-daily-copy">An early start. A stressful week. A routine that’s been thrown off. Tell your coach what’s going on, so tonight’s guidance fits the life you’re actually living.</p><div class="sc-tabs" aria-label="Explore a sample day"><button aria-pressed="true" data-phase="morning">Morning</button><button aria-pressed="false" data-phase="evening">Evening</button><button aria-pressed="false" data-phase="reflect">Reflect</button></div></div><div><div class="sc-app" aria-live="polite"><div class="sc-app-top"><span>30 DAY SLEEP COACH</span><span>DAY 08 / 30</span></div><h3 data-copy="greeting">Good morning.</h3><p class="sc-app-sub" data-copy="sub">Let’s start with how you feel.</p><div class="sc-task"><div class="sc-task-label" data-copy="label">YOUR DAILY CHECK-IN</div><div class="sc-task-title" data-copy="title">How was last night?</div><p data-copy="body">How rested do you feel? Tell your coach how you slept and anything that might have affected your night.</p><button class="sc-check" data-sample-action onclick="showSignupScreen()">Get early access ↗</button></div></div><div class="sc-example">Example coaching · Illustrative data</div></div></section>
+  <section class="sc-end" id="sc-join"><div class="sc-kicker">Your sleep deserves a personal approach.</div><h2>Less guessing tonight.<br><span class="sc-serif">More understanding tomorrow.</span></h2><button class="sc-pill" onclick="showSignupScreen()">Get early access ↗</button><p>Personal coaching. Small experiments. Room for real life.</p></section>
+  <footer class="sc-footer"><div class="sc-brand"><span>30 day</span> sleep coach</div><small>© 2026 30 Day Sleep Coach</small><a class="sc-privacy" href="privacy.html">Privacy</a></footer>
+</div>
 
-    <!-- WELCOME -->
-    <div id="landing-welcome">
-      <div style="margin-top:1.5rem"></div>
-      <div class="landing-chart-wrap">
-        <svg id="trend-svg" viewBox="0 0 400 90" preserveAspectRatio="none" style="width:100%;height:90px;overflow:visible">
-          <!-- Target line -->
-          <line x1="0" y1="22" x2="400" y2="22" stroke="rgba(79,124,255,0.25)" stroke-width="1" stroke-dasharray="4,4"/>
-          <text x="392" y="18" fill="rgba(79,124,255,0.4)" font-size="8" font-family="monospace" text-anchor="end">example</text>
-          <!-- Gradient fill -->
-          <defs>
-            <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#4f7cff" stop-opacity="0.2"/>
-              <stop offset="100%" stop-color="#4f7cff" stop-opacity="0"/>
-            </linearGradient>
-            <filter id="trendGlow">
-              <feGaussianBlur stdDeviation="2" result="blur"/>
-              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-            </filter>
-          </defs>
-          <!-- Fill area -->
-          <path id="trend-fill-path" fill="url(#trendFill)" opacity="0.8"/>
-          <!-- Main line -->
-          <path id="trend-line-path" fill="none" stroke="#4f7cff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#trendGlow)"/>
-          <!-- Animated dot at end -->
-          <circle id="trend-dot" r="3.5" fill="#4f7cff" filter="url(#trendGlow)" cx="-10" cy="-10"/>
-          <!-- Day labels -->
-          <text x="4" y="86" fill="rgba(113,113,122,0.7)" font-size="8" font-family="monospace">Day 1</text>
-          <text x="192" y="86" fill="rgba(113,113,122,0.7)" font-size="8" font-family="monospace" text-anchor="middle">Day 15</text>
-          <text x="396" y="86" fill="rgba(113,113,122,0.7)" font-size="8" font-family="monospace" text-anchor="end">Day 30</text>
-        </svg>
-      </div>
-      <p class="landing-desc">Meet your conversational sleep coach. Log how you slept and how you feel, talk about what’s happening in your life, and choose one daily behavior experiment to try.</p>
-      
-      <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-top:0.5rem;">
-        <button class="auth-btn primary-lg" onclick="showSignupScreen()">Start with your coach →</button>
-      </div>
-      <div style="margin-top:1rem; text-align:center;">
-        <span class="auth-login-link" onclick="showPasswordScreen()">Already have an account? Log in</span>
-      </div>
-    </div>
-
-    <!-- SIGNUP -->
+</div>
+<div id="landing-auth-shell" hidden>
     <div id="landing-signup" style="display:none">
       <div id="auth-signup-form-wrap" style="max-width:380px;margin:0 auto;">
         <div class="auth-back" onclick="showWelcomeScreen()" style="margin-top:1.5rem">← back</div>
@@ -1154,55 +1118,8 @@ textarea::placeholder { color: var(--muted2); }
 
   </div>
 
-  <!-- Landing page below-the-fold content -->
-  <div class="landing-below" style="width:100%; max-width:720px; padding: 4rem 2rem 3rem; text-align:center; position:relative; z-index:1;">
-    
-    <!-- How it works -->
-    <div style="margin-bottom:3.5rem;">
-      <div style="font-family:'Geist Mono',monospace; font-size:0.65rem; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;">How it works</div>
-      <h2 style="font-size:1.6rem; font-weight:600; letter-spacing:-0.02em; margin-bottom:2rem; color:var(--text);">Check in. Talk it through. Try one change.</h2>
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.5rem; text-align:left;">
-        <div style="background:#fff; border:1px solid rgba(0,0,0,0.06); border-radius:8px; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-          <div style="font-family:'Geist Mono',monospace; font-size:0.7rem; color:var(--accent); font-weight:500; margin-bottom:8px;">01</div>
-          <div style="font-weight:600; font-size:0.92rem; margin-bottom:6px;">Log your night</div>
-          <div style="font-size:0.82rem; color:var(--muted); line-height:1.6;">Log your sleep each day, how rested you feel, and what you noticed. Add wearable data if you have it; you can start without a device.</div>
-        </div>
-        <div style="background:#fff; border:1px solid rgba(0,0,0,0.06); border-radius:8px; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-          <div style="font-family:'Geist Mono',monospace; font-size:0.7rem; color:var(--accent); font-weight:500; margin-bottom:8px;">02</div>
-          <div style="font-weight:600; font-size:0.92rem; margin-bottom:6px;">Chat with your coach</div>
-          <div style="font-size:0.82rem; color:var(--muted); line-height:1.6;">Talk about stress, travel, work, or anything affecting your routine. Your coach uses that context alongside your check-ins and sleep data.</div>
-        </div>
-        <div style="background:#fff; border:1px solid rgba(0,0,0,0.06); border-radius:8px; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-          <div style="font-family:'Geist Mono',monospace; font-size:0.7rem; color:var(--accent); font-weight:500; margin-bottom:8px;">03</div>
-          <div style="font-weight:600; font-size:0.92rem; margin-bottom:6px;">Try one daily experiment</div>
-          <div style="font-size:0.82rem; color:var(--muted); line-height:1.6;">Choose one manageable behavior to try. Check in on how it went, then work with your coach on what to keep or adjust.</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Built for -->
-    <div style="margin-bottom:3.5rem;">
-      <div style="font-family:'Geist Mono',monospace; font-size:0.65rem; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;">Built for</div>
-      <h2 style="font-size:1.6rem; font-weight:600; letter-spacing:-0.02em; margin-bottom:1.5rem; color:var(--text);">A sleep routine that fits your real life.</h2>
-      <p style="font-size:0.95rem; color:var(--muted); line-height:1.7; max-width:480px; margin:0 auto 1.5rem;">Over time, your conversations, daily check-ins, and sleep data help you and your coach notice useful patterns. A better score on one night doesn’t prove a change caused better sleep. Use what you learn to decide what to try next.</p>
-      <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
-        <span style="font-size:0.78rem; color:var(--muted); padding:6px 16px; border:1px solid rgba(0,0,0,0.08); border-radius:100px; background:#fff;">Daily check-ins</span>
-        <span style="font-size:0.78rem; color:var(--muted); padding:6px 16px; border:1px solid rgba(0,0,0,0.08); border-radius:100px; background:#fff;">Life context</span>
-        <span style="font-size:0.78rem; color:var(--muted); padding:6px 16px; border:1px solid rgba(0,0,0,0.08); border-radius:100px; background:#fff;">Optional wearable data</span>
-        <span style="font-size:0.78rem; color:var(--muted); padding:6px 16px; border:1px solid rgba(0,0,0,0.08); border-radius:100px; background:#fff;">One daily experiment</span>
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <div style="border-top:1px solid rgba(0,0,0,0.06); padding-top:2rem; display:flex; justify-content:space-between; align-items:center;">
-      <div style="font-size:0.88rem; font-weight:600; color:var(--muted);"><span style="color:var(--accent);">30 Day</span> Sleep Coach</div>
-      <div style="font-size:0.72rem; color:var(--muted2);">© 2026 · 30daysleepcoach.com</div>
-    </div>
-  </div>
 
 </div>
-
-
 <div class="bg-gradient"></div>
 <div class="loading-bar" id="loading-bar"></div>
 
@@ -1690,6 +1607,8 @@ function todayCacheKey(prefix) {
 }
 
 function setLandingScreen(screen) {
+  document.getElementById('landing-auth-shell').hidden = screen === 'welcome';
+  document.getElementById('landing-page').scrollTop = 0;
   document.getElementById('landing-welcome').style.display = screen === 'welcome' ? 'block' : 'none';
   document.getElementById('landing-password').style.display = screen === 'password' ? 'block' : 'none';
   document.getElementById('landing-signup').style.display = screen === 'signup' ? 'block' : 'none';
