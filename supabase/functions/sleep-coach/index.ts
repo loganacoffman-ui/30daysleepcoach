@@ -43,6 +43,7 @@ import {
   tracedAnthropic,
 } from "../_shared/tracing.ts";
 import { chooseDailyExperiment } from "../_shared/experimentCycle.ts";
+import { createMeteredAnthropicFetch, usageFeature } from "../_shared/llmUsage.ts";
 import { interpretCheckinReply } from "../_shared/checkinReply.ts";
 import { parseCheckinReplyRequest } from "../_shared/checkinReplyContract.ts";
 
@@ -595,14 +596,16 @@ function parseRecommendation(
 async function callAnthropicNonStreaming(
   userMessage: string,
   memories: Memory[],
+  anthropicFetch: typeof fetch,
 ): Promise<string | null> {
-  return callAnthropicText(RECOMMENDATION_SYSTEM_PROMPT, userMessage, memories, 800);
+  return callAnthropicText(RECOMMENDATION_SYSTEM_PROMPT, userMessage, memories, anthropicFetch, 800);
 }
 
 async function callAnthropicText(
   system: string,
   userMessage: string,
   memories: Memory[],
+  anthropicFetch: typeof fetch,
   maxTokens = 500,
   timeoutMs?: number,
 ): Promise<string | null> {
@@ -615,7 +618,7 @@ async function callAnthropicText(
   };
 
   return tracedAnthropic("callAnthropicText", body, async () => {
-    const res = await fetch(ANTHROPIC_URL, {
+    const res = await anthropicFetch(ANTHROPIC_URL, {
       method: "POST",
       signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
       headers: {
@@ -639,6 +642,7 @@ async function callAnthropicConversation(
   messages: CoachMessage[],
   coachContext: unknown,
   memories: Memory[],
+  anthropicFetch: typeof fetch,
 ): Promise<
   {
     content: AnthropicContentBlock[];
@@ -660,7 +664,7 @@ async function callAnthropicConversation(
   };
 
   return tracedAnthropic("callAnthropicConversation", body, async () => {
-    const response = await fetch(ANTHROPIC_URL, {
+    const response = await anthropicFetch(ANTHROPIC_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -692,6 +696,7 @@ async function callAnthropicConversationStream(
   messages: CoachMessage[],
   coachContext: unknown,
   memories: Memory[],
+  anthropicFetch: typeof fetch,
 ) {
   const body = {
     model: "claude-sonnet-4-6",
@@ -706,7 +711,7 @@ async function callAnthropicConversationStream(
     stream: true,
   };
   const span = startAnthropicSpan("callAnthropicConversationStream", body);
-  const response = await fetch(ANTHROPIC_URL, {
+  const response = await anthropicFetch(ANTHROPIC_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -916,6 +921,25 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Separate privileged client: the authenticated user cannot forge usage rows.
+    // Built-in Edge Function secret; never inherit the incoming Authorization header.
+    const usageServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const usageAdmin = usageServiceKey ? createClient(SUPABASE_URL, usageServiceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    }) : null;
+    const anthropicFetch = createMeteredAnthropicFetch({
+      userId: user.id,
+      ...usageFeature(mode, Boolean(cacheKey)),
+      waitUntil: runInBackground,
+      write: async (row) => {
+        if (!usageAdmin) throw new Error("Usage service key unavailable");
+        const { error } = await usageAdmin.from("llm_usage_events")
+          .upsert(row, { onConflict: "id" })
+          .abortSignal(AbortSignal.timeout(1500));
+        if (error) throw error;
+      },
+    });
+
     // Optional home copy: no wearable sync, tools, memory writes or startup dependency.
     if (mode === "coach_greeting") {
       const respond = (greeting: unknown) => new Response(JSON.stringify({ status: "ok", user_id: user.id, greeting }), {
@@ -937,7 +961,7 @@ Deno.serve(async (req: Request) => {
             }
           } catch { /* Invalid cache is regenerated with current evidence. */ }
         }
-        const raw = await callAnthropicText(GREETING_GUIDANCE, JSON.stringify({ reports }), [], 120, 2500);
+        const raw = await callAnthropicText(GREETING_GUIDANCE, JSON.stringify({ reports }), [], anthropicFetch, 120, 2500);
         const greeting = validateGreeting(raw, reports);
         // Recheck before publishing: a correction may have arrived during generation.
         const fresh = greetingReports(await loadRecentUserReports(supabase, user.id), Date.now());
@@ -961,7 +985,7 @@ Deno.serve(async (req: Request) => {
         });
       }
       try {
-        const interpretation = await interpretCheckinReply(request, ANTHROPIC_API_KEY);
+        const interpretation = await interpretCheckinReply(request, ANTHROPIC_API_KEY, anthropicFetch);
         return new Response(JSON.stringify({ interpretation }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -1284,7 +1308,7 @@ Deno.serve(async (req: Request) => {
         buildMemoryQuery(memoryMode, chatHistory, sleepData, groundedContext),
       );
       const { response: anthropicResponse, span: coachSpan } =
-        await callAnthropicConversationStream(chatHistory, groundedContext, memories);
+        await callAnthropicConversationStream(chatHistory, groundedContext, memories, anthropicFetch);
       if (!anthropicResponse.ok || !anthropicResponse.body) {
         await endAnthropicSpan(coachSpan, null);
         return new Response(
@@ -1482,6 +1506,7 @@ Deno.serve(async (req: Request) => {
         profilePrompt,
         `Create the user's current evolving sleep profile from this context:\n\n${JSON.stringify(coachContext, null, 2)}`,
         memories,
+        anthropicFetch,
         350,
       );
       const summary = coachSummaryText(generated ? plainCoachText(generated) : "");
@@ -1615,10 +1640,10 @@ Deno.serve(async (req: Request) => {
         `Generate today's four-section coaching recommendation from this combined context. Subjective check-ins and notes describe how the user felt and what they think affected sleep. Experiment adherence shows what they actually tried. Wearable sleep is the quantitative layer when Apple Health or Oura is connected; the source field identifies whether a score is app-derived or provider-owned. The sleep_resolution selects the preferred quantitative source for the requested night: wearable first, otherwise an explicitly submitted manual score. Preserve manual scores as self-reports and qualitative context, never as wearable measurements. Use relevant long-term memory to follow up on earlier goals, experiments, and outcomes. Be honest when data is sparse; do not invent measurements. Always return all four required sections.\n\n${
           JSON.stringify(dailyContext, null, 2)
         }`;
-      let rawText = await callAnthropicNonStreaming(userMessage, memories);
+      let rawText = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch);
       let sections = rawText ? parseRecommendation(rawText) : null;
       if (!sections) {
-        rawText = await callAnthropicNonStreaming(userMessage, memories);
+        rawText = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch);
         sections = rawText ? parseRecommendation(rawText) : null;
       }
 
@@ -1791,13 +1816,13 @@ Deno.serve(async (req: Request) => {
       );
 
       // First attempt
-      let rawText = await callAnthropicNonStreaming(userMessage, memories);
+      let rawText = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch);
       let sections = rawText ? parseRecommendation(rawText) : null;
 
       // One retry if parse fails
       if (!sections) {
         console.warn("Recommendation parse failed on first attempt, retrying");
-        rawText = await callAnthropicNonStreaming(userMessage, memories);
+        rawText = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch);
         sections = rawText ? parseRecommendation(rawText) : null;
       }
 
@@ -1940,7 +1965,7 @@ Deno.serve(async (req: Request) => {
       stream: true,
     };
     const streamSpan = startAnthropicSpan("streamCoachResponse", streamBody);
-    const response = await fetch(ANTHROPIC_URL, {
+    const response = await anthropicFetch(ANTHROPIC_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

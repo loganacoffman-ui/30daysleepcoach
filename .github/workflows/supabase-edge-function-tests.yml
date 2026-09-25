@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - "supabase/functions/**"
+      - "supabase/migrations/**"
+      - "supabase/tests/**"
+      - ".github/workflows/supabase-edge-function-tests.yml"
 
 permissions:
   contents: read
@@ -29,3 +32,43 @@ jobs:
 
       - name: Run unit tests
         run: deno test --allow-env functions/_shared/*_test.ts
+
+  usage-ledger:
+    name: Verify usage ledger SQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: usage_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: usage_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bootstrap Supabase roles and auth foreign key
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          create role anon;
+          create role authenticated;
+          create role service_role bypassrls;
+          create schema auth;
+          create table auth.users (id uuid primary key);
+          grant usage on schema public to service_role;
+          SQL
+      - name: Apply usage migration and verify costs, reporting, and access
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260925215917_add_llm_usage_events.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/llm_usage_events.sql
