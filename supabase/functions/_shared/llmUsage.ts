@@ -38,13 +38,26 @@ function string(value: unknown): string | null {
 // Exact model allowlist: never silently apply Sonnet prices to a new model.
 // https://platform.claude.com/docs/en/about-claude/pricing (verified 2026-09-25).
 // Snapshot these rates on the event; future price changes must not rewrite history.
+const STANDARD_RATES = new Map([
+  ["claude-sonnet-4-6", {
+    input_usd_per_million: 3, output_usd_per_million: 15,
+    cache_read_usd_per_million: 0.30,
+    cache_write_5m_usd_per_million: 3.75, cache_write_1h_usd_per_million: 6,
+  }],
+  ["claude-sonnet-5", {
+    input_usd_per_million: 2, output_usd_per_million: 10,
+    cache_read_usd_per_million: 0.20,
+    cache_write_5m_usd_per_million: 2.50, cache_write_1h_usd_per_million: 4,
+  }],
+]);
+
 function pricing(model: string | null, request: JsonObject, usage: JsonObject) {
-  const unsupported = model !== "claude-sonnet-4-6" ||
-    (request.inference_geo != null && request.inference_geo !== "global") ||
+  const rates = STANDARD_RATES.get(model ?? "");
+  const unsupported = (request.inference_geo != null && request.inference_geo !== "global") ||
     (request.speed != null && request.speed !== "standard") ||
     (usage.service_tier != null && usage.service_tier !== "standard") ||
     Object.values(object(usage.server_tool_use)).some((value) => value !== 0);
-  if (unsupported) return {
+  if (!rates || unsupported) return {
     pricing_version: null,
     input_usd_per_million: null, output_usd_per_million: null,
     cache_read_usd_per_million: null,
@@ -52,9 +65,7 @@ function pricing(model: string | null, request: JsonObject, usage: JsonObject) {
   };
   return {
     pricing_version: "anthropic-standard-2026-09-25",
-    input_usd_per_million: 3, output_usd_per_million: 15,
-    cache_read_usd_per_million: 0.30,
-    cache_write_5m_usd_per_million: 3.75, cache_write_1h_usd_per_million: 6,
+    ...rates,
   };
 }
 

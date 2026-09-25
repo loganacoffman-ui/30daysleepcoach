@@ -19,7 +19,14 @@ Events contain timestamps, requested/returned model, provider request/message ID
 
 ## Costs and completeness
 
-For the app's `claude-sonnet-4-6`, standard USD rates verified on September 25, 2026 are $3 input, $15 output, $0.30 cache read, $3.75 five-minute cache write, and $6 one-hour cache write per million tokens. These are the [Anthropic standard API rates](https://platform.claude.com/docs/en/about-claude/pricing). Stored rates and `pricing_version` preserve historical estimates when prices change. Update the allowlist and pricing version in `_shared/llmUsage.ts` when changing models or prices.
+Supported standard USD rates per million tokens, verified September 25, 2026 against [Anthropic's pricing](https://platform.claude.com/docs/en/about-claude/pricing):
+
+| Returned model ID | Input | Output | Cache read | 5m cache write | 1h cache write |
+| --- | --- | --- | --- | --- | --- |
+| `claude-sonnet-4-6` | $3 | $15 | $0.30 | $3.75 | $6 |
+| `claude-sonnet-5` | $2 | $10 | $0.20 | $2.50 | $4 |
+
+The tracker chooses rates from the provider's returned model ID. Stored rates and `pricing_version` preserve historical estimates when prices change. Update `STANDARD_RATES` and the pricing version in `_shared/llmUsage.ts` when changing supported models or prices. Adding pricing support does not change which model the app requests.
 
 Postgres calculates `estimated_cost_usd` using exact decimal arithmetic. Input, cache-read, and cache-write token counts are separate billing categories; do not subtract cache counts from `input_tokens` or add both the aggregate cache-write count and its TTL breakdown. `total_tokens` includes each category once. Tools implemented by this app are included in ordinary token usage.
 

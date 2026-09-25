@@ -71,6 +71,39 @@ Deno.test("retries are separate charged attempts grouped under one server reques
   assert(h.rows[1].request_id !== other.rows[1].request_id);
 });
 
+for (const [model, rates] of [
+  ["claude-sonnet-4-6", [3, 15, 0.30, 3.75, 6]],
+  ["claude-sonnet-5", [2, 10, 0.20, 2.50, 4]],
+] as const) {
+  for (const stream of [false, true]) {
+    Deno.test(`${model} snapshots all standard rates for ${stream ? "streaming" : "JSON"} usage`, async () => {
+      const payload = { ...message({ input_tokens: 100, output_tokens: 20,
+        cache_read_input_tokens: 500, cache_creation_input_tokens: 300,
+        cache_creation: { ephemeral_5m_input_tokens: 200, ephemeral_1h_input_tokens: 100 } }), model };
+      const h = harness(() => Promise.resolve(stream
+        ? streamResponse(sse({ type: "message_start", message: payload }) + sse(delta(20)) + sse(stop))
+        : Response.json(payload)));
+      await (await h.call(stream, { model })).text();
+      await h.finish();
+      const row = h.rows.at(-1)!;
+      assertEquals(row.response_model, model);
+      assertEquals(row.usage_status, "complete");
+      assertEquals(row.pricing_version, "anthropic-standard-2026-09-25");
+      assertEquals([row.input_usd_per_million, row.output_usd_per_million,
+        row.cache_read_usd_per_million, row.cache_write_5m_usd_per_million,
+        row.cache_write_1h_usd_per_million], [...rates]);
+    });
+  }
+}
+
+Deno.test("pricing follows the returned model rather than the requested model", async () => {
+  const h = harness(() => Promise.resolve(Response.json({ ...message(), model: "claude-sonnet-5" })));
+  await h.call();
+  assertEquals(h.rows.at(-1)!.requested_model, "claude-sonnet-4-6");
+  assertEquals(h.rows.at(-1)!.response_model, "claude-sonnet-5");
+  assertEquals(h.rows.at(-1)!.input_usd_per_million, 2);
+});
+
 Deno.test("stream usage merges cumulative deltas and survives caller cancellation", async () => {
   const raw = sse(start({ input_tokens: 100, output_tokens: 1, cache_read_input_tokens: 500,
     cache_creation_input_tokens: 300, cache_creation: { ephemeral_5m_input_tokens: 200, ephemeral_1h_input_tokens: 100 } })) +
