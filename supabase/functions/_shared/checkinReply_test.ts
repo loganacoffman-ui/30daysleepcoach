@@ -14,16 +14,17 @@ Deno.test('check-in interpretation sends the question and full reply to the mode
     body = JSON.parse(String(init?.body));
     return Promise.resolve(Response.json({ content: [{ type: 'tool_use', name: 'interpret_checkin_reply', input: skipped }] }));
   };
-  assertEquals(await interpretCheckinReply(request, 'test-key', fetcher), skipped);
+  assertEquals(await interpretCheckinReply(request, 'test-key', 'test-model', fetcher), skipped);
+  assertEquals(body.model, 'test-model');
   assertEquals(JSON.parse(body.messages[0].content), request);
   assertEquals(body.tool_choice.name, 'interpret_checkin_reply');
   assertEquals(body.tools[0].input_schema.properties.answer.enum, ['completed', 'partial', 'skipped', null]);
 });
 
 Deno.test('check-in model failure never becomes an unanswered question or a guessed category', async () => {
-  await assertRejects(() => interpretCheckinReply(request, 'test-key', () => Promise.resolve(new Response('', { status: 503 }))));
-  await assertRejects(() => interpretCheckinReply(request, 'test-key', () => Promise.resolve(Response.json({ content: [] }))));
-  await assertRejects(() => interpretCheckinReply(request, 'test-key', () => Promise.resolve(Response.json({ content: [{ type: 'tool_use', name: 'interpret_checkin_reply', input: { ...skipped, answer: 'great' } }] }))));
+  await assertRejects(() => interpretCheckinReply(request, 'test-key', 'test-model', () => Promise.resolve(new Response('', { status: 503 }))));
+  await assertRejects(() => interpretCheckinReply(request, 'test-key', 'test-model', () => Promise.resolve(Response.json({ content: [] }))));
+  await assertRejects(() => interpretCheckinReply(request, 'test-key', 'test-model', () => Promise.resolve(Response.json({ content: [{ type: 'tool_use', name: 'interpret_checkin_reply', input: { ...skipped, answer: 'great' } }] }))));
 });
 
 Deno.test('check-in contract rejects invalid categories, missing answers, and premature completion', () => {

@@ -238,7 +238,7 @@ Deno.test("successful retry of a failed final write records only one event", asy
 Deno.test("check-in inference is charged even when the application rejects the result", async () => {
   const h = harness(() => Promise.resolve(Response.json(message())));
   await assertRejects(() => interpretCheckinReply({ step: "feeling", message: "fine",
-    turns: [{ role: "assistant", content: "How are you feeling?" }] }, "key", h.metered));
+    turns: [{ role: "assistant", content: "How are you feeling?" }] }, "key", "claude-sonnet-4-6", h.metered));
   assertEquals(h.rows.at(-1)!.usage_status, "complete");
 });
 
