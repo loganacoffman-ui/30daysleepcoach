@@ -31,7 +31,8 @@ jobs:
           deno-version: v2.x
 
       - name: Run unit tests
-        run: deno test --allow-env functions/_shared/*_test.ts
+        # The root package.json would otherwise put Deno in manual node_modules mode.
+        run: deno test --node-modules-dir=none --allow-env functions/_shared/*_test.ts
 
   usage-ledger:
     name: Verify usage ledger SQL

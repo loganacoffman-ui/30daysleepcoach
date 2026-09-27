@@ -45,6 +45,7 @@ import {
 import { chooseDailyExperiment } from "../_shared/experimentCycle.ts";
 import { createMeteredAnthropicFetch, usageFeature } from "../_shared/llmUsage.ts";
 import { interpretCheckinReply } from "../_shared/checkinReply.ts";
+import { resolveCoachModel } from "../_shared/coachModel.ts";
 import { parseCheckinReplyRequest } from "../_shared/checkinReplyContract.ts";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
@@ -597,8 +598,9 @@ async function callAnthropicNonStreaming(
   userMessage: string,
   memories: Memory[],
   anthropicFetch: typeof fetch,
+  model: string,
 ): Promise<string | null> {
-  return callAnthropicText(RECOMMENDATION_SYSTEM_PROMPT, userMessage, memories, anthropicFetch, 800);
+  return callAnthropicText(RECOMMENDATION_SYSTEM_PROMPT, userMessage, memories, anthropicFetch, model, 800);
 }
 
 async function callAnthropicText(
@@ -606,11 +608,12 @@ async function callAnthropicText(
   userMessage: string,
   memories: Memory[],
   anthropicFetch: typeof fetch,
+  model: string,
   maxTokens = 500,
   timeoutMs?: number,
 ): Promise<string | null> {
   const body = {
-    model: "claude-sonnet-4-6",
+    model,
     max_tokens: maxTokens,
     system: system + formatMemoryContext(memories),
     messages: [{ role: "user", content: userMessage }],
@@ -643,6 +646,7 @@ async function callAnthropicConversation(
   coachContext: unknown,
   memories: Memory[],
   anthropicFetch: typeof fetch,
+  model: string,
 ): Promise<
   {
     content: AnthropicContentBlock[];
@@ -651,7 +655,7 @@ async function callAnthropicConversation(
   } | null
 > {
   const body = {
-    model: "claude-sonnet-4-6",
+    model,
     max_tokens: 350,
     system: SYSTEM_PROMPT + formatMemoryContext(memories) +
       `\n\nCURRENT USER CONTEXT:\n${
@@ -697,9 +701,10 @@ async function callAnthropicConversationStream(
   coachContext: unknown,
   memories: Memory[],
   anthropicFetch: typeof fetch,
+  model: string,
 ) {
   const body = {
-    model: "claude-sonnet-4-6",
+    model,
     max_tokens: 350,
     system: SYSTEM_PROMPT + formatMemoryContext(memories) +
       `\n\nCURRENT USER CONTEXT:\n${
@@ -939,6 +944,7 @@ Deno.serve(async (req: Request) => {
         if (error) throw error;
       },
     });
+    const coachModel = await resolveCoachModel({ id: user.id, email: user.email });
 
     // Optional home copy: no wearable sync, tools, memory writes or startup dependency.
     if (mode === "coach_greeting") {
@@ -961,7 +967,7 @@ Deno.serve(async (req: Request) => {
             }
           } catch { /* Invalid cache is regenerated with current evidence. */ }
         }
-        const raw = await callAnthropicText(GREETING_GUIDANCE, JSON.stringify({ reports }), [], anthropicFetch, 120, 2500);
+        const raw = await callAnthropicText(GREETING_GUIDANCE, JSON.stringify({ reports }), [], anthropicFetch, coachModel, 120, 2500);
         const greeting = validateGreeting(raw, reports);
         // Recheck before publishing: a correction may have arrived during generation.
         const fresh = greetingReports(await loadRecentUserReports(supabase, user.id), Date.now());
@@ -985,7 +991,7 @@ Deno.serve(async (req: Request) => {
         });
       }
       try {
-        const interpretation = await interpretCheckinReply(request, ANTHROPIC_API_KEY, anthropicFetch);
+        const interpretation = await interpretCheckinReply(request, ANTHROPIC_API_KEY, coachModel, anthropicFetch);
         return new Response(JSON.stringify({ interpretation }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -1308,7 +1314,7 @@ Deno.serve(async (req: Request) => {
         buildMemoryQuery(memoryMode, chatHistory, sleepData, groundedContext),
       );
       const { response: anthropicResponse, span: coachSpan } =
-        await callAnthropicConversationStream(chatHistory, groundedContext, memories, anthropicFetch);
+        await callAnthropicConversationStream(chatHistory, groundedContext, memories, anthropicFetch, coachModel);
       if (!anthropicResponse.ok || !anthropicResponse.body) {
         await endAnthropicSpan(coachSpan, null);
         return new Response(
@@ -1328,7 +1334,7 @@ Deno.serve(async (req: Request) => {
           let buffer = "";
           let fullText = "";
           let stopReason: string | null = null;
-          let model = "claude-sonnet-4-6";
+          let model = coachModel;
           let toolUse: { id: string; name: string; input: unknown } | null = null;
           let toolInputJson = "";
           const sendEvent = (event: unknown) => controller.enqueue(
@@ -1507,6 +1513,7 @@ Deno.serve(async (req: Request) => {
         `Create the user's current evolving sleep profile from this context:\n\n${JSON.stringify(coachContext, null, 2)}`,
         memories,
         anthropicFetch,
+        coachModel,
         350,
       );
       const summary = coachSummaryText(generated ? plainCoachText(generated) : "");
@@ -1542,7 +1549,7 @@ Deno.serve(async (req: Request) => {
           summary,
           source_fingerprint: profileFingerprint,
           prompt_version: SLEEP_PROFILE_PROMPT_VERSION,
-          model: "claude-sonnet-4-6",
+          model: coachModel,
           generated_at: profileGeneratedAt,
         }, { onConflict: "user_id" });
       // A failed write only costs the next view its cache hit.
@@ -1640,10 +1647,10 @@ Deno.serve(async (req: Request) => {
         `Generate today's four-section coaching recommendation from this combined context. Subjective check-ins and notes describe how the user felt and what they think affected sleep. Experiment adherence shows what they actually tried. Wearable sleep is the quantitative layer when Apple Health or Oura is connected; the source field identifies whether a score is app-derived or provider-owned. The sleep_resolution selects the preferred quantitative source for the requested night: wearable first, otherwise an explicitly submitted manual score. Preserve manual scores as self-reports and qualitative context, never as wearable measurements. Use relevant long-term memory to follow up on earlier goals, experiments, and outcomes. Be honest when data is sparse; do not invent measurements. Always return all four required sections.\n\n${
           JSON.stringify(dailyContext, null, 2)
         }`;
-      let rawText = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch);
+      let rawText = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch, coachModel);
       let sections = rawText ? parseRecommendation(rawText) : null;
       if (!sections) {
-        rawText = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch);
+        rawText = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch, coachModel);
         sections = rawText ? parseRecommendation(rawText) : null;
       }
 
@@ -1699,7 +1706,7 @@ Deno.serve(async (req: Request) => {
           memory_provider: memoryProvider.name,
         },
         prompt_version: DAILY_COACH_PROMPT_VERSION,
-        model: "claude-sonnet-4-6",
+        model: coachModel,
         generated_at: generatedAt,
       };
 
@@ -1816,13 +1823,13 @@ Deno.serve(async (req: Request) => {
       );
 
       // First attempt
-      let rawText = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch);
+      let rawText = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch, coachModel);
       let sections = rawText ? parseRecommendation(rawText) : null;
 
       // One retry if parse fails
       if (!sections) {
         console.warn("Recommendation parse failed on first attempt, retrying");
-        rawText = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch);
+        rawText = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch, coachModel);
         sections = rawText ? parseRecommendation(rawText) : null;
       }
 
@@ -1958,7 +1965,7 @@ Deno.serve(async (req: Request) => {
 
     // Call Anthropic with streaming
     const streamBody = {
-      model: "claude-sonnet-4-6",
+      model: coachModel,
       max_tokens: 1024,
       system: SYSTEM_PROMPT + formatMemoryContext(memories),
       messages: anthropicMessages,
