@@ -38,6 +38,7 @@ import {
   sleepProfileSourceFingerprint,
 } from "../_shared/coaching-cache.ts";
 import {
+  type AnthropicOutcome,
   endAnthropicSpan,
   startAnthropicSpan,
   tracedAnthropic,
@@ -45,7 +46,7 @@ import {
 import { chooseDailyExperiment } from "../_shared/experimentCycle.ts";
 import { createMeteredAnthropicFetch, usageFeature } from "../_shared/llmUsage.ts";
 import { interpretCheckinReply } from "../_shared/checkinReply.ts";
-import { resolveCoachModel } from "../_shared/coachModel.ts";
+import { COACH_THINKING, resolveCoachModel } from "../_shared/coachModel.ts";
 import { parseCheckinReplyRequest } from "../_shared/checkinReplyContract.ts";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
@@ -465,13 +466,21 @@ function runInBackground(task: Promise<void>): void {
   }
 }
 
+// Anthropic usage deltas carry cumulative counts, so later fields replace earlier ones.
+function mergeUsage(current: unknown, next: unknown): unknown {
+  if (!next || typeof next !== "object") return current;
+  return { ...(current && typeof current === "object" ? current : {}), ...next };
+}
+
 async function collectAnthropicText(
   stream: ReadableStream<Uint8Array>,
-): Promise<string> {
+): Promise<{ text: string } & AnthropicOutcome> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   let fullText = "";
+  let stopReason: string | null = null;
+  let usage: unknown = null;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -493,13 +502,22 @@ async function collectAnthropicText(
         ) {
           fullText += parsed.delta.text;
         }
+        if (parsed.type === "message_start") {
+          usage = mergeUsage(usage, parsed.message?.usage);
+        }
+        if (parsed.type === "message_delta") {
+          usage = mergeUsage(usage, parsed.usage);
+          if (typeof parsed.delta?.stop_reason === "string") {
+            stopReason = parsed.delta.stop_reason;
+          }
+        }
       } catch {
         // Ignore non-JSON SSE data.
       }
     }
   }
 
-  return fullText;
+  return { text: fullText, stop_reason: stopReason, usage };
 }
 
 // Compute summary stats for the recommendation mode
@@ -593,14 +611,16 @@ function parseRecommendation(
   };
 }
 
+type AnthropicText = { text: string; stopReason: string | null; usage: unknown };
+
 // Call Anthropic API in non-streaming mode and return the text
 async function callAnthropicNonStreaming(
   userMessage: string,
   memories: Memory[],
   anthropicFetch: typeof fetch,
   model: string,
-): Promise<string | null> {
-  return callAnthropicText(RECOMMENDATION_SYSTEM_PROMPT, userMessage, memories, anthropicFetch, model, 800);
+): Promise<AnthropicText | null> {
+  return callAnthropicText(RECOMMENDATION_SYSTEM_PROMPT, userMessage, memories, anthropicFetch, model, 1600);
 }
 
 async function callAnthropicText(
@@ -611,10 +631,11 @@ async function callAnthropicText(
   model: string,
   maxTokens = 500,
   timeoutMs?: number,
-): Promise<string | null> {
+): Promise<AnthropicText | null> {
   const body = {
     model,
     max_tokens: maxTokens,
+    thinking: COACH_THINKING,
     system: system + formatMemoryContext(memories),
     messages: [{ role: "user", content: userMessage }],
     stream: false,
@@ -634,11 +655,19 @@ async function callAnthropicText(
 
     if (!res.ok) return null;
     const json = await res.json();
-    return json.content
-      ?.filter((b: { type: string }) => b.type === "text")
-      .map((b: { text: string }) => b.text)
-      .join("\n") ?? "";
-  });
+    return {
+      text: json.content
+        ?.filter((b: { type: string }) => b.type === "text")
+        .map((b: { text: string }) => b.text)
+        .join("\n") ?? "",
+      stopReason: typeof json.stop_reason === "string" ? json.stop_reason : null,
+      usage: json.usage ?? null,
+    };
+  }, (result) => ({
+    output: result?.text ?? null,
+    stop_reason: result?.stopReason ?? null,
+    usage: result?.usage ?? null,
+  }));
 }
 
 async function callAnthropicConversation(
@@ -652,11 +681,13 @@ async function callAnthropicConversation(
     content: AnthropicContentBlock[];
     stop_reason: string | null;
     model?: string;
+    usage: unknown;
   } | null
 > {
   const body = {
     model,
-    max_tokens: 350,
+    max_tokens: 800,
+    thinking: COACH_THINKING,
     system: SYSTEM_PROMPT + formatMemoryContext(memories) +
       `\n\nCURRENT USER CONTEXT:\n${
         formatCurrentCoachContext(coachContext)
@@ -690,8 +721,13 @@ async function callAnthropicConversation(
         ? json.stop_reason
         : null,
       model: typeof json.model === "string" ? json.model : undefined,
+      usage: json.usage ?? null,
     };
-  });
+  }, (result) => ({
+    output: result?.content ?? null,
+    stop_reason: result?.stop_reason ?? null,
+    usage: result?.usage ?? null,
+  }));
 }
 
 // Returns the span alongside the response so the caller can close it once the
@@ -705,7 +741,8 @@ async function callAnthropicConversationStream(
 ) {
   const body = {
     model,
-    max_tokens: 350,
+    max_tokens: 800,
+    thinking: COACH_THINKING,
     system: SYSTEM_PROMPT + formatMemoryContext(memories) +
       `\n\nCURRENT USER CONTEXT:\n${
         formatCurrentCoachContext(coachContext)
@@ -967,8 +1004,8 @@ Deno.serve(async (req: Request) => {
             }
           } catch { /* Invalid cache is regenerated with current evidence. */ }
         }
-        const raw = await callAnthropicText(GREETING_GUIDANCE, JSON.stringify({ reports }), [], anthropicFetch, coachModel, 120, 2500);
-        const greeting = validateGreeting(raw, reports);
+        const raw = await callAnthropicText(GREETING_GUIDANCE, JSON.stringify({ reports }), [], anthropicFetch, coachModel, 300, 2500);
+        const greeting = validateGreeting(raw?.text ?? null, reports);
         // Recheck before publishing: a correction may have arrived during generation.
         const fresh = greetingReports(await loadRecentUserReports(supabase, user.id), Date.now());
         if (await dailyCoachSourceFingerprint({ recent_user_reports: fresh }) !== fingerprint) return respond(null);
@@ -1334,6 +1371,7 @@ Deno.serve(async (req: Request) => {
           let buffer = "";
           let fullText = "";
           let stopReason: string | null = null;
+          let usage: unknown = null;
           let model = coachModel;
           let toolUse: { id: string; name: string; input: unknown } | null = null;
           let toolInputJson = "";
@@ -1355,6 +1393,8 @@ Deno.serve(async (req: Request) => {
                   if (event.type === "message_start" && typeof event.message?.model === "string") {
                     model = event.message.model;
                   }
+                  if (event.type === "message_start") usage = mergeUsage(usage, event.message?.usage);
+                  if (event.type === "message_delta") usage = mergeUsage(usage, event.usage);
                   if (event.type === "message_delta" && typeof event.delta?.stop_reason === "string") {
                     stopReason = event.delta.stop_reason;
                   }
@@ -1457,7 +1497,7 @@ Deno.serve(async (req: Request) => {
             });
           } finally {
             controller.close();
-            await endAnthropicSpan(coachSpan, fullText);
+            await endAnthropicSpan(coachSpan, fullText, { stop_reason: stopReason, usage });
           }
         },
       });
@@ -1514,9 +1554,12 @@ Deno.serve(async (req: Request) => {
         memories,
         anthropicFetch,
         coachModel,
-        350,
+        800,
       );
-      const summary = coachSummaryText(generated ? plainCoachText(generated) : "");
+      // A cut-off profile would be cached and shown as if it were complete.
+      const summary = coachSummaryText(
+        generated && generated.stopReason !== "max_tokens" ? plainCoachText(generated.text) : "",
+      );
       if (!summary) {
         // A stale summary is more useful than an error the user cannot act on,
         // and clients older than the regenerate button have no way to retry.
@@ -1647,14 +1690,17 @@ Deno.serve(async (req: Request) => {
         `Generate today's four-section coaching recommendation from this combined context. Subjective check-ins and notes describe how the user felt and what they think affected sleep. Experiment adherence shows what they actually tried. Wearable sleep is the quantitative layer when Apple Health or Oura is connected; the source field identifies whether a score is app-derived or provider-owned. The sleep_resolution selects the preferred quantitative source for the requested night: wearable first, otherwise an explicitly submitted manual score. Preserve manual scores as self-reports and qualitative context, never as wearable measurements. Use relevant long-term memory to follow up on earlier goals, experiments, and outcomes. Be honest when data is sparse; do not invent measurements. Always return all four required sections.\n\n${
           JSON.stringify(dailyContext, null, 2)
         }`;
-      let rawText = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch, coachModel);
-      let sections = rawText ? parseRecommendation(rawText) : null;
-      if (!sections) {
-        rawText = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch, coachModel);
-        sections = rawText ? parseRecommendation(rawText) : null;
+      let generation = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch, coachModel);
+      let sections = generation ? parseRecommendation(generation.text) : null;
+      // An identical request that ran out of tokens will run out again.
+      if (!sections && generation?.stopReason !== "max_tokens") {
+        generation = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch, coachModel);
+        sections = generation ? parseRecommendation(generation.text) : null;
       }
+      const rawText = generation?.text ?? null;
 
       if (!sections) {
+        console.error("daily_coach generation failed", { stop_reason: generation?.stopReason ?? null });
         return new Response(JSON.stringify({ status: "generation_failed" }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1823,19 +1869,23 @@ Deno.serve(async (req: Request) => {
       );
 
       // First attempt
-      let rawText = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch, coachModel);
-      let sections = rawText ? parseRecommendation(rawText) : null;
+      let generation = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch, coachModel);
+      let sections = generation ? parseRecommendation(generation.text) : null;
 
-      // One retry if parse fails
-      if (!sections) {
+      // One retry if parse fails, unless the reply was cut off by max_tokens,
+      // which an identical request would repeat.
+      if (!sections && generation?.stopReason !== "max_tokens") {
         console.warn("Recommendation parse failed on first attempt, retrying");
-        rawText = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch, coachModel);
-        sections = rawText ? parseRecommendation(rawText) : null;
+        generation = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch, coachModel);
+        sections = generation ? parseRecommendation(generation.text) : null;
       }
+      const rawText = generation?.text ?? null;
 
       if (!sections) {
         console.error(
-          "Recommendation parse failed after retry. Raw:",
+          "Recommendation parse failed. Stop reason:",
+          generation?.stopReason ?? null,
+          "Raw:",
           rawText,
         );
         return new Response(
@@ -1966,7 +2016,8 @@ Deno.serve(async (req: Request) => {
     // Call Anthropic with streaming
     const streamBody = {
       model: coachModel,
-      max_tokens: 1024,
+      max_tokens: 2048,
+      thinking: COACH_THINKING,
       system: SYSTEM_PROMPT + formatMemoryContext(memories),
       messages: anthropicMessages,
       stream: true,
@@ -2007,8 +2058,11 @@ Deno.serve(async (req: Request) => {
     const [clientStream, observerStream] = response.body.tee();
     runInBackground((async () => {
       let fullText = "";
+      let outcome: AnthropicOutcome = {};
       try {
-        fullText = await collectAnthropicText(observerStream);
+        const collected = await collectAnthropicText(observerStream);
+        fullText = collected.text;
+        outcome = { stop_reason: collected.stop_reason, usage: collected.usage };
 
         // Write to cache with 24-hour TTL
         if (cacheKey && fullText.length > 0) {
@@ -2048,7 +2102,7 @@ Deno.serve(async (req: Request) => {
       } catch (e) {
         console.error("Coach stream observation failed:", e);
       } finally {
-        await endAnthropicSpan(streamSpan, fullText);
+        await endAnthropicSpan(streamSpan, fullText, outcome);
       }
     })());
 
