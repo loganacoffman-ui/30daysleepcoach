@@ -3,6 +3,7 @@ import { resolveSleep } from '../mobile/sleep/dailySleepContract';
 
 const state = vi.hoisted(() => ({ client: null as any, handler: null as any }));
 vi.mock('jsr:@supabase/functions-js/edge-runtime.d.ts', () => ({}));
+vi.mock('npm:@configcat/sdk@1/deno', () => ({}));
 vi.mock('jsr:@supabase/supabase-js@2', () => ({ createClient: () => state.client }));
 vi.mock('../supabase/functions/_shared/tracing.ts', () => ({
   tracedAnthropic: (_name: unknown, _body: unknown, fn: () => unknown) => fn(),
@@ -174,6 +175,31 @@ it('does not spend another model call when the saved-report lookup fails', async
   cacheReadError = null;
   expect((await request()).headers.get('X-Cache')).toBe('HIT');
   expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+it('disables thinking and does not retry a reply cut off by max_tokens', async () => {
+  checkins = [manual];
+  fetchMock.mockImplementation(async () => new Response(JSON.stringify({
+    content: [{ type: 'text', text: '**Pattern** A pattern\n**What this' }], stop_reason: 'max_tokens',
+  }), { status: 200 }));
+  const response = await request();
+  expect(response.status).toBe(500);
+  expect(await response.json()).toEqual({ status: 'generation_failed' });
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+  expect(body.thinking).toEqual({ type: 'disabled' });
+  expect(body.max_tokens).toBe(1600);
+  expect(writes).toEqual([]);
+});
+
+it('retries once when a complete reply cannot be parsed', async () => {
+  checkins = [manual];
+  const original = fetchMock.getMockImplementation()!;
+  fetchMock.mockImplementationOnce(async () => new Response(JSON.stringify({
+    content: [{ type: 'text', text: 'Unstructured advice' }], stop_reason: 'end_turn',
+  }), { status: 200 })).mockImplementation(original);
+  expect((await (await request()).json()).status).toBe('ok');
+  expect(fetchMock).toHaveBeenCalledTimes(2);
 });
 
 it('only an explicit refresh bypasses unchanged evidence', async () => {

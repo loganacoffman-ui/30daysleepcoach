@@ -16,6 +16,7 @@ Deno.test('check-in interpretation sends the question and full reply to the mode
   };
   assertEquals(await interpretCheckinReply(request, 'test-key', 'test-model', fetcher), skipped);
   assertEquals(body.model, 'test-model');
+  assertEquals(body.thinking, { type: 'disabled' });
   assertEquals(JSON.parse(body.messages[0].content), request);
   assertEquals(body.tool_choice.name, 'interpret_checkin_reply');
   assertEquals(body.tools[0].input_schema.properties.answer.enum, ['completed', 'partial', 'skipped', null]);

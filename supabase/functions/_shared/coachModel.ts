@@ -4,6 +4,10 @@ export const DEFAULT_COACH_MODEL = "claude-sonnet-4-6";
 export const SONNET_5_MODEL = "claude-sonnet-5";
 export const SONNET_5_FLAG_KEY = "useSonnet5";
 
+// Sonnet 5 thinks unless told otherwise, and max_tokens caps thinking plus reply
+// text, so short coaching budgets end before any text. Both models accept this.
+export const COACH_THINKING = { type: "disabled" } as const;
+
 type FlagClient = Pick<configcat.IConfigCatClient, "getValueAsync">;
 type FlagUser = { id: string; email?: string };
 

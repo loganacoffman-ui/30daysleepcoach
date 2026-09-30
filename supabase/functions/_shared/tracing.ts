@@ -33,8 +33,40 @@ type AnthropicRequest = {
   messages?: unknown;
   tools?: unknown;
   tool_choice?: unknown;
+  thinking?: unknown;
   [key: string]: unknown;
 };
+
+/** How an Anthropic generation ended, taken from the response or its stream events. */
+export type AnthropicOutcome = {
+  stop_reason?: string | null;
+  usage?: unknown;
+};
+
+function tokenCount(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function usageMetrics(usage: unknown): Record<string, number> {
+  if (!usage || typeof usage !== "object") return {};
+  const raw = usage as Record<string, unknown>;
+  const details = raw.output_tokens_details && typeof raw.output_tokens_details === "object"
+    ? raw.output_tokens_details as Record<string, unknown>
+    : {};
+  const prompt = tokenCount(raw.input_tokens);
+  const completion = tokenCount(raw.output_tokens);
+  const metrics: Record<string, number | undefined> = {
+    prompt_tokens: prompt,
+    completion_tokens: completion,
+    tokens: prompt !== undefined && completion !== undefined ? prompt + completion : undefined,
+    prompt_cached_tokens: tokenCount(raw.cache_read_input_tokens),
+    prompt_cache_creation_tokens: tokenCount(raw.cache_creation_input_tokens),
+    completion_reasoning_tokens: tokenCount(details.thinking_tokens),
+  };
+  return Object.fromEntries(
+    Object.entries(metrics).filter((entry): entry is [string, number] => entry[1] !== undefined),
+  );
+}
 
 /**
  * Anthropic carries the system prompt outside `messages`, so it has to be
@@ -65,6 +97,7 @@ export function startAnthropicSpan(
         max_tokens: request.max_tokens,
         tools: request.tools,
         tool_choice: request.tool_choice,
+        thinking: request.thinking,
       },
     },
   }) ?? NOOP_SPAN;
@@ -74,8 +107,13 @@ export function startAnthropicSpan(
 export async function endAnthropicSpan(
   span: Span,
   output: unknown,
+  outcome: AnthropicOutcome = {},
 ): Promise<void> {
-  span.log({ output });
+  span.log({
+    output,
+    metadata: { stop_reason: outcome.stop_reason ?? null, usage: outcome.usage ?? null },
+    metrics: usageMetrics(outcome.usage),
+  });
   span.end();
   try {
     await logger?.flush();
@@ -85,19 +123,24 @@ export async function endAnthropicSpan(
   }
 }
 
-/** Trace a non-streaming Anthropic call, logging whatever `call` resolves to. */
+/**
+ * Trace a non-streaming Anthropic call. `describe` picks the span output and
+ * outcome from the result; by default the whole result is logged as output.
+ */
 export async function tracedAnthropic<T>(
   name: string,
   request: AnthropicRequest,
   call: () => Promise<T>,
+  describe: (result: T) => AnthropicOutcome & { output: unknown } = (result) => ({ output: result }),
 ): Promise<T> {
   const span = startAnthropicSpan(name, request);
-  let output: unknown = null;
+  let traced: AnthropicOutcome & { output: unknown } = { output: null };
   try {
     const result = await call();
-    output = result;
+    traced = describe(result);
     return result;
   } finally {
-    await endAnthropicSpan(span, output);
+    const { output, ...outcome } = traced;
+    await endAnthropicSpan(span, output, outcome);
   }
 }

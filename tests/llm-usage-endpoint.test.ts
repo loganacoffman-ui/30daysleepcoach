@@ -3,6 +3,7 @@ import { beforeAll, beforeEach, expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({ user: null as any, admin: null as any, handler: null as any,
   clients: [] as any[] }));
 vi.mock('jsr:@supabase/functions-js/edge-runtime.d.ts', () => ({}));
+vi.mock('npm:@configcat/sdk@1/deno', () => ({}));
 vi.mock('jsr:@supabase/supabase-js@2', () => ({ createClient: (_url: string, key: string, options: unknown) => {
   state.clients.push({ key, options });
   return key === 'service-key' ? state.admin : state.user;
