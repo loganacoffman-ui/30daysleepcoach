@@ -1,4 +1,7 @@
-import { GREETING_VERSION, GREETING_GUIDANCE, greetingReports, validateGreeting } from '../_shared/greeting.ts';
+import {
+  GREETING_VERSION, GREETING_GUIDANCE, greetingReports, validateGreeting, classifyGreeting, greetingRequestKey, coalesce,
+  type GreetingDisposition, type GreetingOutcome,
+} from '../_shared/greeting.ts';
 import { PERSONALIZATION_GUIDANCE, loadRecentUserReports, formatPersonalizationMemories, formatCurrentCoachContext } from '../_shared/personalization.ts';
 import { loadDailySleepContext } from '../_shared/dailySleep.ts';
 import { sleepResolutionKey } from '../_shared/dailySleepContract.ts';
@@ -631,6 +634,7 @@ async function callAnthropicText(
   model: string,
   maxTokens = 500,
   timeoutMs?: number,
+  traceMetadata?: Record<string, unknown>,
 ): Promise<AnthropicText | null> {
   const body = {
     model,
@@ -667,7 +671,7 @@ async function callAnthropicText(
     output: result?.text ?? null,
     stop_reason: result?.stopReason ?? null,
     usage: result?.usage ?? null,
-  }));
+  }), traceMetadata);
 }
 
 async function callAnthropicConversation(
@@ -993,26 +997,91 @@ Deno.serve(async (req: Request) => {
         const reports = greetingReports(await loadRecentUserReports(supabase, user.id, now), now);
         if (!reports.length) return respond(null);
         const fingerprint = await dailyCoachSourceFingerprint({ recent_user_reports: reports });
-        const { data: cached } = await supabase.from("ai_cache").select("content, expires_at")
-          .eq("user_id", user.id).eq("cache_key", GREETING_VERSION).maybeSingle();
-        if (cached && Date.parse(cached.expires_at) > now) {
+        const requestKey = greetingRequestKey(user.id, fingerprint);
+        const finish = (disposition: GreetingDisposition, result: { greeting: unknown; expires_at?: string }, attempts = 0) => {
+          // Queryable record of how each request was served; duplicates show as coalesced/waited/busy.
+          console.log(JSON.stringify({ event: "coach_greeting", request_key: requestKey, disposition, attempts }));
+          return respond(result.greeting && result.expires_at ? { ...result.greeting as object, fingerprint, expires_at: result.expires_at } : null);
+        };
+
+        // Any request for the same evidence is served from the one persisted result.
+        const readCached = async () => {
+          const { data: cached } = await supabase.from("ai_cache").select("content, expires_at")
+            .eq("user_id", user.id).eq("cache_key", GREETING_VERSION).maybeSingle();
+          if (!cached || Date.parse(cached.expires_at) <= Date.now()) return null;
           try {
             const saved = JSON.parse(cached.content);
-            if (saved.fingerprint === fingerprint) {
-              const greeting = validateGreeting(JSON.stringify(saved.greeting), reports);
-              return respond(greeting ? { ...greeting, fingerprint, expires_at: cached.expires_at } : null);
+            if (saved.fingerprint !== fingerprint) return null;
+            return { greeting: validateGreeting(JSON.stringify(saved.greeting), reports), expires_at: cached.expires_at as string };
+          } catch { return null; /* Invalid cache is regenerated with current evidence. */ }
+        };
+        const hit = await readCached();
+        if (hit) return finish("cache_hit", hit);
+
+        const leaseKey = `${GREETING_VERSION}:lease:${fingerprint}`;
+        const budgetMs = 6000;
+        const generate = async (): Promise<{ disposition: GreetingDisposition; greeting: unknown; expires_at?: string; attempts: number }> => {
+          // Cross-isolate guard: the unique (user_id, cache_key) row lets exactly one request generate.
+          const lease = { user_id: user.id, cache_key: leaseKey, content: "{}", expires_at: new Date(Date.now() + 20_000).toISOString() };
+          let { error: leaseError } = await supabase.from("ai_cache").insert(lease);
+          if (leaseError?.code === "23505") {
+            // Reclaim a lease abandoned by a crashed isolate before deciding someone else holds it.
+            await supabase.from("ai_cache").delete().eq("user_id", user.id).eq("cache_key", leaseKey)
+              .lt("expires_at", new Date().toISOString());
+            ({ error: leaseError } = await supabase.from("ai_cache").insert(lease));
+            if (leaseError?.code === "23505") {
+              const waitUntil = Date.now() + budgetMs;
+              while (Date.now() < waitUntil) {
+                await new Promise((resolve) => setTimeout(resolve, 300));
+                const shared = await readCached();
+                if (shared) return { disposition: "waited", ...shared, attempts: 0 };
+                const { data: held } = await supabase.from("ai_cache").select("expires_at")
+                  .eq("user_id", user.id).eq("cache_key", leaseKey).maybeSingle();
+                if (!held) break; // Holder finished without publishing (failure/stale): fall back.
+              }
+              return { disposition: "busy", greeting: null, attempts: 0 };
             }
-          } catch { /* Invalid cache is regenerated with current evidence. */ }
-        }
-        const raw = await callAnthropicText(GREETING_GUIDANCE, JSON.stringify({ reports }), [], anthropicFetch, coachModel, 300, 2500);
-        const greeting = validateGreeting(raw?.text ?? null, reports);
-        // Recheck before publishing: a correction may have arrived during generation.
-        const fresh = greetingReports(await loadRecentUserReports(supabase, user.id), Date.now());
-        if (await dailyCoachSourceFingerprint({ recent_user_reports: fresh }) !== fingerprint) return respond(null);
-        const expires_at = new Date(now + 2 * 60 * 60 * 1000).toISOString();
-        await supabase.from("ai_cache").upsert({ user_id: user.id, cache_key: GREETING_VERSION,
-          content: JSON.stringify({ fingerprint, greeting }), expires_at }, { onConflict: "user_id,cache_key" });
-        return respond(greeting ? { ...greeting, fingerprint, expires_at } : null);
+          }
+          try {
+            const deadline = Date.now() + budgetMs;
+            let outcome: GreetingOutcome = { kind: "invalid" };
+            let attempts = 0;
+            // A null/empty/malformed reply violates the JSON-only contract: retry once with the remaining budget.
+            while (attempts < 2 && (attempts === 0 || deadline - Date.now() >= 1000)) {
+              attempts++;
+              let raw: string | null = null;
+              try {
+                raw = (await callAnthropicText(
+                  GREETING_GUIDANCE, JSON.stringify({ reports }), [], anthropicFetch, coachModel, 300,
+                  attempts === 1 ? 3000 : Math.max(deadline - Date.now(), 1000),
+                  { request_key: requestKey, attempt: attempts },
+                ))?.text ?? null;
+              } catch { /* Timeout/network failure is handled like an invalid reply. */ }
+              outcome = classifyGreeting(raw, reports);
+              if (outcome.kind !== "invalid") break;
+            }
+            // Recheck before publishing: a correction may have arrived during generation.
+            const fresh = greetingReports(await loadRecentUserReports(supabase, user.id), Date.now());
+            if (await dailyCoachSourceFingerprint({ recent_user_reports: fresh }) !== fingerprint) {
+              return { disposition: "stale", greeting: null, attempts };
+            }
+            // A deliberate decline is cached for the normal TTL; a failed generation only briefly,
+            // so it is not retried by every burst yet does not hide the greeting for two hours.
+            const failed = outcome.kind === "invalid";
+            const expires_at = new Date(Date.now() + (failed ? 60_000 : 2 * 60 * 60 * 1000)).toISOString();
+            const greeting = outcome.kind === "ok" ? outcome.greeting : null;
+            await supabase.from("ai_cache").upsert({ user_id: user.id, cache_key: GREETING_VERSION,
+              content: JSON.stringify({ fingerprint, greeting, ...(failed ? { status: "failed" } : {}) }), expires_at },
+              { onConflict: "user_id,cache_key" });
+            return { disposition: failed ? "failed" : greeting ? "generated" : "declined", greeting, expires_at, attempts };
+          } finally {
+            await supabase.from("ai_cache").delete().eq("user_id", user.id).eq("cache_key", leaseKey);
+          }
+        };
+
+        const { promise, joined } = coalesce(requestKey, generate);
+        const result = await promise;
+        return finish(joined ? "coalesced" : result.disposition, result, joined ? 0 : result.attempts);
       } catch { return respond(null); }
     }
 

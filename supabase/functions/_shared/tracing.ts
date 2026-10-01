@@ -86,6 +86,7 @@ function spanInput(request: AnthropicRequest): unknown {
 export function startAnthropicSpan(
   name: string,
   request: AnthropicRequest,
+  metadata: Record<string, unknown> = {},
 ): Span {
   return logger?.startSpan({
     name,
@@ -93,6 +94,7 @@ export function startAnthropicSpan(
     event: {
       input: spanInput(request),
       metadata: {
+        ...metadata,
         model: request.model,
         max_tokens: request.max_tokens,
         tools: request.tools,
@@ -132,13 +134,18 @@ export async function tracedAnthropic<T>(
   request: AnthropicRequest,
   call: () => Promise<T>,
   describe: (result: T) => AnthropicOutcome & { output: unknown } = (result) => ({ output: result }),
+  metadata: Record<string, unknown> = {},
 ): Promise<T> {
-  const span = startAnthropicSpan(name, request);
+  const span = startAnthropicSpan(name, request, metadata);
   let traced: AnthropicOutcome & { output: unknown } = { output: null };
   try {
     const result = await call();
     traced = describe(result);
     return result;
+  } catch (error) {
+    // Otherwise a timeout is indistinguishable from an empty reply in the trace.
+    span.log({ error: error instanceof Error ? error.message : String(error) });
+    throw error;
   } finally {
     const { output, ...outcome } = traced;
     await endAnthropicSpan(span, output, outcome);

@@ -15,7 +15,9 @@ export async function loadContextGreeting(userId: string): Promise<Greeting | nu
   const revision = revisions.get(userId) ?? 0;
   const result = await memo.run(`${userId}:greeting`, async () => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3500);
+    // Covers the server's generation budget (one retry) or waiting on a duplicate in flight.
+    // Aborting earlier only made the next screen refresh start the same generation again.
+    const timeout = setTimeout(() => controller.abort(), 8000);
     try {
       const { data, error } = await supabase.functions.invoke('sleep-coach', {
         body: { mode: 'coach_greeting' }, signal: controller.signal,
