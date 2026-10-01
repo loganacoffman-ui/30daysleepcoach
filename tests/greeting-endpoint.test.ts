@@ -7,8 +7,8 @@ vi.mock('../supabase/functions/_shared/tracing.ts', () => ({
   tracedAnthropic: (_name: unknown, _body: unknown, fn: () => unknown) => fn(),
   startAnthropicSpan: vi.fn(), endAnthropicSpan: vi.fn(),
 }));
-let reports: any[], cached: any, authenticated: boolean, dbError: boolean;
-let writes: any[], filters: any[];
+let reports: any[], cached: any, authenticated: boolean, dbError: boolean, leaseHeld: boolean;
+let writes: any[], filters: any[], leaseAttempts: number;
 const model = vi.fn();
 const report = (content: string, id = 'r1') => ({ id, role: 'user', content, created_at: new Date(Date.now() - 1000).toISOString() });
 beforeAll(async () => {
@@ -16,16 +16,22 @@ beforeAll(async () => {
   await import('../supabase/functions/sleep-coach/index');
 });
 beforeEach(() => {
-  reports = []; cached = null; authenticated = true; dbError = false; writes = []; filters = [];
+  reports = []; cached = null; authenticated = true; dbError = false; leaseHeld = false; leaseAttempts = 0; writes = []; filters = [];
   model.mockReset().mockImplementation(async () => new Response(JSON.stringify({ content: [{ type: 'text', text: '{"text":"How has winding down felt since the race?","source_id":"r1"}' }] })));
   vi.stubGlobal('fetch', model);
   state.client = {
     auth: { getUser: async () => ({ data: { user: authenticated ? { id: 'alice' } : null }, error: null }) },
     from: (table: string) => {
-      const query: any = { select: () => query, eq: (...args: any[]) => { filters.push([table, ...args]); return query; },
-        gte: () => query, order: () => query, limit: () => query, maybeSingle: () => query,
+      let op = 'select'; let key = '';
+      const query: any = { select: () => query, eq: (...args: any[]) => { filters.push([table, ...args]); if (args[0] === 'cache_key') key = args[1]; return query; },
+        gte: () => query, lt: () => query, order: () => query, limit: () => query, maybeSingle: () => query,
+        insert: () => { op = 'insert'; leaseAttempts++; return query; }, delete: () => { op = 'delete'; return query; },
         upsert: (value: any) => { cached = value; writes.push({ table, value }); return query; },
-        then: (resolve: any) => resolve({ data: table === 'coach_messages' ? reports : cached, error: dbError ? new Error('offline') : null }) };
+        then: (resolve: any) => {
+          if (op === 'insert') return resolve({ data: null, error: leaseHeld ? { code: '23505' } : null });
+          if (table === 'ai_cache' && key.includes(':lease:')) return resolve({ data: leaseHeld ? { expires_at: new Date(Date.now() + 10000).toISOString() } : null, error: null });
+          return resolve({ data: table === 'coach_messages' ? reports : cached, error: dbError ? new Error('offline') : null });
+        } };
       return query;
     },
   };
@@ -69,4 +75,46 @@ it('falls back on DB/provider failure and rejects invented source IDs', async ()
   expect((await (await request()).json()).greeting).toBeNull();
   model.mockResolvedValue(new Response(JSON.stringify({ content: [{ type: 'text', text: '{"text":"Welcome back!","source_id":"invented"}' }] })));
   expect((await (await request()).json()).greeting).toBeNull();
+});
+
+it('coalesces concurrent identical requests into one generation and one persisted result', async () => {
+  reports = [report('My triathlon is over.')];
+  const results = await Promise.all([request(), request(), request()].map(async response => (await response).json()));
+  expect(model).toHaveBeenCalledTimes(1);
+  expect(writes).toHaveLength(1);
+  expect(results[0].greeting.text).toContain('race');
+  expect(results[1]).toEqual(results[0]);
+  expect(results[2]).toEqual(results[0]);
+});
+it('waits for a duplicate generating in another isolate instead of generating again', async () => {
+  reports = [report('My triathlon is over.')];
+  const first = await (await request()).json();
+  const published = cached;
+  cached = null; leaseHeld = true; model.mockClear();
+  setTimeout(() => { cached = published; leaseHeld = false; }, 400);
+  expect(await (await request()).json()).toEqual(first);
+  expect(model).not.toHaveBeenCalled();
+});
+it('retries an empty or malformed structured reply once before publishing', async () => {
+  reports = [report('My race is over.')];
+  const valid = model.getMockImplementation()!;
+  model.mockResolvedValueOnce(new Response(JSON.stringify({ content: [] })));
+  model.mockImplementationOnce(valid);
+  expect((await (await request()).json()).greeting.text).toContain('race');
+  expect(model).toHaveBeenCalledTimes(2);
+});
+it('caches a deliberate decline for hours but a failed generation only briefly', async () => {
+  reports = [report('My race is over.')];
+  model.mockImplementation(async () => new Response(JSON.stringify({ content: [{ type: 'text', text: '{"text":"","source_id":""}' }] })));
+  expect((await (await request()).json()).greeting).toBeNull();
+  expect(model).toHaveBeenCalledTimes(1);
+  expect(Date.parse(writes[0].value.expires_at) - Date.now()).toBeGreaterThan(60 * 60 * 1000);
+
+  writes = []; cached = null; model.mockReset().mockRejectedValue(new Error('timeout'));
+  expect((await (await request()).json()).greeting).toBeNull();
+  expect(model).toHaveBeenCalledTimes(2);
+  expect(JSON.parse(writes[0].value.content).status).toBe('failed');
+  expect(Date.parse(writes[0].value.expires_at) - Date.now()).toBeLessThanOrEqual(60_000);
+  await request();
+  expect(model).toHaveBeenCalledTimes(2);
 });

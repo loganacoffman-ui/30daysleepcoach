@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-import { greetingReports, validateGreeting } from '../supabase/functions/_shared/greeting';
+import { greetingReports, validateGreeting, classifyGreeting } from '../supabase/functions/_shared/greeting';
 import { loadContextGreeting, invalidateGreeting, claimContextGreeting } from '../mobile/coach/greetingRepository';
 import { supabase } from '../mobile/supabase';
 import { screenCache } from '../mobile/cache/screenCache';
@@ -60,4 +60,10 @@ it('serializes repeated claims so only one home load displays unchanged context'
   vi.mocked(screenCache.read).mockImplementation(async () => saved);
   vi.mocked(screenCache.write).mockImplementation(async (_u, _n, _v, value) => { saved = { value, savedAt: '' }; });
   expect(await Promise.all([claimContextGreeting('alice', 'same', '2026-09-21'), claimContextGreeting('alice', 'same', '2026-09-21')])).toEqual([true, false]);
+});
+it('separates a deliberate decline from a failed or malformed generation', () => {
+  const eligible = greetingReports(reports, now);
+  expect(classifyGreeting('{"text":"","source_id":""}', eligible)).toEqual({ kind: 'declined' });
+  for (const raw of [null, '', 'null', '[]', '{"text":"Hi","source_id":"old"}']) expect(classifyGreeting(raw, eligible)).toEqual({ kind: 'invalid' });
+  expect(classifyGreeting('```json\n{"text":"How did the race go?","source_id":"new"}\n```', eligible).kind).toBe('ok');
 });
