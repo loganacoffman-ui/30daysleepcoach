@@ -63,20 +63,27 @@ it('does not unlock for a qualitative check-in, unsubmitted score, wrong night, 
   }
   expect(fetchMock).not.toHaveBeenCalled();
 });
-it('explicit manual submission unlocks, reuses unchanged advice, and later wearable replaces its cache without erasing the report', async () => {
+it('explicit manual submission unlocks, reuses unchanged advice, and outranks a later wearable without erasing the report', async () => {
   checkins = [manual];
   expect((await (await request()).json()).status).toBe('ok');
-  const fingerprint = stored.source_context.source_fingerprint;
   expect(fetchMock).toHaveBeenCalledTimes(1);
   expect((await request()).headers.get('X-Cache')).toBe('HIT');
   oura = [{ day: date, score: 82 }];
-  expect((await request()).headers.get('X-Cache')).toBe('MISS');
-  expect(fetchMock).toHaveBeenCalledTimes(2);
-  expect(stored.source_context.source_fingerprint).not.toBe(fingerprint);
-  expect(JSON.parse(stored.source_context.sleep_resolution_key)).toMatchObject({ source: 'oura', score: 82, manual: { score: 0 } });
+  expect((await request()).headers.get('X-Cache')).toBe('HIT');
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(stored.source_context.sleep_resolution_key)).toMatchObject({ source: 'manual', score: 0, manual: { score: 0 } });
   expect(checkins).toEqual([manual]);
   expect(writes).not.toContain('daily_checkins');
-  expect(JSON.parse(fetchMock.mock.calls[1][1].body).messages[0].content).toContain('Restless');
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content).toContain('Restless');
+});
+it('a manual override replaces the automatic Apple Health score the coach sees', async () => {
+  nights = [{ sleep_date: date, sleep_score: 91, provider: 'apple_health' }];
+  checkins = [{ ...manual, manual_sleep_score: 55 }];
+  expect((await (await request()).json()).status).toBe('ok');
+  const prompt = JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content;
+  expect(prompt).toContain('"source": "manual"');
+  expect(prompt).toContain('"score": 55');
+  expect(prompt).not.toContain('91');
 });
 it('corrected authenticated wearable evidence regenerates once and keeps the response contract', async () => {
   oura = [{ day: date, score: 79 }];
@@ -209,4 +216,9 @@ it('only an explicit refresh bypasses unchanged evidence', async () => {
   expect((await request({ refresh: true })).headers.get('X-Cache')).toBe('MISS');
   expect((await request()).headers.get('X-Cache')).toBe('HIT');
   expect(fetchMock).toHaveBeenCalledTimes(2);
+});
+it('resolves a manual score ahead of a wearable score for the same night', () => {
+  expect(resolveSleep(date, [{ day: date, score: 91, source: 'apple_health' }], { ...manual, manual_sleep_score: 55 }))
+    .toMatchObject({ source: 'manual', score: 55 });
+  expect(resolveSleep(date, [{ day: date, score: 91, source: 'apple_health' }], { checkin_date: date })).toMatchObject({ source: 'apple_health', score: 91 });
 });

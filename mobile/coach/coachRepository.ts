@@ -148,12 +148,13 @@ export const loadCoachHomeState = async (user: User): Promise<CoachHomeState> =>
     checkinCount: checkins.length,
     hasCheckedInToday: Boolean(todayCheckin),
     morningFeeling: normalizeMorningFeeling(todayCheckin?.morning_feeling, todayCheckin?.feeling),
-    // Coaching prefers wearable measurements while preserving the self-report.
-    sleepScore: currentWearable?.score ?? manualScore ?? null,
+    // A score the user submitted is their correction of the night, so it outranks
+    // the wearable reading for the same date.
+    sleepScore: manualScore ?? currentWearable?.score ?? null,
     previousSleepScore: currentWearable
       ? wearableSleep.find(item => item.day < currentWearable.day)?.score ?? null
       : wearableSleep[0]?.score ?? null,
-    sleepSource: currentWearable?.source ?? (manualScore !== null ? 'manual' : 'missing'),
+    sleepSource: manualScore !== null ? 'manual' : currentWearable?.source ?? 'missing',
     suspectedFactor: typeof todayCheckin?.suspected_factor === 'string'
       ? todayCheckin.suspected_factor
       : null,
@@ -239,8 +240,11 @@ const fetchCoachContext = async (user: User, profile: SleepProfile): Promise<Coa
   ]);
   if (checkinsResult.error) throw checkinsResult.error;
   if (commitmentsResult.error) throw commitmentsResult.error;
+  const today = localDate();
+  const overridden = (checkinsResult.data ?? []).some(item =>
+    item.checkin_date === today && typeof item.manual_sleep_score === 'number' && item.manual_sleep_submitted_at);
   return {
-    date: localDate(),
+    date: today,
     profile: {
       primary_concern: profile.primaryConcern,
       typical_bedtime: profile.typicalBedtime,
@@ -252,7 +256,8 @@ const fetchCoachContext = async (user: User, profile: SleepProfile): Promise<Coa
       morning_feeling: normalizeMorningFeeling(morning_feeling, feeling),
     })),
     experiment_adherence: commitmentsResult.data ?? [],
-    wearable_sleep: wearableSleep,
+    // Hide the automatic score for a night the user overrode so the coach cannot quote it.
+    wearable_sleep: overridden ? wearableSleep.filter(item => item.day !== today) : wearableSleep,
   };
 };
 
