@@ -26,11 +26,12 @@ beforeEach(() => {
   state.recommendation = { pattern: 'Pattern', meaning: 'Meaning', action: 'Action', prompt_version: DAILY_COACH_PROMPT_VERSION,
     source_context: { sleep_resolution_key: sleepResolutionKey(resolveSleep(date, [], state.checkin)) } };
 });
-it('keeps unchanged manual coaching but hides it after a wearable arrives, retaining the manual entry', async () => {
+it('keeps manual coaching when a wearable arrives, because the manual score takes precedence', async () => {
   expect((await repository.loadToday()).dailyCoaching?.action).toBe('Action');
   state.wearable = { day: date, score: 85, source: 'oura' };
   const snapshot = await repository.loadToday();
-  expect(snapshot.dailyCoaching).toBeNull();
+  expect(snapshot.dailyCoaching?.action).toBe('Action');
+  expect(snapshot.sleepData).toMatchObject({ source: 'manual', score: 62 });
   expect(snapshot.checkin?.manualSleepScore).toBe(62);
   expect(snapshot.syncedSleep?.score).toBe(85);
   expect(state.writes.filter(write => write.table === 'daily_checkins')).toEqual([]);

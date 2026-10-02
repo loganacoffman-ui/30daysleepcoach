@@ -81,12 +81,12 @@ describe('coach home progression', () => {
   });
 });
 
-it('prefers a newly arrived wearable for coaching while retaining the manual check-in', async () => {
+it('keeps the manual score over a newly arrived wearable and retains the check-in', async () => {
   const row = { checkin_date: localDate(), manual_sleep_score: 62, manual_sleep_submitted_at: new Date().toISOString(), morning_feeling: 'tired', suspected_factor: 'stress' };
   checkins = [row];
   expect((await loadCoachHomeState(user)).sleepSource).toBe('manual');
   invalidateCoachContext(user.id);
   vi.mocked(supabase.functions.invoke).mockResolvedValue({ data: { data: [{ day: localDate(), score: 85 }] }, error: null });
-  expect(await loadCoachHomeState(user)).toMatchObject({ sleepSource: 'oura', sleepScore: 85, morningFeeling: 'tired', suspectedFactor: 'stress' });
+  expect(await loadCoachHomeState(user)).toMatchObject({ sleepSource: 'manual', sleepScore: 62, morningFeeling: 'tired', suspectedFactor: 'stress' });
   expect(checkins[0]).toEqual(row);
 });

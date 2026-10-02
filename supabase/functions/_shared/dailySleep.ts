@@ -35,9 +35,12 @@ export async function loadDailySleepContext(supabase: SupabaseClient, userId: st
     rows.find(row => row.day === day && row.source === preferred) ?? rows.find(row => row.day === day)!
   );
   const resolution = resolveSleep(date, wearable, checkins.data?.find(row => row.checkin_date === date));
+  // The model must not see the automatic score for a night the user overrode, or
+  // it will quote it instead of their own number.
+  const modelWearable = resolution.manual ? wearable.filter(row => row.day !== date) : wearable;
   return {
     date, recent_user_reports: recentReports, profile: profile.data, subjective_checkins: checkins.data ?? [],
-    experiment_adherence: adherence.data ?? [], wearable_sleep: wearable,
+    experiment_adherence: adherence.data ?? [], wearable_sleep: modelWearable,
     sleep_resolution: resolution,
   };
 }
