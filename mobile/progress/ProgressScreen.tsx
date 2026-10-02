@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Animated, BackHandler, Easing, PanResponder, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { User } from '@supabase/supabase-js';
 
 import { checkinRevision, subscribeToCheckins } from '../cache/checkinRevision';
@@ -31,6 +31,9 @@ const PROGRESS_CACHE_VERSION = 1;
 const PROFILE_CACHE_VERSION = 1;
 // A tab switch inside this window reuses what is on screen rather than refetching.
 const PROGRESS_REFRESH_INTERVAL_MS = 120_000;
+const PAGE_OPEN_DURATION = 280;
+const PAGE_CLOSE_DURATION = 240;
+const BACK_SWIPE_ACTIVATION_DISTANCE = 12;
 
 type CachedProgress = {
   checkins: ProgressCheckin[];
@@ -61,6 +64,7 @@ export default function ProgressScreen({ active = true, profile, refreshRequest,
   const [journeyError, setJourneyError] = useState('');
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [allCheckinsOpen, setAllCheckinsOpen] = useState(false);
+  const closeAllCheckins = useCallback(() => setAllCheckinsOpen(false), []);
   const lastLoadedAt = useRef(0);
   const profileLoadingRef = useRef(false);
 
@@ -208,7 +212,8 @@ export default function ProgressScreen({ active = true, profile, refreshRequest,
     return 'Your coach is watching your check-ins and experiments for a repeatable explanation.';
   };
 
-  return <ScrollView contentContainerStyle={styles.content}>
+  return <View style={styles.screen}>
+  <ScrollView accessibilityElementsHidden={allCheckinsOpen} contentContainerStyle={styles.content} importantForAccessibility={allCheckinsOpen ? 'no-hide-descendants' : 'auto'}>
     <Text style={styles.eyebrow}>PROGRESS</Text><Text style={styles.title}>What we’re learning</Text><Text style={styles.subtitle}>Your signals become more useful as patterns repeat.</Text>
     {loading ? <ProgressSkeleton/> : <>
       <View style={styles.journeyCard}>
@@ -226,7 +231,6 @@ export default function ProgressScreen({ active = true, profile, refreshRequest,
           {selectedEntry && <CheckinDetail commitments={commitments} entry={selectedEntry} number={selectedDay! + 1} points={points} userId={user.id}/>}
         </>}
       </View>
-      {journeyOffset > 0 && <AllCheckins commitments={commitments} journey={journey} onClose={() => setAllCheckinsOpen(false)} points={points} userId={user.id} visible={allCheckinsOpen}/>}
 
       <Section title="SLEEP SCORE" subtitle="Past 7 days" open={sleepScoreOpen} onPress={() => setSleepScoreOpen(value => !value)}>
         <View style={styles.sectionBody}><View style={styles.scoreSummary}><Text style={styles.cardTitle}>Seven-night trend</Text><Text style={styles.average}>{recent.length ? Math.round(recent.reduce((sum, p) => sum + p.score, 0) / recent.length) : '—'} avg</Text></View>
@@ -268,7 +272,9 @@ export default function ProgressScreen({ active = true, profile, refreshRequest,
 
     </>}
     {!!error && <Text style={styles.error}>{error}</Text>}
-  </ScrollView>;
+  </ScrollView>
+  {journeyOffset > 0 && <AllCheckins commitments={commitments} journey={journey} onClose={closeAllCheckins} points={points} userId={user.id} visible={allCheckinsOpen}/>}
+  </View>;
 }
 
 function CheckinDetail({ commitments, entry, number, points, userId }: {
@@ -309,10 +315,59 @@ function AllCheckins({ commitments, journey, onClose, points, userId, visible }:
   });
   const started = journey[0] ? new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${journey[0].checkin_date}T12:00:00`)) : '';
 
-  return <Modal animationType="slide" onRequestClose={onClose} visible={visible}>
-    <SafeAreaView style={styles.allCheckinsModal}>
-      <View style={styles.allCheckinsTopBar}>
-        <Pressable accessibilityLabel="Back to progress" accessibilityRole="button" hitSlop={12} onPress={onClose} style={({ pressed }) => [styles.backButton, pressed && styles.regeneratePressed]}>
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const widthRef = useRef(width);
+  widthRef.current = width;
+  // Rests off screen to the right whenever the page is closed, so every open
+  // slides in from the same place.
+  const translateX = useRef(new Animated.Value(width)).current;
+  const backdropOpacity = useMemo(() => translateX.interpolate({ inputRange: [0, width], outputRange: [0.45, 0], extrapolate: 'clamp' }), [translateX, width]);
+
+  useEffect(() => {
+    if (!visible) return;
+    Animated.timing(translateX, { toValue: 0, duration: PAGE_OPEN_DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [translateX, visible]);
+
+  const dismiss = useCallback((duration = PAGE_CLOSE_DURATION) => {
+    Animated.timing(translateX, { toValue: widthRef.current, duration, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
+      if (finished) onClose();
+    });
+  }, [onClose, translateX]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => { dismiss(); return true; });
+    return () => subscription.remove();
+  }, [dismiss, visible]);
+
+  const backSwipe = useMemo(() => PanResponder.create({
+    // Captured only for a clearly rightward drag, so vertical scrolling and
+    // calendar taps keep their touches.
+    onMoveShouldSetPanResponderCapture: (_, gesture) =>
+      gesture.dx >= BACK_SWIPE_ACTIVATION_DISTANCE && gesture.dx > Math.abs(gesture.dy) * 1.25,
+    onPanResponderGrant: () => translateX.stopAnimation(),
+    onPanResponderMove: (_, gesture) => translateX.setValue(Math.max(0, gesture.dx)),
+    onPanResponderRelease: (_, gesture) => {
+      const pageWidth = widthRef.current;
+      if (gesture.dx > pageWidth * 0.35 || gesture.vx > 0.5) {
+        const remaining = pageWidth - Math.max(0, gesture.dx);
+        dismiss(Math.min(PAGE_CLOSE_DURATION, Math.max(80, remaining / Math.max(gesture.vx, 0.5))));
+      } else {
+        Animated.timing(translateX, { toValue: 0, duration: 180, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+      }
+    },
+    onPanResponderTerminate: () => {
+      Animated.timing(translateX, { toValue: 0, duration: 180, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    },
+  }), [dismiss, translateX]);
+
+  if (!visible) return null;
+  return <>
+    <Animated.View pointerEvents="none" style={[styles.allCheckinsBackdrop, { opacity: backdropOpacity }]}/>
+    <Animated.View accessibilityViewIsModal style={[styles.allCheckinsPage, { transform: [{ translateX }] }]} {...backSwipe.panHandlers}>
+      <View style={[styles.allCheckinsTopBar, { paddingTop: insets.top + 4 }]}>
+        <Pressable accessibilityLabel="Back to progress" accessibilityRole="button" hitSlop={12} onPress={() => dismiss()} style={({ pressed }) => [styles.backButton, pressed && styles.regeneratePressed]}>
           <Text style={styles.backText}>‹ Back</Text>
         </Pressable>
       </View>
@@ -331,8 +386,8 @@ function AllCheckins({ commitments, journey, onClose, points, userId, visible }:
           </Section>;
         })}
       </ScrollView>
-    </SafeAreaView>
-  </Modal>;
+    </Animated.View>
+  </>;
 }
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -422,6 +477,6 @@ const styles = StyleSheet.create({
   chart:{alignItems:'flex-end',flexDirection:'row',gap:7,height:134,marginTop:17},chartColumn:{alignItems:'center',flex:1,justifyContent:'flex-end'},bar:{backgroundColor:colors.accentStrong,borderRadius:6,minHeight:18,width:'72%'},manualBar:{backgroundColor:colors.accentSoft,borderColor:colors.accentStrong,borderWidth:1},chartScore:{color:colors.textMuted,fontSize:9,fontWeight:'500',marginTop:5},chartDate:{color:colors.textFaint,fontSize:9,marginTop:2},legend:{alignItems:'center',flexDirection:'row',gap:6,justifyContent:'flex-end',marginTop:12},legendDot:{backgroundColor:colors.accentStrong,borderRadius:3,height:6,width:6},manualDot:{backgroundColor:colors.accentSoft},legendText:{color:colors.textFaint,fontSize:9,marginRight:5},
   journeyCard:{backgroundColor:colors.surface,borderColor:colors.border,borderRadius:22,borderWidth:1,marginBottom:14,padding:18},journeyGrid:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:18,maxWidth:283},journeySquare:{backgroundColor:colors.surfaceRaised,borderColor:colors.border,borderRadius:4,borderWidth:1,height:22,width:22},journeySquareComplete:{backgroundColor:colors.accentStrong,borderColor:colors.accent},journeySquareFuture:{opacity:.36},profileBody:{borderTopColor:colors.border,borderTopWidth:1,padding:18},profileTitle:{color:colors.text,fontSize:17,fontWeight:'500',lineHeight:23},profileCopy:{color:colors.textMuted,fontSize:14,lineHeight:22,marginTop:10},profileSkeleton:{marginTop:14},profileFooter:{alignItems:'flex-end',flexDirection:'row',gap:12,justifyContent:'space-between',marginTop:14},profileUpdated:{color:colors.textFaint,flex:1,fontSize:10,lineHeight:16},regenerate:{alignItems:'center',height:30,justifyContent:'center',marginBottom:-4,width:30},regeneratePressed:{opacity:.5},regenerateIcon:{color:colors.textFaint,fontSize:17,lineHeight:20},skeletonCardHeading:{gap:8},skeletonSubtitle:{marginTop:7},section:{backgroundColor:colors.surface,borderColor:colors.border,borderRadius:20,borderWidth:1,marginBottom:14,overflow:'hidden'},sectionHeader:{alignItems:'center',flexDirection:'row',padding:18},sectionHeading:{flex:1},sectionSubtitle:{color:colors.textSubtle,fontSize:11,lineHeight:17,marginTop:5},chevron:{color:colors.textMuted,fontSize:20},signalBlock:{borderTopColor:colors.border,borderTopWidth:1,padding:17},signalHeading:{color:colors.textSubtle,fontSize:9,fontWeight:'500',letterSpacing:1.2},signalEmpty:{color:colors.textMuted,fontSize:12,lineHeight:19,marginTop:12},patternRow:{borderTopColor:colors.border,borderTopWidth:1,marginTop:14,paddingTop:14},patternHeader:{alignItems:'flex-start',flexDirection:'row',gap:12,justifyContent:'space-between'},patternTitle:{color:colors.text,flex:1,fontSize:14,fontWeight:'500',lineHeight:20},patternDelta:{fontSize:14,fontWeight:'500'},patternCopy:{color:colors.textMuted,fontSize:12,lineHeight:18,marginTop:6},confidence:{color:colors.textFaint,fontSize:9,fontWeight:'500',letterSpacing:.8,marginTop:8},historyHeader:{alignItems:'center',borderTopColor:colors.border,borderTopWidth:1,flexDirection:'row',justifyContent:'space-between',paddingHorizontal:17,paddingTop:17},historyHint:{color:colors.textFaint,fontSize:10},ledgerRow:{borderTopColor:colors.border,borderTopWidth:1,flexDirection:'row',marginTop:14,padding:17,paddingTop:14},delta:{fontSize:24,fontWeight:'500',letterSpacing:-.5,minWidth:52},positive:{color:colors.accentStrong},negative:{color:amber},neutral:{color:colors.textSubtle},ledgerCopy:{flex:1},ledgerTitle:{color:colors.text,fontSize:14,fontWeight:'500'},ledgerNote:{color:colors.textMuted,fontSize:12,lineHeight:18,marginTop:4},ledgerDate:{color:colors.textFaint,fontSize:10,marginTop:7},historyButton:{alignItems:'center',borderTopColor:colors.border,borderTopWidth:1,padding:15},historyButtonText:{color:colors.accent,fontSize:11,fontWeight:'500'},empty:{color:colors.textSubtle,fontSize:13,lineHeight:20,padding:18},error:{color:colors.danger,fontSize:12,lineHeight:18,marginTop:8},
   squareSelected:{borderColor:colors.text,borderWidth:2},allCheckinsButton:{alignSelf:'flex-start',marginTop:16},allCheckinsText:{color:colors.accent,fontSize:12,fontWeight:'500'},
-  allCheckinsModal:{backgroundColor:colors.canvas,flex:1},allCheckinsTopBar:{paddingHorizontal:12,paddingTop:4},backButton:{alignSelf:'flex-start',justifyContent:'center',minHeight:44,paddingHorizontal:10},backText:{color:colors.accent,fontSize:15,fontWeight:'500'},allCheckinsContent:{paddingBottom:48,paddingHorizontal:22,paddingTop:12},
+  screen:{flex:1},allCheckinsBackdrop:{...StyleSheet.absoluteFill,backgroundColor:'#000'},allCheckinsPage:{...StyleSheet.absoluteFill,backgroundColor:colors.canvas},allCheckinsTopBar:{paddingHorizontal:12,paddingTop:4},backButton:{alignSelf:'flex-start',justifyContent:'center',minHeight:44,paddingHorizontal:10},backText:{color:colors.accent,fontSize:15,fontWeight:'500'},allCheckinsContent:{paddingBottom:48,paddingHorizontal:22,paddingTop:12},
   calendar:{gap:6,maxWidth:320},calendarRow:{flexDirection:'row',gap:6},weekday:{color:colors.textFaint,flex:1,fontSize:9,fontWeight:'500',textAlign:'center'},calendarCell:{aspectRatio:1,flex:1},calendarSquare:{alignItems:'center',backgroundColor:colors.surfaceRaised,borderColor:colors.border,borderRadius:4,borderWidth:1,justifyContent:'center'},calendarDay:{color:colors.textFaint,fontSize:9},calendarDayComplete:{color:colors.ink}
 });
