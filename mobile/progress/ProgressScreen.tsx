@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { User } from '@supabase/supabase-js';
 
 import { checkinRevision, subscribeToCheckins } from '../cache/checkinRevision';
@@ -15,7 +16,7 @@ import { supabase } from '../supabase';
 import { normalizeMorningFeeling } from '../today/feeling';
 import { addDays, experimentInsights, mergeSleepPoints, rankSleepSignals, rollingDeltas, sleepProfileSummary } from './progressInsights';
 import type { ProgressCheckin, ProgressCommitment, SleepPoint } from './progressInsights';
-import { journeyEntries, type JourneyCheckin } from './journey';
+import { JOURNEY_LENGTH, journeyEntries, journeyMonths, type JourneyCheckin, type JourneyMonth } from './journey';
 
 const daysAgo = (count: number) => { const date = new Date(); date.setDate(date.getDate() - count); return localDate(date); };
 const localDate = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -59,6 +60,7 @@ export default function ProgressScreen({ active = true, profile, refreshRequest,
   const [journey, setJourney] = useState<JourneyCheckin[]>([]);
   const [journeyError, setJourneyError] = useState('');
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [allCheckinsOpen, setAllCheckinsOpen] = useState(false);
   const lastLoadedAt = useRef(0);
   const profileLoadingRef = useRef(false);
 
@@ -71,7 +73,7 @@ export default function ProgressScreen({ active = true, profile, refreshRequest,
       supabase.from('sleep_nights').select('sleep_date, sleep_score').eq('user_id', user.id).eq('provider', 'apple_health').gte('sleep_date', daysAgo(35)),
       loadPreferredSleepSource(user.id),
       supabase.functions.invoke<{data?: Array<{day:string;score?:number}>}>('oura-proxy', { body: { endpoint: 'daily_sleep', start_date: daysAgo(35), end_date: localDate() } }),
-      supabase.from('daily_checkins').select('checkin_date, completed_at, manual_sleep_score').eq('user_id', user.id).not('completed_at', 'is', null).order('checkin_date', { ascending: true }).limit(30),
+      supabase.from('daily_checkins').select('checkin_date, completed_at, manual_sleep_score').eq('user_id', user.id).not('completed_at', 'is', null).order('checkin_date', { ascending: true }),
     ]);
     setJourneyError(journeyResult.error ? 'Your journey could not be loaded. Please try again.' : '');
     const nextJourney = journeyEntries(journeyResult.data ?? []);
@@ -188,9 +190,9 @@ export default function ProgressScreen({ active = true, profile, refreshRequest,
   const ledger = deltas.filter(item => item.delta !== null).slice(-14).reverse();
   const rankedSignals = useMemo(() => rankSleepSignals(checkins, commitments, points), [checkins, commitments, points]);
   const visibleLedger = historyExpanded ? ledger : ledger.slice(0, 3);
-  const selectedEntry = selectedDay === null ? undefined : journey[selectedDay];
-  const selectedScore = selectedEntry ? points.find(point => point.date === selectedEntry.checkin_date)?.score ?? selectedEntry.manual_sleep_score : null;
-  const selectedExperiment = selectedEntry ? commitments.find(item => item.behavior_date === selectedEntry.checkin_date) : undefined;
+  // Past the first 30, the card follows the latest 30 check-ins.
+  const journeyOffset = Math.max(0, journey.length - JOURNEY_LENGTH);
+  const selectedEntry = selectedDay === null || selectedDay < journeyOffset ? undefined : journey[selectedDay];
   const signalObservation = (date: string, positive: boolean) => {
     const checkin = checkins.find(row => row.checkin_date === date);
     const factor = factorLabel(checkin?.suspected_factor ?? null);
@@ -210,21 +212,21 @@ export default function ProgressScreen({ active = true, profile, refreshRequest,
     <Text style={styles.eyebrow}>PROGRESS</Text><Text style={styles.title}>What we’re learning</Text><Text style={styles.subtitle}>Your signals become more useful as patterns repeat.</Text>
     {loading ? <ProgressSkeleton/> : <>
       <View style={styles.journeyCard}>
-        <View style={styles.cardHeader}><View><Text style={styles.cardEyebrow}>Your 30 Day Journey</Text><Text style={styles.cardTitle}>Small steps, adding up</Text></View><Text style={styles.average}>{journeyError ? '—' : `${journey.length} of 30`}</Text></View>
+        <View style={styles.cardHeader}><View><Text style={styles.cardEyebrow}>Your 30 Day Journey</Text><Text style={styles.cardTitle}>Small steps, adding up</Text></View><Text style={styles.average}>{journeyError ? '—' : journeyOffset ? `${journey.length} total` : `${journey.length} of 30`}</Text></View>
         {journeyError ? <Pressable accessibilityRole="button" onPress={() => void load()}><Text style={styles.error}>{journeyError}</Text></Pressable> : <>
-          <Text style={styles.sectionSubtitle}>{journey.length === 30 ? '30 check-ins complete. Keep checking in to continue learning.' : `${journey.length} of 30 check-ins · Go at your pace.`}{journey[0] ? ` Started ${dateLabel(journey[0].checkin_date)}.` : ''}</Text>
-          <View style={styles.journeyGrid}>{Array.from({ length: 30 }, (_, index) => {
+          <Text style={styles.sectionSubtitle}>{journeyOffset ? `${journey.length} check-ins and counting. Showing your latest 30.` : journey.length === 30 ? '30 check-ins complete. Keep checking in to continue learning.' : `${journey.length} of 30 check-ins · Go at your pace.`}{journey[0] ? ` Started ${dateLabel(journey[0].checkin_date)}.` : ''}</Text>
+          <View style={styles.journeyGrid}>{Array.from({ length: JOURNEY_LENGTH }, (_, slot) => {
+            const index = journeyOffset + slot;
             const entry = journey[index];
-            return <Pressable accessibilityRole="button" accessibilityState={{ disabled: !entry, selected: selectedDay === index }} disabled={!entry} accessibilityLabel={`Check-in ${index + 1}${entry ? `, ${entry.checkin_date}, complete. Show details` : ', still to come'}`} key={index} onPress={() => setSelectedDay(current => current === index ? null : index)} style={[styles.journeySquare, entry ? styles.journeySquareComplete : styles.journeySquareFuture, selectedDay === index && { borderColor: colors.text, borderWidth: 2 }]}/>;
+            return <Pressable accessibilityRole="button" accessibilityState={{ disabled: !entry, selected: selectedDay === index }} disabled={!entry} accessibilityLabel={`Check-in ${index + 1}${entry ? `, ${entry.checkin_date}, complete. Show details` : ', still to come'}`} key={index} onPress={() => setSelectedDay(current => current === index ? null : index)} style={[styles.journeySquare, entry ? styles.journeySquareComplete : styles.journeySquareFuture, selectedDay === index && styles.squareSelected]}/>;
           })}</View>
-          {selectedEntry && <View style={{ marginTop: 14 }}>
-            <Text style={styles.cardTitle}>Check-in {selectedDay! + 1} · {selectedEntry.checkin_date}</Text>
-            <Text style={styles.profileCopy}>{selectedScore == null ? 'Sleep score unavailable in loaded history.' : `Sleep score: ${selectedScore}`}</Text>
-            <Text style={styles.profileCopy}>{selectedExperiment ? `That night’s experiment: ${selectedExperiment.behavior}` : 'No experiment available in loaded history.'}</Text>
-            <CheckinCoaching key={`${user.id}:${selectedEntry.checkin_date}`} userId={user.id} date={selectedEntry.checkin_date}/>
-          </View>}
+          {journeyOffset > 0 && <Pressable accessibilityRole="button" hitSlop={10} onPress={() => setAllCheckinsOpen(true)} style={({ pressed }) => [styles.allCheckinsButton, pressed && styles.regeneratePressed]}>
+            <Text style={styles.allCheckinsText}>View all {journey.length} check-ins</Text>
+          </Pressable>}
+          {selectedEntry && <CheckinDetail commitments={commitments} entry={selectedEntry} number={selectedDay! + 1} points={points} userId={user.id}/>}
         </>}
       </View>
+      {journeyOffset > 0 && <AllCheckins commitments={commitments} journey={journey} onClose={() => setAllCheckinsOpen(false)} points={points} userId={user.id} visible={allCheckinsOpen}/>}
 
       <Section title="SLEEP SCORE" subtitle="Past 7 days" open={sleepScoreOpen} onPress={() => setSleepScoreOpen(value => !value)}>
         <View style={styles.sectionBody}><View style={styles.scoreSummary}><Text style={styles.cardTitle}>Seven-night trend</Text><Text style={styles.average}>{recent.length ? Math.round(recent.reduce((sum, p) => sum + p.score, 0) / recent.length) : '—'} avg</Text></View>
@@ -267,6 +269,104 @@ export default function ProgressScreen({ active = true, profile, refreshRequest,
     </>}
     {!!error && <Text style={styles.error}>{error}</Text>}
   </ScrollView>;
+}
+
+function CheckinDetail({ commitments, entry, number, points, userId }: {
+  commitments: ProgressCommitment[];
+  entry: JourneyCheckin;
+  number: number;
+  points: SleepPoint[];
+  userId: string;
+}) {
+  const score = points.find(point => point.date === entry.checkin_date)?.score ?? entry.manual_sleep_score;
+  const experiment = commitments.find(item => item.behavior_date === entry.checkin_date);
+  return <View style={{ marginTop: 14 }}>
+    <Text style={styles.cardTitle}>Check-in {number} · {entry.checkin_date}</Text>
+    <Text style={styles.profileCopy}>{score == null ? 'Sleep score unavailable in loaded history.' : `Sleep score: ${score}`}</Text>
+    <Text style={styles.profileCopy}>{experiment ? `That night’s experiment: ${experiment.behavior}` : 'No experiment available in loaded history.'}</Text>
+    <CheckinCoaching key={`${userId}:${entry.checkin_date}`} userId={userId} date={entry.checkin_date}/>
+  </View>;
+}
+
+// Every check-in, one collapsible calendar per month. The newest month starts
+// open because that is almost always the one being looked for.
+function AllCheckins({ commitments, journey, onClose, points, userId, visible }: {
+  commitments: ProgressCommitment[];
+  journey: JourneyCheckin[];
+  onClose: () => void;
+  points: SleepPoint[];
+  userId: string;
+  visible: boolean;
+}) {
+  const months = useMemo(() => journeyMonths(journey), [journey]);
+  const numbers = useMemo(() => new Map(journey.map((entry, index) => [entry.checkin_date, index])), [journey]);
+  const [openMonths, setOpenMonths] = useState(() => new Set(months.slice(0, 1).map(month => month.key)));
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const toggleMonth = (key: string) => setOpenMonths(current => {
+    const next = new Set(current);
+    if (!next.delete(key)) next.add(key);
+    return next;
+  });
+  const started = journey[0] ? new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${journey[0].checkin_date}T12:00:00`)) : '';
+
+  return <Modal animationType="slide" onRequestClose={onClose} visible={visible}>
+    <SafeAreaView style={styles.allCheckinsModal}>
+      <View style={styles.allCheckinsTopBar}>
+        <Pressable accessibilityLabel="Back to progress" accessibilityRole="button" hitSlop={12} onPress={onClose} style={({ pressed }) => [styles.backButton, pressed && styles.regeneratePressed]}>
+          <Text style={styles.backText}>‹ Back</Text>
+        </Pressable>
+      </View>
+      <ScrollView contentContainerStyle={styles.allCheckinsContent}>
+        <Text style={styles.eyebrow}>YOUR JOURNEY</Text>
+        <Text style={styles.title}>All check-ins</Text>
+        <Text style={styles.subtitle}>{journey.length} check-ins since {started}.</Text>
+        {months.map(month => {
+          const label = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(new Date(`${month.key}-01T12:00:00`)).toUpperCase();
+          const selectedIndex = selectedDate?.startsWith(month.key) ? numbers.get(selectedDate) : undefined;
+          return <Section key={month.key} onPress={() => toggleMonth(month.key)} open={openMonths.has(month.key)} subtitle={`${month.checkins} check-in${month.checkins === 1 ? '' : 's'}`} title={label}>
+            <View style={styles.sectionBody}>
+              <MonthCalendar month={month} numbers={numbers} onSelect={date => setSelectedDate(current => current === date ? null : date)} selectedDate={selectedDate}/>
+              {selectedIndex !== undefined && <CheckinDetail commitments={commitments} entry={journey[selectedIndex]} number={selectedIndex + 1} points={points} userId={userId}/>}
+            </View>
+          </Section>;
+        })}
+      </ScrollView>
+    </SafeAreaView>
+  </Modal>;
+}
+
+const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+function MonthCalendar({ month, numbers, onSelect, selectedDate }: {
+  month: JourneyMonth;
+  numbers: Map<string, number>;
+  onSelect: (date: string) => void;
+  selectedDate: string | null;
+}) {
+  const today = localDate();
+  const cells: Array<string | null> = [...Array<null>(month.leadingBlanks).fill(null), ...month.days];
+  while (cells.length % 7) cells.push(null);
+  const weeks = Array.from({ length: cells.length / 7 }, (_, week) => cells.slice(week * 7, week * 7 + 7));
+  return <View style={styles.calendar}>
+    <View style={styles.calendarRow}>{WEEKDAYS.map((day, index) => <Text key={index} style={styles.weekday}>{day}</Text>)}</View>
+    {weeks.map((week, row) => <View key={row} style={styles.calendarRow}>{week.map((date, column) => {
+      if (!date) return <View key={column} style={styles.calendarCell}/>;
+      const index = numbers.get(date);
+      const complete = index !== undefined;
+      const day = Number(date.slice(8));
+      return <Pressable
+        accessibilityLabel={complete ? `${dateLabel(date)}, check-in ${index + 1}, complete. Show details` : `${dateLabel(date)}, no check-in`}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !complete, selected: selectedDate === date }}
+        disabled={!complete}
+        key={date}
+        onPress={() => onSelect(date)}
+        style={[styles.calendarCell, styles.calendarSquare, complete && styles.journeySquareComplete, date > today && styles.journeySquareFuture, selectedDate === date && styles.squareSelected]}
+      >
+        <Text style={[styles.calendarDay, complete && styles.calendarDayComplete]}>{day}</Text>
+      </Pressable>;
+    })}</View>)}
+  </View>;
 }
 
 function CheckinCoaching({ userId, date }: { userId: string; date: string }) {
@@ -320,5 +420,8 @@ const styles = StyleSheet.create({
   content:{paddingBottom:48,paddingHorizontal:22,paddingTop:layout.screenTopPadding},eyebrow:{color:colors.accent,fontSize:11,fontWeight:'500',letterSpacing:1.6},title:{color:colors.text,fontSize:25,fontWeight:'500',letterSpacing:-.5,lineHeight:32,marginTop:10},subtitle:{color:colors.textMuted,fontSize:15,lineHeight:24,marginBottom:24,marginTop:9},
   cardEyebrow:{color:colors.accent,fontSize:10,fontWeight:'500',letterSpacing:1.4},cardHeader:{alignItems:'flex-start',flexDirection:'row',justifyContent:'space-between'},cardTitle:{color:colors.text,fontSize:16,fontWeight:'500'},average:{color:colors.accentSoft,fontSize:13,fontWeight:'500'},scoreSummary:{alignItems:'center',flexDirection:'row',justifyContent:'space-between'},sectionBody:{borderTopColor:colors.border,borderTopWidth:1,padding:18},
   chart:{alignItems:'flex-end',flexDirection:'row',gap:7,height:134,marginTop:17},chartColumn:{alignItems:'center',flex:1,justifyContent:'flex-end'},bar:{backgroundColor:colors.accentStrong,borderRadius:6,minHeight:18,width:'72%'},manualBar:{backgroundColor:colors.accentSoft,borderColor:colors.accentStrong,borderWidth:1},chartScore:{color:colors.textMuted,fontSize:9,fontWeight:'500',marginTop:5},chartDate:{color:colors.textFaint,fontSize:9,marginTop:2},legend:{alignItems:'center',flexDirection:'row',gap:6,justifyContent:'flex-end',marginTop:12},legendDot:{backgroundColor:colors.accentStrong,borderRadius:3,height:6,width:6},manualDot:{backgroundColor:colors.accentSoft},legendText:{color:colors.textFaint,fontSize:9,marginRight:5},
-  journeyCard:{backgroundColor:colors.surface,borderColor:colors.border,borderRadius:22,borderWidth:1,marginBottom:14,padding:18},journeyGrid:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:18,maxWidth:283},journeySquare:{backgroundColor:colors.surfaceRaised,borderColor:colors.border,borderRadius:4,borderWidth:1,height:22,width:22},journeySquareComplete:{backgroundColor:colors.accentStrong,borderColor:colors.accent},journeySquareFuture:{opacity:.36},profileBody:{borderTopColor:colors.border,borderTopWidth:1,padding:18},profileTitle:{color:colors.text,fontSize:17,fontWeight:'500',lineHeight:23},profileCopy:{color:colors.textMuted,fontSize:14,lineHeight:22,marginTop:10},profileSkeleton:{marginTop:14},profileFooter:{alignItems:'flex-end',flexDirection:'row',gap:12,justifyContent:'space-between',marginTop:14},profileUpdated:{color:colors.textFaint,flex:1,fontSize:10,lineHeight:16},regenerate:{alignItems:'center',height:30,justifyContent:'center',marginBottom:-4,width:30},regeneratePressed:{opacity:.5},regenerateIcon:{color:colors.textFaint,fontSize:17,lineHeight:20},skeletonCardHeading:{gap:8},skeletonSubtitle:{marginTop:7},section:{backgroundColor:colors.surface,borderColor:colors.border,borderRadius:20,borderWidth:1,marginBottom:14,overflow:'hidden'},sectionHeader:{alignItems:'center',flexDirection:'row',padding:18},sectionHeading:{flex:1},sectionSubtitle:{color:colors.textSubtle,fontSize:11,lineHeight:17,marginTop:5},chevron:{color:colors.textMuted,fontSize:20},signalBlock:{borderTopColor:colors.border,borderTopWidth:1,padding:17},signalHeading:{color:colors.textSubtle,fontSize:9,fontWeight:'500',letterSpacing:1.2},signalEmpty:{color:colors.textMuted,fontSize:12,lineHeight:19,marginTop:12},patternRow:{borderTopColor:colors.border,borderTopWidth:1,marginTop:14,paddingTop:14},patternHeader:{alignItems:'flex-start',flexDirection:'row',gap:12,justifyContent:'space-between'},patternTitle:{color:colors.text,flex:1,fontSize:14,fontWeight:'500',lineHeight:20},patternDelta:{fontSize:14,fontWeight:'500'},patternCopy:{color:colors.textMuted,fontSize:12,lineHeight:18,marginTop:6},confidence:{color:colors.textFaint,fontSize:9,fontWeight:'500',letterSpacing:.8,marginTop:8},historyHeader:{alignItems:'center',borderTopColor:colors.border,borderTopWidth:1,flexDirection:'row',justifyContent:'space-between',paddingHorizontal:17,paddingTop:17},historyHint:{color:colors.textFaint,fontSize:10},ledgerRow:{borderTopColor:colors.border,borderTopWidth:1,flexDirection:'row',marginTop:14,padding:17,paddingTop:14},delta:{fontSize:24,fontWeight:'500',letterSpacing:-.5,minWidth:52},positive:{color:colors.accentStrong},negative:{color:amber},neutral:{color:colors.textSubtle},ledgerCopy:{flex:1},ledgerTitle:{color:colors.text,fontSize:14,fontWeight:'500'},ledgerNote:{color:colors.textMuted,fontSize:12,lineHeight:18,marginTop:4},ledgerDate:{color:colors.textFaint,fontSize:10,marginTop:7},historyButton:{alignItems:'center',borderTopColor:colors.border,borderTopWidth:1,padding:15},historyButtonText:{color:colors.accent,fontSize:11,fontWeight:'500'},empty:{color:colors.textSubtle,fontSize:13,lineHeight:20,padding:18},error:{color:colors.danger,fontSize:12,lineHeight:18,marginTop:8}
+  journeyCard:{backgroundColor:colors.surface,borderColor:colors.border,borderRadius:22,borderWidth:1,marginBottom:14,padding:18},journeyGrid:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:18,maxWidth:283},journeySquare:{backgroundColor:colors.surfaceRaised,borderColor:colors.border,borderRadius:4,borderWidth:1,height:22,width:22},journeySquareComplete:{backgroundColor:colors.accentStrong,borderColor:colors.accent},journeySquareFuture:{opacity:.36},profileBody:{borderTopColor:colors.border,borderTopWidth:1,padding:18},profileTitle:{color:colors.text,fontSize:17,fontWeight:'500',lineHeight:23},profileCopy:{color:colors.textMuted,fontSize:14,lineHeight:22,marginTop:10},profileSkeleton:{marginTop:14},profileFooter:{alignItems:'flex-end',flexDirection:'row',gap:12,justifyContent:'space-between',marginTop:14},profileUpdated:{color:colors.textFaint,flex:1,fontSize:10,lineHeight:16},regenerate:{alignItems:'center',height:30,justifyContent:'center',marginBottom:-4,width:30},regeneratePressed:{opacity:.5},regenerateIcon:{color:colors.textFaint,fontSize:17,lineHeight:20},skeletonCardHeading:{gap:8},skeletonSubtitle:{marginTop:7},section:{backgroundColor:colors.surface,borderColor:colors.border,borderRadius:20,borderWidth:1,marginBottom:14,overflow:'hidden'},sectionHeader:{alignItems:'center',flexDirection:'row',padding:18},sectionHeading:{flex:1},sectionSubtitle:{color:colors.textSubtle,fontSize:11,lineHeight:17,marginTop:5},chevron:{color:colors.textMuted,fontSize:20},signalBlock:{borderTopColor:colors.border,borderTopWidth:1,padding:17},signalHeading:{color:colors.textSubtle,fontSize:9,fontWeight:'500',letterSpacing:1.2},signalEmpty:{color:colors.textMuted,fontSize:12,lineHeight:19,marginTop:12},patternRow:{borderTopColor:colors.border,borderTopWidth:1,marginTop:14,paddingTop:14},patternHeader:{alignItems:'flex-start',flexDirection:'row',gap:12,justifyContent:'space-between'},patternTitle:{color:colors.text,flex:1,fontSize:14,fontWeight:'500',lineHeight:20},patternDelta:{fontSize:14,fontWeight:'500'},patternCopy:{color:colors.textMuted,fontSize:12,lineHeight:18,marginTop:6},confidence:{color:colors.textFaint,fontSize:9,fontWeight:'500',letterSpacing:.8,marginTop:8},historyHeader:{alignItems:'center',borderTopColor:colors.border,borderTopWidth:1,flexDirection:'row',justifyContent:'space-between',paddingHorizontal:17,paddingTop:17},historyHint:{color:colors.textFaint,fontSize:10},ledgerRow:{borderTopColor:colors.border,borderTopWidth:1,flexDirection:'row',marginTop:14,padding:17,paddingTop:14},delta:{fontSize:24,fontWeight:'500',letterSpacing:-.5,minWidth:52},positive:{color:colors.accentStrong},negative:{color:amber},neutral:{color:colors.textSubtle},ledgerCopy:{flex:1},ledgerTitle:{color:colors.text,fontSize:14,fontWeight:'500'},ledgerNote:{color:colors.textMuted,fontSize:12,lineHeight:18,marginTop:4},ledgerDate:{color:colors.textFaint,fontSize:10,marginTop:7},historyButton:{alignItems:'center',borderTopColor:colors.border,borderTopWidth:1,padding:15},historyButtonText:{color:colors.accent,fontSize:11,fontWeight:'500'},empty:{color:colors.textSubtle,fontSize:13,lineHeight:20,padding:18},error:{color:colors.danger,fontSize:12,lineHeight:18,marginTop:8},
+  squareSelected:{borderColor:colors.text,borderWidth:2},allCheckinsButton:{alignSelf:'flex-start',marginTop:16},allCheckinsText:{color:colors.accent,fontSize:12,fontWeight:'500'},
+  allCheckinsModal:{backgroundColor:colors.canvas,flex:1},allCheckinsTopBar:{paddingHorizontal:12,paddingTop:4},backButton:{alignSelf:'flex-start',justifyContent:'center',minHeight:44,paddingHorizontal:10},backText:{color:colors.accent,fontSize:15,fontWeight:'500'},allCheckinsContent:{paddingBottom:48,paddingHorizontal:22,paddingTop:12},
+  calendar:{gap:6,maxWidth:320},calendarRow:{flexDirection:'row',gap:6},weekday:{color:colors.textFaint,flex:1,fontSize:9,fontWeight:'500',textAlign:'center'},calendarCell:{aspectRatio:1,flex:1},calendarSquare:{alignItems:'center',backgroundColor:colors.surfaceRaised,borderColor:colors.border,borderRadius:4,borderWidth:1,justifyContent:'center'},calendarDay:{color:colors.textFaint,fontSize:9},calendarDayComplete:{color:colors.ink}
 });
