@@ -1,4 +1,5 @@
 import * as configcat from "npm:@configcat/sdk@1/deno";
+import { logSleepCoach } from "./sleepCoachLog.ts";
 
 export const DEFAULT_COACH_MODEL = "claude-sonnet-4-6";
 /** Reserved for future rollout; metering rates remain in llmUsage.ts. */
@@ -27,7 +28,11 @@ function configCatClient(): FlagClient | null {
         })
         : null;
     } catch (error) {
-      console.error("Invalid CONFIGCAT_SDK_KEY; using default coach model", error);
+      logSleepCoach("coach_model_configcat_init_failed", {
+        reason: "invalid_sdk_key",
+        fallback_model: DEFAULT_COACH_MODEL,
+        error: error instanceof Error ? error.message : String(error),
+      });
       sharedClient = null;
     }
   }
@@ -40,15 +45,36 @@ export async function resolveCoachModel(
   flags: () => FlagClient | null = configCatClient,
 ): Promise<string> {
   const client = flags();
-  if (!client) return DEFAULT_COACH_MODEL;
+  if (!client) {
+    logSleepCoach("coach_model_resolved", {
+      user_id: user.id,
+      reason: "configcat_unconfigured",
+      flag: SONNET_5_FLAG_KEY,
+      model: DEFAULT_COACH_MODEL,
+    }, "log");
+    return DEFAULT_COACH_MODEL;
+  }
   try {
     const useSonnet5 = await client.getValueAsync(SONNET_5_FLAG_KEY, false, {
       identifier: user.id,
       email: user.email,
     });
-    return useSonnet5 ? SONNET_5_5_MODEL : DEFAULT_COACH_MODEL;
+    const model = useSonnet5 ? SONNET_5_5_MODEL : DEFAULT_COACH_MODEL;
+    logSleepCoach("coach_model_resolved", {
+      user_id: user.id,
+      reason: useSonnet5 ? "flag_on" : "flag_off",
+      flag: SONNET_5_FLAG_KEY,
+      model,
+    }, "log");
+    return model;
   } catch (error) {
-    console.error("ConfigCat evaluation failed; using default coach model", error);
+    logSleepCoach("coach_model_resolved", {
+      user_id: user.id,
+      reason: "configcat_eval_failed",
+      flag: SONNET_5_FLAG_KEY,
+      model: DEFAULT_COACH_MODEL,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return DEFAULT_COACH_MODEL;
   }
 }
