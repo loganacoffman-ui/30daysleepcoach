@@ -49,14 +49,20 @@ import {
 import { chooseDailyExperiment } from "../_shared/experimentCycle.ts";
 import { createMeteredAnthropicFetch, usageFeature } from "../_shared/llmUsage.ts";
 import { interpretCheckinReply } from "../_shared/checkinReply.ts";
-import { COACH_THINKING, resolveCoachModel } from "../_shared/coachModel.ts";
+import { coachThinkingForModel, resolveCoachModel, SONNET_5_5_MODEL } from "../_shared/coachModel.ts";
 import { parseCheckinReplyRequest } from "../_shared/checkinReplyContract.ts";
+import { anthropicHttpErrorFields, logSleepCoach } from "../_shared/sleepCoachLog.ts";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const memoryProvider = createMemoryProvider(Deno.env.get("MEM0_API_KEY"));
+
+function coachToolsForModel(model: string) {
+  if (model !== SONNET_5_5_MODEL) return COACH_TOOL_DEFINITIONS;
+  return COACH_TOOL_DEFINITIONS.map((tool) => ({ ...tool, strict: true as const }));
+}
 
 async function syncDailyExperimentCommitment(
   supabase: SupabaseClient,
@@ -622,8 +628,19 @@ async function callAnthropicNonStreaming(
   memories: Memory[],
   anthropicFetch: typeof fetch,
   model: string,
+  logFields?: Record<string, unknown>,
 ): Promise<AnthropicText | null> {
-  return callAnthropicText(RECOMMENDATION_SYSTEM_PROMPT, userMessage, memories, anthropicFetch, model, 1600);
+  return callAnthropicText(
+    RECOMMENDATION_SYSTEM_PROMPT,
+    userMessage,
+    memories,
+    anthropicFetch,
+    model,
+    1600,
+    undefined,
+    undefined,
+    logFields,
+  );
 }
 
 async function callAnthropicText(
@@ -635,11 +652,12 @@ async function callAnthropicText(
   maxTokens = 500,
   timeoutMs?: number,
   traceMetadata?: Record<string, unknown>,
+  logFields?: Record<string, unknown>,
 ): Promise<AnthropicText | null> {
   const body = {
     model,
     max_tokens: maxTokens,
-    thinking: COACH_THINKING,
+    thinking: coachThinkingForModel(model),
     system: system + formatMemoryContext(memories),
     messages: [{ role: "user", content: userMessage }],
     stream: false,
@@ -657,7 +675,16 @@ async function callAnthropicText(
       body: JSON.stringify(body),
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      logSleepCoach("anthropic_request_failed", {
+        operation: "callAnthropicText",
+        model,
+        ...logFields,
+        ...traceMetadata,
+        ...(await anthropicHttpErrorFields(res)),
+      });
+      return null;
+    }
     const json = await res.json();
     return {
       text: json.content
@@ -680,6 +707,7 @@ async function callAnthropicConversation(
   memories: Memory[],
   anthropicFetch: typeof fetch,
   model: string,
+  logFields?: Record<string, unknown>,
 ): Promise<
   {
     content: AnthropicContentBlock[];
@@ -691,13 +719,13 @@ async function callAnthropicConversation(
   const body = {
     model,
     max_tokens: 800,
-    thinking: COACH_THINKING,
+    thinking: coachThinkingForModel(model),
     system: SYSTEM_PROMPT + formatMemoryContext(memories) +
       `\n\nCURRENT USER CONTEXT:\n${
         formatCurrentCoachContext(coachContext)
       }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
     messages,
-    tools: COACH_TOOL_DEFINITIONS,
+    tools: coachToolsForModel(model),
     tool_choice: { type: "auto", disable_parallel_tool_use: true },
     stream: false,
   };
@@ -714,7 +742,12 @@ async function callAnthropicConversation(
     });
 
     if (!response.ok) {
-      console.error("Anthropic conversation failed", await response.text());
+      logSleepCoach("anthropic_request_failed", {
+        operation: "callAnthropicConversation",
+        model,
+        ...logFields,
+        ...(await anthropicHttpErrorFields(response)),
+      });
       return null;
     }
     const json = await response.json();
@@ -746,13 +779,13 @@ async function callAnthropicConversationStream(
   const body = {
     model,
     max_tokens: 800,
-    thinking: COACH_THINKING,
+    thinking: coachThinkingForModel(model),
     system: SYSTEM_PROMPT + formatMemoryContext(memories) +
       `\n\nCURRENT USER CONTEXT:\n${
         formatCurrentCoachContext(coachContext)
       }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
     messages,
-    tools: COACH_TOOL_DEFINITIONS,
+    tools: coachToolsForModel(model),
     tool_choice: { type: "auto", disable_parallel_tool_use: true },
     stream: true,
   };
@@ -973,9 +1006,19 @@ Deno.serve(async (req: Request) => {
     const usageAdmin = usageServiceKey ? createClient(SUPABASE_URL, usageServiceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     }) : null;
+    const usageMeta = usageFeature(mode, Boolean(cacheKey));
+    const requestMode = typeof mode === "string" ? mode : memoryMode;
+    const coachModel = await resolveCoachModel({ id: user.id, email: user.email });
+    const coachRequestLog = (): Record<string, unknown> => ({
+      user_id: user.id,
+      mode: requestMode,
+      coach_model: coachModel,
+      usage_bucket: usageMeta.bucket,
+      usage_operation: usageMeta.operation,
+    });
     const anthropicFetch = createMeteredAnthropicFetch({
       userId: user.id,
-      ...usageFeature(mode, Boolean(cacheKey)),
+      ...usageMeta,
       waitUntil: runInBackground,
       write: async (row) => {
         if (!usageAdmin) throw new Error("Usage service key unavailable");
@@ -984,8 +1027,9 @@ Deno.serve(async (req: Request) => {
           .abortSignal(AbortSignal.timeout(1500));
         if (error) throw error;
       },
+      log: (row) => logSleepCoach("llm_usage_write_failed", { ...coachRequestLog(), row }),
     });
-    const coachModel = await resolveCoachModel({ id: user.id, email: user.email });
+    logSleepCoach("request_started", coachRequestLog(), "log");
 
     // Optional home copy: no wearable sync, tools, memory writes or startup dependency.
     if (mode === "coach_greeting") {
@@ -1055,6 +1099,7 @@ Deno.serve(async (req: Request) => {
                   GREETING_GUIDANCE, JSON.stringify({ reports }), [], anthropicFetch, coachModel, 300,
                   attempts === 1 ? 3000 : Math.max(deadline - Date.now(), 1000),
                   { request_key: requestKey, attempt: attempts },
+                  coachRequestLog(),
                 ))?.text ?? null;
               } catch { /* Timeout/network failure is handled like an invalid reply. */ }
               outcome = classifyGreeting(raw, reports);
@@ -1101,7 +1146,12 @@ Deno.serve(async (req: Request) => {
         return new Response(JSON.stringify({ interpretation }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
-      } catch {
+      } catch (error) {
+        logSleepCoach("checkin_reply_failed", {
+          ...coachRequestLog(),
+          checkin_step: request.step,
+          error: error instanceof Error ? error.message : String(error),
+        });
         return new Response(JSON.stringify({ error: "Your reply could not be understood right now. Please try again." }), {
           status: 502,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1422,6 +1472,13 @@ Deno.serve(async (req: Request) => {
       const { response: anthropicResponse, span: coachSpan } =
         await callAnthropicConversationStream(chatHistory, groundedContext, memories, anthropicFetch, coachModel);
       if (!anthropicResponse.ok || !anthropicResponse.body) {
+        logSleepCoach("anthropic_request_failed", {
+          operation: "callAnthropicConversationStream",
+          ...coachRequestLog(),
+          ...(anthropicResponse.ok
+            ? { failure: "missing_response_body" }
+            : await anthropicHttpErrorFields(anthropicResponse)),
+        });
         await endAnthropicSpan(coachSpan, null);
         return new Response(
           JSON.stringify({ error: "The coach could not generate a response" }),
@@ -1624,6 +1681,9 @@ Deno.serve(async (req: Request) => {
         anthropicFetch,
         coachModel,
         800,
+        undefined,
+        undefined,
+        coachRequestLog(),
       );
       // A cut-off profile would be cached and shown as if it were complete.
       const summary = coachSummaryText(
@@ -1648,6 +1708,12 @@ Deno.serve(async (req: Request) => {
             },
           );
         }
+        logSleepCoach("generation_failed", {
+          ...coachRequestLog(),
+          operation: "sleep_profile",
+          stop_reason: generated?.stopReason ?? null,
+          had_provider_response: Boolean(generated),
+        });
         return new Response(JSON.stringify({ status: "generation_failed" }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1759,17 +1825,28 @@ Deno.serve(async (req: Request) => {
         `Generate today's four-section coaching recommendation from this combined context. Subjective check-ins and notes describe how the user felt and what they think affected sleep. Experiment adherence shows what they actually tried. Wearable sleep is the quantitative layer when Apple Health or Oura is connected; the source field identifies whether a score is app-derived or provider-owned. The sleep_resolution selects the quantitative source for the requested night: an explicitly submitted manual score always takes precedence over any automatic score, and otherwise the wearable score is used. When the source is manual, treat that score as the night's sleep score and never cite or contrast it with an automatically computed score. Preserve manual scores as self-reports, never as wearable measurements. Use relevant long-term memory to follow up on earlier goals, experiments, and outcomes. Be honest when data is sparse; do not invent measurements. Always return all four required sections.\n\n${
           JSON.stringify(dailyContext, null, 2)
         }`;
-      let generation = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch, coachModel);
+      const dailyCoachLog = coachRequestLog();
+      let generation = await callAnthropicNonStreaming(
+        userMessage, memories, anthropicFetch, coachModel, dailyCoachLog,
+      );
       let sections = generation ? parseRecommendation(generation.text) : null;
       // An identical request that ran out of tokens will run out again.
       if (!sections && generation?.stopReason !== "max_tokens") {
-        generation = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch, coachModel);
+        generation = await callAnthropicNonStreaming(
+          userMessage, memories, anthropicFetch, coachModel, dailyCoachLog,
+        );
         sections = generation ? parseRecommendation(generation.text) : null;
       }
       const rawText = generation?.text ?? null;
 
       if (!sections) {
-        console.error("daily_coach generation failed", { stop_reason: generation?.stopReason ?? null });
+        logSleepCoach("generation_failed", {
+          ...dailyCoachLog,
+          operation: "daily_coach",
+          stop_reason: generation?.stopReason ?? null,
+          had_provider_response: Boolean(generation),
+          raw_text_length: rawText?.length ?? 0,
+        });
         return new Response(JSON.stringify({ status: "generation_failed" }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1938,25 +2015,36 @@ Deno.serve(async (req: Request) => {
       );
 
       // First attempt
-      let generation = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch, coachModel);
+      const recommendationLog = coachRequestLog();
+      let generation = await callAnthropicNonStreaming(
+        userMessage, memories, anthropicFetch, coachModel, recommendationLog,
+      );
       let sections = generation ? parseRecommendation(generation.text) : null;
 
       // One retry if parse fails, unless the reply was cut off by max_tokens,
       // which an identical request would repeat.
       if (!sections && generation?.stopReason !== "max_tokens") {
-        console.warn("Recommendation parse failed on first attempt, retrying");
-        generation = await callAnthropicNonStreaming(userMessage, memories, anthropicFetch, coachModel);
+        logSleepCoach("generation_retry", {
+          ...recommendationLog,
+          operation: "recommendation",
+          reason: "parse_failed",
+          stop_reason: generation?.stopReason ?? null,
+        }, "warn");
+        generation = await callAnthropicNonStreaming(
+          userMessage, memories, anthropicFetch, coachModel, recommendationLog,
+        );
         sections = generation ? parseRecommendation(generation.text) : null;
       }
       const rawText = generation?.text ?? null;
 
       if (!sections) {
-        console.error(
-          "Recommendation parse failed. Stop reason:",
-          generation?.stopReason ?? null,
-          "Raw:",
-          rawText,
-        );
+        logSleepCoach("generation_failed", {
+          ...recommendationLog,
+          operation: "recommendation",
+          stop_reason: generation?.stopReason ?? null,
+          had_provider_response: Boolean(generation),
+          raw_text_length: rawText?.length ?? 0,
+        });
         return new Response(
           JSON.stringify({
             status: "generation_failed",
@@ -2086,7 +2174,7 @@ Deno.serve(async (req: Request) => {
     const streamBody = {
       model: coachModel,
       max_tokens: 2048,
-      thinking: COACH_THINKING,
+      thinking: coachThinkingForModel(coachModel),
       system: SYSTEM_PROMPT + formatMemoryContext(memories),
       messages: anthropicMessages,
       stream: true,
@@ -2103,15 +2191,24 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!response.ok) {
-      const error = await response.text();
+      logSleepCoach("anthropic_request_failed", {
+        operation: "streamCoachResponse",
+        ...coachRequestLog(),
+        ...(await anthropicHttpErrorFields(response)),
+      });
       await endAnthropicSpan(streamSpan, null);
-      return new Response(JSON.stringify({ error }), {
+      return new Response(JSON.stringify({ error: "The coach could not generate a response" }), {
         status: response.status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (!response.body) {
+      logSleepCoach("anthropic_request_failed", {
+        operation: "streamCoachResponse",
+        ...coachRequestLog(),
+        failure: "missing_response_body",
+      });
       await endAnthropicSpan(streamSpan, null);
       return new Response(
         JSON.stringify({ error: "Coach response had no body" }),
@@ -2185,6 +2282,10 @@ Deno.serve(async (req: Request) => {
       },
     });
   } catch (err) {
+    logSleepCoach("unhandled_error", {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack ?? null : null,
+    });
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
