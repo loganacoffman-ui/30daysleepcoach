@@ -25,6 +25,7 @@ Supported standard USD rates per million tokens, verified September 25, 2026 aga
 | --- | --- | --- | --- | --- | --- |
 | `claude-sonnet-4-6` | $3 | $15 | $0.30 | $3.75 | $6 |
 | `claude-sonnet-5` | $2 | $10 | $0.20 | $2.50 | $4 |
+| `claude-sonnet-5-5` | $2 | $10 | $0.20 | $2.50 | $4 |
 
 The tracker chooses rates from the provider's returned model ID. Stored rates and `pricing_version` preserve historical estimates when prices change. Update `STANDARD_RATES` and the pricing version in `_shared/llmUsage.ts` when changing supported models or prices. Adding pricing support does not change which model the app requests.
 

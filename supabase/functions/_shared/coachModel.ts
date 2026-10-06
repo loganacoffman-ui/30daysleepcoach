@@ -1,7 +1,9 @@
 import * as configcat from "npm:@configcat/sdk@1/deno";
 
 export const DEFAULT_COACH_MODEL = "claude-sonnet-4-6";
+/** Reserved for future rollout; metering rates remain in llmUsage.ts. */
 export const SONNET_5_MODEL = "claude-sonnet-5";
+export const SONNET_5_5_MODEL = "claude-sonnet-5-5";
 export const SONNET_5_FLAG_KEY = "useSonnet5";
 
 // Sonnet 5 thinks unless told otherwise, and max_tokens caps thinking plus reply
@@ -44,7 +46,7 @@ export async function resolveCoachModel(
       identifier: user.id,
       email: user.email,
     });
-    return useSonnet5 ? SONNET_5_MODEL : DEFAULT_COACH_MODEL;
+    return useSonnet5 ? SONNET_5_5_MODEL : DEFAULT_COACH_MODEL;
   } catch (error) {
     console.error("ConfigCat evaluation failed; using default coach model", error);
     return DEFAULT_COACH_MODEL;

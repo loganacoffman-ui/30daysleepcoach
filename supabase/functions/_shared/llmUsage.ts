@@ -49,6 +49,11 @@ const STANDARD_RATES = new Map([
     cache_read_usd_per_million: 0.20,
     cache_write_5m_usd_per_million: 2.50, cache_write_1h_usd_per_million: 4,
   }],
+  ["claude-sonnet-5-5", {
+    input_usd_per_million: 2, output_usd_per_million: 10,
+    cache_read_usd_per_million: 0.20,
+    cache_write_5m_usd_per_million: 2.50, cache_write_1h_usd_per_million: 4,
+  }],
 ]);
 
 function pricing(model: string | null, request: JsonObject, usage: JsonObject) {
