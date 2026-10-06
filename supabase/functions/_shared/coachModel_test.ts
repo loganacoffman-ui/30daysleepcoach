@@ -1,9 +1,9 @@
 import { assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { DEFAULT_COACH_MODEL, resolveCoachModel, SONNET_5_FLAG_KEY, SONNET_5_MODEL } from './coachModel.ts';
+import { DEFAULT_COACH_MODEL, resolveCoachModel, SONNET_5_5_MODEL, SONNET_5_FLAG_KEY } from './coachModel.ts';
 
 const user = { id: 'user-1', email: 'sleeper@example.com' };
 
-Deno.test('coach model follows the Sonnet 5 flag for the requesting user', async () => {
+Deno.test('coach model follows the useSonnet5 flag for the requesting user', async () => {
   const seen: unknown[] = [];
   const flags = (value: boolean) => () => ({
     getValueAsync: (key: string, fallback: unknown, flagUser?: unknown) => {
@@ -11,7 +11,7 @@ Deno.test('coach model follows the Sonnet 5 flag for the requesting user', async
       return Promise.resolve(value);
     },
   }) as any;
-  assertEquals(await resolveCoachModel(user, flags(true)), SONNET_5_MODEL);
+  assertEquals(await resolveCoachModel(user, flags(true)), SONNET_5_5_MODEL);
   assertEquals(await resolveCoachModel(user, flags(false)), DEFAULT_COACH_MODEL);
   assertEquals(seen[0], [SONNET_5_FLAG_KEY, false, { identifier: 'user-1', email: 'sleeper@example.com' }]);
 });

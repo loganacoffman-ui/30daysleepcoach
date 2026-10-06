@@ -74,6 +74,7 @@ Deno.test("retries are separate charged attempts grouped under one server reques
 for (const [model, rates] of [
   ["claude-sonnet-4-6", [3, 15, 0.30, 3.75, 6]],
   ["claude-sonnet-5", [2, 10, 0.20, 2.50, 4]],
+  ["claude-sonnet-5-5", [2, 10, 0.20, 2.50, 4]],
 ] as const) {
   for (const stream of [false, true]) {
     Deno.test(`${model} snapshots all standard rates for ${stream ? "streaming" : "JSON"} usage`, async () => {
