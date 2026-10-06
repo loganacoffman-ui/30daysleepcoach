@@ -8,8 +8,14 @@ export const SONNET_5_5_MODEL = "claude-sonnet-5-5";
 export const SONNET_5_FLAG_KEY = "useSonnet5";
 
 // Sonnet 5 thinks unless told otherwise, and max_tokens caps thinking plus reply
-// text, so short coaching budgets end before any text. Both models accept this.
+// text, so short coaching budgets end before any text.
 export const COACH_THINKING = { type: "disabled" } as const;
+export const COACH_THINKING_BETWEEN_TOOLS = { type: "between_tools" } as const;
+
+/** https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide */
+export function coachThinkingForModel(model: string): typeof COACH_THINKING | typeof COACH_THINKING_BETWEEN_TOOLS {
+  return model === SONNET_5_5_MODEL ? COACH_THINKING_BETWEEN_TOOLS : COACH_THINKING;
+}
 
 type FlagClient = Pick<configcat.IConfigCatClient, "getValueAsync">;
 type FlagUser = { id: string; email?: string };

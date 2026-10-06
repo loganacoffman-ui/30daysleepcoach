@@ -1,5 +1,5 @@
 import { checkinAnswerValues, parseCheckinInterpretation, type CheckinReplyRequest } from './checkinReplyContract.ts';
-import { COACH_THINKING } from './coachModel.ts';
+import { coachThinkingForModel, SONNET_5_5_MODEL } from './coachModel.ts';
 import { anthropicHttpErrorFields, logSleepCoach } from './sleepCoachLog.ts';
 
 const system = `Interpret a reply to one question in a conversational daily sleep check-in.
@@ -20,12 +20,15 @@ export async function interpretCheckinReply(request: CheckinReplyRequest, apiKey
     body: JSON.stringify({
       model,
       max_tokens: 800,
-      thinking: COACH_THINKING,
-      system,
+      thinking: coachThinkingForModel(model),
+      system: model === SONNET_5_5_MODEL
+        ? `${system}\n\nYou must call the interpret_checkin_reply tool on every request.`
+        : system,
       messages: [{ role: 'user', content: JSON.stringify(request) }],
       tools: [{
         name: 'interpret_checkin_reply',
         description: 'Classify whether the latest reply addresses the current check-in question, using the provided conversation as context. Return only the supported category for this step. Request clarification only when meaning cannot be inferred. This tool interprets a reply and does not write or complete a check-in.',
+        ...(model === SONNET_5_5_MODEL ? { strict: true } : {}),
         input_schema: {
           type: 'object',
           properties: {
@@ -38,7 +41,9 @@ export async function interpretCheckinReply(request: CheckinReplyRequest, apiKey
           additionalProperties: false,
         },
       }],
-      tool_choice: { type: 'tool', name: 'interpret_checkin_reply', disable_parallel_tool_use: true },
+      tool_choice: model === SONNET_5_5_MODEL
+        ? { type: 'auto', disable_parallel_tool_use: true }
+        : { type: 'tool', name: 'interpret_checkin_reply', disable_parallel_tool_use: true },
     }),
   });
   if (!response.ok) {

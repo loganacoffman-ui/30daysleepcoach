@@ -1,5 +1,6 @@
 import { assertEquals, assertRejects, assertThrows } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import { interpretCheckinReply } from './checkinReply.ts';
+import { SONNET_5_5_MODEL } from './coachModel.ts';
 import { parseCheckinInterpretation, parseCheckinReplyRequest, type CheckinReplyRequest } from './checkinReplyContract.ts';
 
 const request: CheckinReplyRequest = {
@@ -20,6 +21,18 @@ Deno.test('check-in interpretation sends the question and full reply to the mode
   assertEquals(JSON.parse(body.messages[0].content), request);
   assertEquals(body.tool_choice.name, 'interpret_checkin_reply');
   assertEquals(body.tools[0].input_schema.properties.answer.enum, ['completed', 'partial', 'skipped', null]);
+});
+
+Deno.test('check-in interpretation uses Sonnet 5.5 thinking and tool settings', async () => {
+  let body: Record<string, any> = {};
+  const fetcher: typeof fetch = (_url, init) => {
+    body = JSON.parse(String(init?.body));
+    return Promise.resolve(Response.json({ content: [{ type: 'tool_use', name: 'interpret_checkin_reply', input: skipped }] }));
+  };
+  assertEquals(await interpretCheckinReply(request, 'test-key', SONNET_5_5_MODEL, fetcher), skipped);
+  assertEquals(body.thinking, { type: 'between_tools' });
+  assertEquals(body.tool_choice, { type: 'auto', disable_parallel_tool_use: true });
+  assertEquals(body.tools[0].strict, true);
 });
 
 Deno.test('check-in model failure never becomes an unanswered question or a guessed category', async () => {

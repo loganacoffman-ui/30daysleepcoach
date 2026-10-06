@@ -49,7 +49,7 @@ import {
 import { chooseDailyExperiment } from "../_shared/experimentCycle.ts";
 import { createMeteredAnthropicFetch, usageFeature } from "../_shared/llmUsage.ts";
 import { interpretCheckinReply } from "../_shared/checkinReply.ts";
-import { COACH_THINKING, resolveCoachModel } from "../_shared/coachModel.ts";
+import { coachThinkingForModel, resolveCoachModel, SONNET_5_5_MODEL } from "../_shared/coachModel.ts";
 import { parseCheckinReplyRequest } from "../_shared/checkinReplyContract.ts";
 import { anthropicHttpErrorFields, logSleepCoach } from "../_shared/sleepCoachLog.ts";
 
@@ -58,6 +58,11 @@ const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const memoryProvider = createMemoryProvider(Deno.env.get("MEM0_API_KEY"));
+
+function coachToolsForModel(model: string) {
+  if (model !== SONNET_5_5_MODEL) return COACH_TOOL_DEFINITIONS;
+  return COACH_TOOL_DEFINITIONS.map((tool) => ({ ...tool, strict: true as const }));
+}
 
 async function syncDailyExperimentCommitment(
   supabase: SupabaseClient,
@@ -652,7 +657,7 @@ async function callAnthropicText(
   const body = {
     model,
     max_tokens: maxTokens,
-    thinking: COACH_THINKING,
+    thinking: coachThinkingForModel(model),
     system: system + formatMemoryContext(memories),
     messages: [{ role: "user", content: userMessage }],
     stream: false,
@@ -714,13 +719,13 @@ async function callAnthropicConversation(
   const body = {
     model,
     max_tokens: 800,
-    thinking: COACH_THINKING,
+    thinking: coachThinkingForModel(model),
     system: SYSTEM_PROMPT + formatMemoryContext(memories) +
       `\n\nCURRENT USER CONTEXT:\n${
         formatCurrentCoachContext(coachContext)
       }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
     messages,
-    tools: COACH_TOOL_DEFINITIONS,
+    tools: coachToolsForModel(model),
     tool_choice: { type: "auto", disable_parallel_tool_use: true },
     stream: false,
   };
@@ -774,13 +779,13 @@ async function callAnthropicConversationStream(
   const body = {
     model,
     max_tokens: 800,
-    thinking: COACH_THINKING,
+    thinking: coachThinkingForModel(model),
     system: SYSTEM_PROMPT + formatMemoryContext(memories) +
       `\n\nCURRENT USER CONTEXT:\n${
         formatCurrentCoachContext(coachContext)
       }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
     messages,
-    tools: COACH_TOOL_DEFINITIONS,
+    tools: coachToolsForModel(model),
     tool_choice: { type: "auto", disable_parallel_tool_use: true },
     stream: true,
   };
@@ -2169,7 +2174,7 @@ Deno.serve(async (req: Request) => {
     const streamBody = {
       model: coachModel,
       max_tokens: 2048,
-      thinking: COACH_THINKING,
+      thinking: coachThinkingForModel(coachModel),
       system: SYSTEM_PROMPT + formatMemoryContext(memories),
       messages: anthropicMessages,
       stream: true,
