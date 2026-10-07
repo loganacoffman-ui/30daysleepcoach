@@ -8,3 +8,5 @@ minimumReleaseAgeExclude:
   - expo-linking@57.0.5
   - '@expo/image-utils@0.11.5'
   - '@expo/require-utils@57.0.5'
+  - expo-eas-client@57.0.5
+  - expo-insights@57.0.21
