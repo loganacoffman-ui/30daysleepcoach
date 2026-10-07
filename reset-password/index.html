@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Reset your password · 30 Day Sleep Coach</title>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="stylesheet" href="./reset-password.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.1/dist/umd/supabase.min.js" integrity="sha384-fx4y4cDx8NYfissnVzdGJY3yVXWY3rn5ab5HTUjpvgT35oDiyAbjjqnLhnRmESNE" crossorigin="anonymous" defer></script>
+  <script type="module" src="./page.mjs"></script>
+</head>
+<body>
+  <header><a class="brand" href="/"><strong>30 day</strong> sleep coach</a><a href="/#login">Back to log in <span aria-hidden="true">↗</span></a></header>
+  <main>
+    <section class="card" aria-labelledby="title">
+      <div class="moon" aria-hidden="true">☾</div>
+      <p class="eyebrow">A fresh start</p>
+      <h1 id="title">Forgot your <em>password?</em></h1>
+      <p id="description" class="description">Enter your email and we’ll send you a link to get back to your sleep journey.</p>
+      <p id="message" role="status" aria-live="polite" hidden></p>
+      <form id="request-form">
+        <label for="email">Email address</label>
+        <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+        <button class="primary" type="submit">Send reset link <span aria-hidden="true">→</span></button>
+      </form>
+      <form id="password-form" hidden>
+        <label for="password">New password</label>
+        <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" aria-describedby="password-hint" required>
+        <p id="password-hint" class="hint">Use at least 8 characters.</p>
+        <label for="confirm-password">Confirm new password</label>
+        <input id="confirm-password" name="confirmation" type="password" autocomplete="new-password" minlength="8" required>
+        <label class="show-password"><input id="show-password" type="checkbox"> Show passwords</label>
+        <button class="primary" type="submit">Save new password <span aria-hidden="true">→</span></button>
+        <a class="secondary" href="./">Request a new reset link</a>
+      </form>
+      <a id="success-link" class="primary" href="/#login" hidden>Back to log in <span aria-hidden="true">→</span></a>
+      <p id="privacy-note" class="footnote">Your sleep progress will be right where you left it.</p>
+      <noscript><p>Enable JavaScript to request a reset link or change your password.</p></noscript>
+    </section>
+    <p class="reassurance">Small steps. Better nights.</p>
+  </main>
+  <footer><span>30 Day Sleep Coach</span><a href="/privacy.html">Privacy policy</a></footer>
+</body>
+</html>

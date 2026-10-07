@@ -6,6 +6,7 @@ on:
       - "mobile/**"
       - "tests/**"
       - "admin/**"
+      - "reset-password/**"
       - "supabase/functions/admin-test-users/**"
       - "supabase/functions/_shared/testUserFixtures.ts"
       - "package.json"
