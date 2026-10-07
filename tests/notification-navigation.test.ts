@@ -1,3 +1,4 @@
+vi.mock('../mobile/node_modules/expo-constants', () => ({ default: { expoConfig: { extra: {} } } }));
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NotificationResponse } from '../mobile/node_modules/expo-notifications';
 const mock = vi.hoisted(() => ({ listen: vi.fn(), last: vi.fn(), clear: vi.fn(), remove: vi.fn() }));

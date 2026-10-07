@@ -5,6 +5,9 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { supabase } from './supabase';
 
+import { remindersAvailable } from './reminderAvailability';
+export { remindersAvailable } from './reminderAvailability';
+
 const DAILY_CHECK_IN_CHANNEL_ID = 'daily-check-in';
 const DAILY_CHECK_IN_STORAGE_KEY = '@30daysleepcoach/daily-check-in-notification-id';
 const PUSH_DEVICE_KEY = '@30daysleepcoach/push-device';
@@ -20,7 +23,7 @@ export type DailyReminderState = {
   clock: string;
 };
 
-Notifications.setNotificationHandler({
+if (remindersAvailable()) Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldPlaySound: true,
     shouldSetBadge: false,
@@ -173,6 +176,7 @@ async function currentUserId() {
 }
 
 async function cancelReminder(identifier?: string) {
+  if (!remindersAvailable()) return;
   const device = await storedDevice();
   const legacy = await AsyncStorage.getItem(DAILY_CHECK_IN_STORAGE_KEY);
   if (identifier && identifier !== device?.id && identifier !== legacy) return;
@@ -197,7 +201,7 @@ export function saveDailyCheckInReminderTime(clock: string) {
 export function getDailyCheckInReminderState(fallbackClock: string): Promise<DailyReminderState> {
   return serialize(async () => {
     const clock = await AsyncStorage.getItem(DAILY_CHECK_IN_TIME_KEY) ?? fallbackClock;
-    if (Platform.OS === 'web') return { enabled: false, clock };
+    if (!remindersAvailable()) return { enabled: false, clock };
     if (!isPermissionAuthorized(await Notifications.getPermissionsAsync())) {
       await cancelReminder();
       return { enabled: false, clock };
@@ -215,7 +219,7 @@ export function getDailyCheckInReminderState(fallbackClock: string): Promise<Dai
 
 export function scheduleDailyCheckInReminder(clock: string, timezone = detectTimeZone()): Promise<DailyReminderScheduleResult> {
   return serialize(async () => {
-    if (Platform.OS === 'web') return { status: 'unsupported' };
+    if (!remindersAvailable()) return { status: 'unsupported' };
     parseReminderTime(clock);
     if (!await requestNotificationPermission()) return { status: 'denied' };
     const userId = await currentUserId();
@@ -228,7 +232,7 @@ export function scheduleDailyCheckInReminder(clock: string, timezone = detectTim
 // Retry on launch/foreground to pick up token and timezone changes.
 export function syncDailyCheckInReminder(userId: string, fallbackClock: string, devicePushToken?: Notifications.DevicePushToken, timezone = detectTimeZone()) {
   return serialize(async () => {
-    if (Platform.OS === 'web') return;
+    if (!remindersAvailable()) return;
     const legacy = await cancelLegacyReminder();
     const device = await storedDevice();
     if (!legacy && device?.userId !== userId) return;

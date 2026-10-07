@@ -74,7 +74,7 @@ export default function ProgressScreen({ active = true, profile, refreshRequest,
     const [checkinResult, commitmentResult, appleResult, preferred, ouraResult, journeyResult] = await Promise.all([
       supabase.from('daily_checkins').select('checkin_date, morning_feeling, feeling, manual_sleep_score, suspected_factor, note').eq('user_id', user.id).order('checkin_date', { ascending: false }).limit(60),
       supabase.from('behavior_commitments').select('behavior_date, behavior, status').eq('user_id', user.id).order('behavior_date', { ascending: false }).limit(90),
-      supabase.from('sleep_nights').select('sleep_date, sleep_score').eq('user_id', user.id).eq('provider', 'apple_health').gte('sleep_date', daysAgo(35)),
+      supabase.from('sleep_nights').select('provider, sleep_date, sleep_score').eq('user_id', user.id).in('provider', ['apple_health', 'health_connect']).gte('sleep_date', daysAgo(35)),
       loadPreferredSleepSource(user.id),
       supabase.functions.invoke<{data?: Array<{day:string;score?:number}>}>('oura-proxy', { body: { endpoint: 'daily_sleep', start_date: daysAgo(35), end_date: localDate() } }),
       supabase.from('daily_checkins').select('checkin_date, completed_at, manual_sleep_score').eq('user_id', user.id).not('completed_at', 'is', null).order('checkin_date', { ascending: true }),
@@ -85,8 +85,8 @@ export default function ProgressScreen({ active = true, profile, refreshRequest,
     if (checkinResult.error || commitmentResult.error) setError(checkinResult.error?.message ?? commitmentResult.error?.message ?? 'Progress could not be loaded.');
     else setError('');
     const normalized = (checkinResult.data ?? []).map(row => ({ checkin_date: row.checkin_date, manual_sleep_score: row.manual_sleep_score, morningFeeling: normalizeMorningFeeling(row.morning_feeling, row.feeling), note: row.note, suspected_factor: row.suspected_factor }));
-    const sources: Array<{day:string;score:number;source:'apple_health'|'oura'}> = [];
-    (appleResult.data ?? []).forEach(row => { if (typeof row.sleep_score === 'number') sources.push({ day: row.sleep_date, score: row.sleep_score, source: 'apple_health' }); });
+    const sources: Array<{day:string;score:number;source:'apple_health'|'health_connect'|'oura'}> = [];
+    (appleResult.data ?? []).forEach(row => { if (typeof row.sleep_score === 'number') sources.push({ day: row.sleep_date, score: row.sleep_score, source: row.provider }); });
     if (!ouraResult.error) (ouraResult.data?.data ?? []).forEach(row => { if (typeof row.score === 'number') sources.push({ day: row.day, score: row.score, source: 'oura' }); });
     const nextCommitments = commitmentResult.data ?? [];
     const nextWearable = resolveWearableSleepHistory(sources, preferred).map(row => ({ date: row.day, score: row.score, source: row.source }));

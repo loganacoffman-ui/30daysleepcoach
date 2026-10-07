@@ -1,3 +1,4 @@
+import HealthConnectIntegration from './healthconnect/HealthConnectIntegration';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,6 +22,7 @@ import type { Session } from '@supabase/supabase-js';
 import { colors } from './design/theme';
 import AppleHealthIntegration from './healthkit/AppleHealthIntegration';
 import {
+  remindersAvailable,
   cancelDailyCheckInReminder,
   scheduleDailyCheckInReminder,
 } from './notifications';
@@ -623,7 +625,7 @@ export function Onboarding({ session, onComplete, onCancel }: OnboardingProps) {
       // The completion RPC preserves the existing timezone column. Persist it
       // first, including when an older unfinished intake resumes on this step.
       await persistAnswers(answers, step);
-      if (!skipReminder) {
+      if (!skipReminder && remindersAvailable()) {
         const reminderResult = await scheduleDailyCheckInReminder(reminderTime, timezone);
 
         if (reminderResult.status === 'denied') {
@@ -1005,6 +1007,11 @@ export function Onboarding({ session, onComplete, onCancel }: OnboardingProps) {
               <AppleHealthIntegration user={session.user} />
             </View>
           )}
+          {Platform.OS === 'android' && <View style={styles.integrationCard}>
+            <Text style={styles.integrationEyebrow}>PIXEL WATCH AND OTHER WEARABLES</Text>
+            <Text style={styles.integrationTitle}>Health Connect</Text>
+            <HealthConnectIntegration user={session.user} />
+          </View>}
           <View style={styles.integrationCard}>
             <Text style={styles.integrationEyebrow}>WEARABLE</Text>
             <Text style={styles.integrationTitle}>Oura Ring</Text>
@@ -1012,13 +1019,13 @@ export function Onboarding({ session, onComplete, onCancel }: OnboardingProps) {
           </View>
           <PrimaryButton
             busy={saving}
-            label="Continue to reminders"
-            onPress={() => void saveAndAdvance(answers, 'reminder')}
+            label={remindersAvailable() ? 'Continue to reminders' : 'Start my sleep plan'}
+            onPress={() => void (remindersAvailable() ? saveAndAdvance(answers, 'reminder') : completeOnboarding(true))}
           />
           <Pressable
             accessibilityRole="button"
             disabled={saving}
-            onPress={() => void saveAndAdvance(answers, 'reminder')}
+            onPress={() => void (remindersAvailable() ? saveAndAdvance(answers, 'reminder') : completeOnboarding(true))}
             style={({ pressed }) => [styles.skipButton, pressed && styles.pressed]}
           >
             <Text style={styles.skipButtonText}>Skip for now</Text>
@@ -1026,6 +1033,11 @@ export function Onboarding({ session, onComplete, onCancel }: OnboardingProps) {
         </View>
       );
     }
+
+    if (!remindersAvailable()) return <View>
+      <QuestionHeader eyebrow="Ready" title="Your sleep plan is ready" subtitle="Open Sleep Coach after waking to check in and review your night." />
+      <PrimaryButton busy={saving} label="Start my sleep plan" onPress={() => void completeOnboarding(true)} />
+    </View>;
 
     return (
       <View>

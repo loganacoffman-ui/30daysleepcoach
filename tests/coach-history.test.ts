@@ -5,7 +5,7 @@ import type { User } from '@supabase/supabase-js';
 
 vi.mock('../mobile/supabase', () => ({ supabase: { from: vi.fn() } }));
 vi.mock('../mobile/node_modules/expo/fetch.js', () => ({ fetch: vi.fn() }));
-vi.mock('../mobile/healthkit/appleHealth', () => ({ syncAppleHealthForDate: vi.fn() }));
+vi.mock('../mobile/sleep/deviceSleep', () => ({ syncDeviceSleepForDate: vi.fn() }));
 vi.mock('../mobile/sleep/sourcePreference', () => ({ isUnavailableSleepSchemaError: vi.fn(), loadPreferredSleepSource: vi.fn() }));
 
 const user = { id: 'user-1' } as User;

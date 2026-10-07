@@ -1,3 +1,4 @@
+import HealthConnectIntegration from '../healthconnect/HealthConnectIntegration';
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
@@ -9,6 +10,7 @@ import SleepProfileSettings from './SleepProfileSettings';
 import type { SleepProfileDraft } from '../onboarding/profileFields';
 import AppleHealthIntegration from '../healthkit/AppleHealthIntegration';
 import {
+  remindersAvailable,
   cancelDailyCheckInReminder,
   getDailyCheckInReminderState,
   saveDailyCheckInReminderTime,
@@ -182,7 +184,7 @@ export function SettingsScreen({ user, profile, busy, onSignOut, onDeleteAccount
     <View style={s.card}>
       <SleepProfileSettings user={user} profile={profile} onSaved={onProfileSaved}/>
     </View>
-    <View style={s.card}>
+    {remindersAvailable()&&<View style={s.card}>
       <Text style={s.cardEyebrow}>REMINDERS</Text>
       <View style={s.notificationRow}>
         <View style={s.notificationCopy}>
@@ -197,7 +199,12 @@ export function SettingsScreen({ user, profile, busy, onSignOut, onDeleteAccount
         <Pressable accessibilityLabel="Move reminder 15 minutes later" disabled={reminderBusy} onPress={()=>{void adjustReminderTime(1);}} style={s.timeAdjustButton}><Text style={s.timeAdjustText}>+</Text></Pressable>
       </View>
       {!!reminderError&&<Text style={s.notificationError}>{reminderError}</Text>}
-    </View>
+    </View>}
+    {Platform.OS==='android'&&<View style={s.card}>
+      <Text style={s.cardEyebrow}>INTEGRATIONS</Text>
+      <Text style={s.cardTitle}>Health Connect</Text>
+      <HealthConnectIntegration user={user} onConnected={()=>setPreferredSource(current=>current??'health_connect')} onDisabled={()=>setPreferredSource(current=>current==='health_connect'?null:current)} />
+    </View>}
     {Platform.OS==='ios'&&<View style={s.card}>
       <Text style={s.cardEyebrow}>INTEGRATIONS</Text>
       <Text style={s.cardTitle}>Apple Health</Text>
@@ -212,12 +219,12 @@ export function SettingsScreen({ user, profile, busy, onSignOut, onDeleteAccount
       <Text style={s.cardTitle}>Oura connection</Text>
       <OuraIntegration />
     </View>
-    {Platform.OS==='ios'&&<View style={s.card}>
+    {Platform.OS!=='web'&&<View style={s.card}>
       <Text style={s.cardEyebrow}>PREFERRED SLEEP SOURCE</Text>
       <Text style={s.cardCopy}>We use your preferred source when both integrations have a score, then fall back to the other source.</Text>
       <View style={s.sourceButtons}>
         {([
-          ['apple_health','Apple Health'],
+          [Platform.OS==='android' ? 'health_connect' : 'apple_health',Platform.OS==='android' ? 'Health Connect' : 'Apple Health'],
           ['oura','Oura'],
         ] as const).map(([source,label])=><Pressable
           accessibilityRole="button"

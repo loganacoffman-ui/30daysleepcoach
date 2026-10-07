@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mock = vi.hoisted(() => ({
   storage: new Map<string, string>(),
   permissions: vi.fn(), requestPermissions: vi.fn(), token: vi.fn(), cancelLocal: vi.fn(),
-  channel: vi.fn(), from: vi.fn(), getSession: vi.fn(), os: 'ios',
+  channel: vi.fn(), from: vi.fn(), getSession: vi.fn(), os: 'ios', androidPushEnabled: true,
 }));
 vi.mock('../mobile/node_modules/@react-native-async-storage/async-storage', () => ({ default: {
   getItem: async (key: string) => mock.storage.get(key) ?? null,
@@ -13,7 +13,7 @@ vi.mock('../mobile/node_modules/@react-native-async-storage/async-storage', () =
   multiRemove: async (keys: string[]) => { keys.forEach(key => mock.storage.delete(key)); },
 } }));
 vi.mock('../mobile/node_modules/react-native', () => ({ Platform: { get OS() { return mock.os; } } }));
-vi.mock('../mobile/node_modules/expo-constants', () => ({ default: { expoConfig: { extra: { eas: { projectId: 'project' }, appVariant: 'production' } } } }));
+vi.mock('../mobile/node_modules/expo-constants', () => ({ default: { expoConfig: { extra: { eas: { projectId: 'project' }, appVariant: 'production', get androidPushEnabled() { return mock.androidPushEnabled; } } } } }));
 vi.mock('../mobile/node_modules/expo-notifications', () => ({
   setNotificationHandler: vi.fn(),
   getPermissionsAsync: mock.permissions, requestPermissionsAsync: mock.requestPermissions,
@@ -42,6 +42,7 @@ function makeQuery() {
 function registered() { mock.storage.set(deviceKey, JSON.stringify({ id: 'device', userId: 'user' })); mock.storage.set(timeKey, '08:15'); }
 
 beforeEach(() => {
+  mock.androidPushEnabled = true;
   vi.clearAllMocks();
   mock.storage.clear();
   mock.os = 'ios';
@@ -172,4 +173,16 @@ describe('mobile check-in push registration', () => {
     expect(mock.channel).toHaveBeenCalledWith('daily-check-in', expect.anything());
     expect(mock.channel.mock.invocationCallOrder[0]).toBeLessThan(mock.token.mock.invocationCallOrder[0]);
   });
+});
+
+it('does not touch notification APIs or Firebase when Android push is disabled', async () => {
+  mock.os = 'android'; mock.androidPushEnabled = false;
+  expect(await scheduleDailyCheckInReminder('08:15')).toEqual({ status: 'unsupported' });
+  await syncDailyCheckInReminder('user-1', '08:15');
+  await getDailyCheckInReminderState('08:15');
+  await clearDailyCheckInReminder();
+  expect(mock.permissions).not.toHaveBeenCalled();
+  expect(mock.requestPermissions).not.toHaveBeenCalled();
+  expect(mock.token).not.toHaveBeenCalled();
+  expect(mock.channel).not.toHaveBeenCalled();
 });

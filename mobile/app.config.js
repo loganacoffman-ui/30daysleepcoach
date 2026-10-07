@@ -1,3 +1,9 @@
+const androidPushEnabled = process.env.ANDROID_PUSH_ENABLED === 'true';
+const googleServicesFile = process.env.GOOGLE_SERVICES_JSON;
+if (androidPushEnabled && !googleServicesFile) {
+  throw new Error('ANDROID_PUSH_ENABLED requires GOOGLE_SERVICES_JSON pointing to the Firebase Android config file.');
+}
+
 const appVariant = process.env.APP_VARIANT ?? 'production';
 const variants = {
   development: {
@@ -40,6 +46,9 @@ module.exports = {
     },
     android: {
       package: variant.androidPackage,
+      permissions: ['android.permission.health.READ_SLEEP'],
+      blockedPermissions: androidPushEnabled ? [] : ['android.permission.POST_NOTIFICATIONS'],
+      ...(androidPushEnabled ? { googleServicesFile } : {}),
       adaptiveIcon: {
         backgroundColor: '#010818',
         foregroundImage: './assets/android-icon-foreground.png',
@@ -53,12 +62,15 @@ module.exports = {
     },
     extra: {
       appVariant,
+      androidPushEnabled,
       eas: {
         projectId: '48f61526-b884-445b-aa4b-ffdcec6e4ade',
       },
     },
     plugins: [
       'expo-web-browser',
+      './plugins/withHealthConnectRationale',
+      'react-native-health-connect',
       'expo-apple-authentication',
       [
         '@kingstinct/react-native-healthkit',
@@ -80,6 +92,7 @@ module.exports = {
       [
         'expo-build-properties',
         {
+          android: { minSdkVersion: 28 },
           ios: {
             buildReactNativeFromSource: true,
             usePrecompiledModules: false,

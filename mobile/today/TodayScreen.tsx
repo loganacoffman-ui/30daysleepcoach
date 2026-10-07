@@ -1,3 +1,4 @@
+import { sleepSourceLabel } from '../sleep/sourceSelection';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
@@ -74,7 +75,7 @@ const TODAY_CACHE_VERSION = 3;
 const SleepScoreSlider = ({ disabled = false, onChange, source, value }: {
   disabled?: boolean;
   onChange?: (score: number) => void;
-  source?: 'Apple Health' | 'Oura' | 'Manual';
+  source?: 'Health Connect' | 'Apple Health' | 'Oura' | 'Manual';
   value: number | null;
 }) => {
   const trackRef = useRef<View>(null);
@@ -434,7 +435,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
   // what did sync was wrong. Either way their number is the one the day uses.
   const usingOwnScore = manualSleepFallback && manualSleepScore !== null;
   const syncedSleepLabel = snapshot?.syncedSleep
-    ? snapshot.syncedSleep.source === 'apple_health' ? 'Apple Health' : 'Oura'
+    ? sleepSourceLabel(snapshot.syncedSleep.source)
     : null;
   // Opens with whatever the day currently reads, so the user nudges a number
   // rather than starting from nothing.
@@ -751,7 +752,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
               onChange={manualSleepFallback ? setManualSleepScore : undefined}
               source={manualSleepFallback ? 'Manual'
                 : sleepData!.status === 'wearable'
-                  ? sleepData!.source === 'apple_health' ? 'Apple Health' : 'Oura'
+                  ? sleepSourceLabel(sleepData!.source)
                   : 'Manual'}
               value={manualSleepFallback ? manualSleepScore : sleepData!.score ?? null}
             />
@@ -845,7 +846,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
 
         {((conversation.step !== 'sleep' && (sleepReviewed || snapshot.checkin)) || (snapshot.checkin && checkinTurns.length > 0)) && (
           <View style={styles.conversation}>
-            {!snapshot.checkin && <Text style={styles.promptHint}>Sleep score {sleepData!.score ?? manualSleepScore} · {sleepData!.source === 'apple_health' ? 'Apple Health' : sleepData!.source === 'oura' ? 'Oura' : 'Manual'}</Text>}
+            {!snapshot.checkin && <Text style={styles.promptHint}>Sleep score {sleepData!.score ?? manualSleepScore} · {sleepSourceLabel(sleepData!.source)}</Text>}
             {checkinTurns.map((turn, index) => (
               <ChatBubble content={turn.content} key={index} role={turn.role} />
             ))}

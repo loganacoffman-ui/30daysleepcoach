@@ -3,17 +3,17 @@ import { createSupabaseTodayRepository } from '../mobile/today/supabaseTodayRepo
 import { resolveSleep, sleepResolutionKey } from '../mobile/sleep/dailySleepContract';
 import { DAILY_COACH_PROMPT_VERSION } from '../supabase/functions/_shared/coaching-cache';
 
-const state = vi.hoisted(() => ({ checkin: null as any, wearable: null as any, recommendation: null as any, writes: [] as any[] }));
+const state = vi.hoisted(() => ({ checkin: null as any, wearable: null as any, nativeNights: [] as any[], recommendation: null as any, writes: [] as any[] }));
 vi.mock('../mobile/coach/coachRepository', () => ({ invalidateCoachContext: vi.fn() }));
-vi.mock('../mobile/healthkit/appleHealth', () => ({ syncAppleHealthForDate: vi.fn().mockResolvedValue(null) }));
+vi.mock('../mobile/sleep/deviceSleep', () => ({ syncDeviceSleepForDate: vi.fn().mockResolvedValue(null) }));
 vi.mock('../mobile/sleep/sourcePreference', () => ({ loadPreferredSleepSource: async () => null, isUnavailableSleepSchemaError: () => false }));
 vi.mock('../mobile/supabase', () => ({ supabase: {
   functions: { invoke: async () => ({ data: { data: state.wearable ? [state.wearable] : [] } }) },
   from: (table: string) => {
     const query: any = {
-      select: () => query, eq: () => query, lt: () => query, order: () => query, limit: () => query, maybeSingle: () => query, single: () => query,
+      select: () => query, eq: () => query, in: () => query, lt: () => query, order: () => query, limit: () => query, maybeSingle: () => query, single: () => query,
       upsert: (record: any) => { state.writes.push({ table, record }); return query; },
-      then: (resolve: any) => resolve({ data: table === 'daily_checkins' ? state.checkin : table === 'coach_recommendations' ? state.recommendation : null, error: null, count: 1 }),
+      then: (resolve: any) => resolve({ data: table === 'daily_checkins' ? state.checkin : table === 'coach_recommendations' ? state.recommendation : table === 'sleep_nights' ? state.nativeNights : null, error: null, count: 1 }),
     };
     return query;
   },
@@ -22,7 +22,7 @@ const repository = createSupabaseTodayRepository({ id: 'u' } as any, undefined, 
 const date = new Date().toLocaleDateString('en-CA');
 beforeEach(() => {
   state.checkin = { id: 'c', checkin_date: date, manual_sleep_score: 62, manual_sleep_submitted_at: new Date().toISOString(), morning_feeling: 'tired' };
-  state.wearable = null; state.writes = [];
+  state.wearable = null; state.nativeNights = []; state.writes = [];
   state.recommendation = { pattern: 'Pattern', meaning: 'Meaning', action: 'Action', prompt_version: DAILY_COACH_PROMPT_VERSION,
     source_context: { sleep_resolution_key: sleepResolutionKey(resolveSleep(date, [], state.checkin)) } };
 });
@@ -48,4 +48,12 @@ it('saving a qualitative check-in does not erase an earlier manual record', asyn
   const write = state.writes.find(write => write.table === 'daily_checkins').record;
   expect(write).not.toHaveProperty('manual_sleep_score');
   expect(write).not.toHaveProperty('manual_sleep_submitted_at');
+});
+
+it('uses Health Connect in Your Day and preserves the manual override', async () => {
+  state.nativeNights = [{ provider: 'health_connect', sleep_date: date, sleep_score: 81, score_version: 'sleep-coach-v2', total_sleep_minutes: 470 }];
+  expect((await repository.loadToday()).syncedSleep).toEqual({ source: 'health_connect', score: 81 });
+  expect((await repository.loadToday()).sleepData.source).toBe('manual');
+  state.checkin = null;
+  expect((await repository.loadToday()).sleepData).toEqual({ status: 'wearable', source: 'health_connect', score: 81 });
 });

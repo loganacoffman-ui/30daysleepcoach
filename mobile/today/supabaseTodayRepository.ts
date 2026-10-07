@@ -2,9 +2,9 @@ import { DAILY_COACH_PROMPT_VERSION, resolveSleep, sleepResolutionKey } from '..
 import type { User } from '@supabase/supabase-js';
 import { markCheckinSaved } from '../cache/checkinRevision';
 import { invalidateCoachContext } from '../coach/coachRepository';
-import { syncAppleHealthForDate } from '../healthkit/appleHealth';
+import { syncDeviceSleepForDate } from '../sleep/deviceSleep';
 import type { PrimaryConcern } from '../onboarding/types';
-import { selectWearableSleepForDate } from '../sleep/sourceSelection';
+import { isSleepSource, selectWearableSleepForDate } from '../sleep/sourceSelection';
 import type { WearableSleep } from '../sleep/sourceSelection';
 import {
   isUnavailableSleepSchemaError,
@@ -24,7 +24,7 @@ type OuraSleepDay = { day: string; score?: number };
 export const createSupabaseTodayRepository = (user: User, greetingName: string | undefined, _primaryConcern: PrimaryConcern): TodayRepository => ({
   async loadToday() {
     const date = localDate();
-    await syncAppleHealthForDate(user.id, date).catch(() => undefined);
+    await syncDeviceSleepForDate(user.id, date).catch(() => undefined);
     const appOpenResult = await supabase.from('app_open_days').upsert(
       { user_id: user.id, opened_date: date },
       { onConflict: 'user_id,opened_date', ignoreDuplicates: true },
@@ -39,7 +39,7 @@ export const createSupabaseTodayRepository = (user: User, greetingName: string |
         body: { endpoint: 'daily_sleep', start_date: date, end_date: date },
       }),
       supabase.from('app_open_days').select('opened_date', { count: 'exact', head: true }).eq('user_id', user.id),
-      supabase.from('sleep_nights').select('sleep_date, sleep_score, score_version, total_sleep_minutes').eq('user_id', user.id).eq('provider', 'apple_health').eq('sleep_date', date).maybeSingle(),
+      supabase.from('sleep_nights').select('provider, sleep_date, sleep_score, score_version, total_sleep_minutes').eq('user_id', user.id).in('provider', ['apple_health', 'health_connect']).eq('sleep_date', date),
       loadPreferredSleepSource(user.id),
     ]);
     if (checkinResult.error) throw checkinResult.error;
@@ -69,14 +69,10 @@ export const createSupabaseTodayRepository = (user: User, greetingName: string |
     if (ouraDay && typeof ouraDay.score === 'number') {
       wearableRows.push({ day: ouraDay.day, score: ouraDay.score, source: 'oura' });
     }
-    if (typeof appleHealthResult.data?.sleep_score === 'number') {
-      wearableRows.push({
-        day: appleHealthResult.data.sleep_date,
-        score: appleHealthResult.data.sleep_score,
-        source: 'apple_health',
-        scoreVersion: appleHealthResult.data.score_version,
-        totalSleepMinutes: appleHealthResult.data.total_sleep_minutes,
-      });
+    for (const row of appleHealthResult.data ?? []) {
+      if (typeof row.sleep_score !== 'number' || !isSleepSource(row.provider)) continue;
+      wearableRows.push({ day: row.sleep_date, score: row.sleep_score, source: row.provider,
+        scoreVersion: row.score_version, totalSleepMinutes: row.total_sleep_minutes });
     }
     const wearable = selectWearableSleepForDate(
       wearableRows,

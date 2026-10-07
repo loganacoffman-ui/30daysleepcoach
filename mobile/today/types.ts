@@ -49,13 +49,13 @@ export type TodaySnapshot = {
   sleepData: {
     status: 'wearable' | 'manual' | 'missing';
     score: number | null;
-    source: 'apple_health' | 'oura' | 'manual' | null;
+    source: 'apple_health' | 'health_connect' | 'oura' | 'manual' | null;
   };
   // What the wearable reported for the night, kept alongside sleepData so a day
   // the user scored themselves can still show, and go back to, the synced number.
   syncedSleep: {
     score: number;
-    source: 'apple_health' | 'oura';
+    source: 'apple_health' | 'health_connect' | 'oura';
   } | null;
 };
 

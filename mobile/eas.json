@@ -15,6 +15,18 @@
     "production": {
       "environment": "production",
       "autoIncrement": true
+    },
+    "preview": {
+      "environment": "production",
+      "distribution": "internal",
+      "developmentClient": false,
+      "autoIncrement": true,
+      "env": {
+        "APP_VARIANT": "production"
+      },
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {
