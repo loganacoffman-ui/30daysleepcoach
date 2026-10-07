@@ -63,6 +63,63 @@ pnpm start:tunnel
 
 Start editing `App.tsx`; Expo will reload the app as you save.
 
+## Feature flags (ConfigCat)
+
+The shared ConfigCat client is initialized at app startup. Set
+`EXPO_PUBLIC_CONFIGCAT_SDK_KEY` in `mobile/.env` for local development and in the
+corresponding EAS environment for builds. Use the read-only SDK key for the
+intended ConfigCat environment, not a management API credential. Restart Metro
+after changing it; installed builds need a new bundle/build to pick up the key.
+
+Components can use the hook without adding a provider:
+
+```tsx
+import { useFeatureFlag } from './featureFlags/useFeatureFlag';
+
+const { value: enabled, loading } = useFeatureFlag('newCoachExperience', false, userId);
+```
+
+Outside components:
+
+```ts
+import { getFeatureFlag } from './featureFlags/client';
+
+const enabled = await getFeatureFlag('newCoachExperience', false, userId);
+```
+
+Create the flag in ConfigCat before using its key, and choose a safe boolean,
+string, or number default of the same type. No existing feature is gated yet.
+The optional `userId` is an opaque account ID for targeting and percentage
+rollouts; pass the current account ID on each call and omit it when signed out.
+No email, sleep data, or chat content is added to the targeting object.
+
+Missing or invalid SDK keys fall back to the supplied defaults. ConfigCat uses
+AsyncStorage to persist the downloaded config and lazy loading with a 60-second
+TTL, so no requests are made until a flag is read and there is no background
+polling. Fetch failures use the cached config when available, otherwise defaults.
+The hook evaluates on mount, changes to its inputs, and return to the foreground;
+it renders the default immediately and does not block app startup.
+
+See the [ConfigCat SDK reference](https://configcat.com/docs/sdk-reference/js/browser/).
+
+## App usage (Expo Insights)
+
+`expo-insights` is installed and automatically linked to the existing EAS project
+(`48f61526-b884-445b-aa4b-ffdcec6e4ade`). No JavaScript initialization or config
+plugin is required. Create and install a new native development/production build
+for the module to take effect; restarting Metro or sending only a JS update
+cannot add it to an older binary.
+
+After launching the rebuilt app, open the project in the Expo dashboard and
+select **Insights → App usage**. The module reports cold launches and provides
+usage breakdowns by platform, app version, and time. It does not provide screen
+views, custom product events, or funnels. Both app variants currently share the
+same EAS project, so development launches can appear in that project's usage.
+Verify delivery by cold-launching a rebuilt app with network access and checking
+the dashboard after processing.
+
+See [Expo's App usage documentation](https://docs.expo.dev/eas-insights/app-usage/).
+
 ## Conversational check-in persistence
 
 Continue check-in saves the reviewed sleep score and conversation position on
