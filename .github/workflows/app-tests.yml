@@ -1,4 +1,4 @@
-name: Mobile Tests
+name: App Tests
 
 on:
   pull_request:
@@ -10,14 +10,14 @@ on:
       - "supabase/functions/_shared/testUserFixtures.ts"
       - "package.json"
       - "pnpm-lock.yaml"
-      - ".github/workflows/mobile-tests.yml"
+      - ".github/workflows/app-tests.yml"
 
 permissions:
   contents: read
 
 jobs:
   test:
-    name: Run mobile unit tests
+    name: Run app unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
