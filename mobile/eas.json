@@ -10,11 +10,13 @@
       "distribution": "internal",
       "env": {
         "APP_VARIANT": "development"
-      }
+      },
+      "pnpm": "10.34.5"
     },
     "production": {
       "environment": "production",
-      "autoIncrement": true
+      "autoIncrement": true,
+      "pnpm": "10.34.5"
     },
     "preview": {
       "environment": "production",
@@ -26,7 +28,8 @@
       },
       "android": {
         "buildType": "apk"
-      }
+      },
+      "pnpm": "10.34.5"
     }
   },
   "submit": {

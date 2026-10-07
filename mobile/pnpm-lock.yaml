@@ -5,7 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
-  react-native-health-connect@4.1.3: d402e1a5de3daadf49d35bbd57b02598d5fad591e6ed4bdbe0d149c8d9a1d642
+  react-native-health-connect@4.1.3:
+    hash: d402e1a5de3daadf49d35bbd57b02598d5fad591e6ed4bdbe0d149c8d9a1d642
+    path: patches/react-native-health-connect@4.1.3.patch
 
 importers:
 
