@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>Test accounts · Sleep Coach Admin</title>
+  <link rel="icon" href="/favicon.ico"><link rel="stylesheet" href="/admin/admin.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.1/dist/umd/supabase.min.js" integrity="sha384-fx4y4cDx8NYfissnVzdGJY3yVXWY3rn5ab5HTUjpvgT35oDiyAbjjqnLhnRmESNE" crossorigin="anonymous" defer></script>
+  <script src="/admin/admin.js" type="module"></script>
+</head>
+<body>
+  <header><a href="/">30 Day Sleep Coach</a><span class="badge">ADMIN · TEST ACCOUNTS</span><button id="logout" hidden>Sign out</button></header>
+  <main>
+    <section id="login-panel" class="card narrow">
+      <p class="eyebrow">ADMIN ACCESS</p><h1>A separate space<br>for testing.</h1>
+      <p>Sign in with an administrator account. Your regular app session stays separate.</p>
+      <button id="google-login" type="button" class="google-login">Continue with Google</button>
+      <p class="hint">Your Google account must already have administrator access.</p>
+      <p class="login-divider">or sign in with email</p>
+      <form id="login-form">
+        <label>Email<input name="email" type="email" autocomplete="username" required></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+        <button type="submit" class="primary">Sign in to admin</button>
+      </form>
+    </section>
+    <p id="message" role="status" aria-live="polite"></p>
+    <div id="workspace" hidden>
+      <div class="intro"><div><p class="eyebrow">TEST USER WORKSPACE</p><h1>Start at any stage.</h1><p>Create realistic sleep histories, replay onboarding, and clean up after a test.</p></div><span class="badge">0 LLM calls to generate</span></div>
+      <p class="notice">Only accounts created by this tool can be managed here. Reset and delete verify protected test tags and the account registry on the server.</p>
+      <div class="layout">
+        <section class="card"><h2>Build a test scenario</h2>
+          <form id="scenario-form">
+            <label>Start with a preset<select id="preset"><option value="week">One week · improving sleep</option><option value="new">New signup · unconfirmed</option><option value="onboarding">Confirmed · onboarding unfinished</option><option value="ready">Onboarding complete · no check-ins</option><option value="month">30 check-ins · mixed results</option></select></label>
+            <div class="pair"><label>Email status<select name="emailConfirmed"><option value="true">Confirmed</option><option value="false">Unconfirmed</option></select></label>
+            <label>Onboarding state<select name="onboardingStep"><option value="intro">Not started</option><option value="concern">Choosing a concern</option><option value="window">Setting sleep times</option><option value="followup">Answering follow-up</option><option value="results">Viewing results</option><option value="wearable">Connecting a wearable</option><option value="reminder">Setting a reminder</option><option value="complete" selected>Complete</option></select></label></div>
+            <label>Primary concern<select name="primaryConcern"><option value="night_waking">Waking during the night</option><option value="falling_asleep">Falling asleep</option><option value="early_waking">Waking too early</option><option value="unrefreshed">Waking unrefreshed</option><option value="irregular_schedule">Irregular schedule</option></select></label>
+            <label>Follow-up answer<select name="followUpAnswer"></select></label>
+            <div class="pair"><label>Bedtime<input name="bedtime" type="time" value="22:30" required></label><label>Wake time<input name="wakeTime" type="time" value="06:30" required></label></div>
+            <div class="pair"><label>Time zone<input name="timezone" value="America/Los_Angeles" required></label><label>Reminder time<input name="reminderTime" type="time" value="07:00" required></label></div>
+            <label class="check"><input name="scheduleVaries" type="checkbox"> Sleep schedule varies</label>
+            <div class="pair"><label>Check-ins<input name="checkinCount" type="number" min="0" max="90" value="7" required></label><label>Sleep trend<select name="trend"><option value="improving">Improving</option><option value="mixed">Mixed</option><option value="struggling">Struggling</option></select></label></div>
+            <label class="check"><input name="feedback" type="checkbox" checked> Add synthetic coaching feedback</label>
+            <label class="check"><input name="includeToday" type="checkbox"> Include a completed check-in today</label>
+            <p class="hint">History ends yesterday by default, leaving today ready to test. Scores are manual; wearable connections are not simulated. Reminder preferences do not send notifications.</p>
+            <hr><h3>Create a new account</h3><p id="reuse-hint" class="notice" role="status"></p>
+            <label>Test name<input name="alias" pattern="[a-z0-9][a-z0-9-]{0,31}" maxlength="32" placeholder="demo-week" required></label>
+            <p id="email-preview" class="hint"></p>
+            <label>Test account password<input name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label>
+            <button type="button" id="generate-password">Generate password</button><p id="generated-password" class="credential" hidden></p>
+            <p class="hint">Save this password to sign in as the test user. This tool does not store a recoverable copy.</p>
+            <button type="submit" class="primary">Create test account</button>
+          </form>
+        </section>
+        <section class="card accounts"><div class="section-heading"><h2>Test account inventory</h2><button id="refresh">Refresh</button></div><p class="hint">Reset uses the scenario on the left and preserves the email, password, and user ID. Sign out of the test app before resetting, then sign back in to clear cached data.</p><label>Search test email<input id="inventory-search" type="search" placeholder="Search existing accounts"></label>
+          <div class="pair"><label>Filter email status<select id="filter-confirmation"><option value="all">Any status</option><option value="confirmed">Confirmed</option><option value="unconfirmed">Unconfirmed</option></select></label><label>Filter onboarding<select id="filter-onboarding"><option value="all">Any stage</option><option value="complete">Complete</option><option value="incomplete">Incomplete</option></select></label></div>
+          <label class="check"><input id="filter-matches" type="checkbox"> Only accounts matching the selected state</label>
+          <p class="hint">Matches compare current email status, onboarding step, concern, check-in count, and feedback count. Check sleep times and other details before reusing an account.</p>
+          <p id="inventory-summary" class="hint" role="status"></p><div id="accounts"></div><button id="load-more" hidden>Load more accounts</button></section>
+      </div>
+    </div>
+    <dialog id="confirm-dialog"><form method="dialog" id="confirm-form"><h2 id="confirm-title"></h2><p id="confirm-description"></p><label>Type the exact test email<input id="confirm-email" autocomplete="off" required></label><div class="actions"><button type="button" id="cancel-confirm">Cancel</button><button class="danger" id="confirm-action" type="submit">Confirm</button></div></form></dialog>
+  </main>
+</body></html>

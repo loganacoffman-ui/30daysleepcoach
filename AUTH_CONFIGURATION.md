@@ -21,3 +21,9 @@ Production is the canonical authentication environment. Netlify previews can ren
 5. In Google Cloud, confirm the Supabase callback URL remains authorized.
 
 No provider secret, client secret, service-role key, or access token belongs in this file or in Git.
+
+## Admin portal Google sign-in
+
+The separate `/admin/` portal uses Supabase Google OAuth with PKCE and a distinct, tab-scoped session. It requests `${window.location.origin}/admin/` as its return URL. Add the exact production admin URL to Supabase's additional redirect allowlist, plus the www/local URLs listed in `supabase/config.toml` when used. The deployment workflows do not automatically apply Auth URL settings.
+
+Google authenticates the identity; protected `app_metadata.role = "admin"` authorizes the portal. The backend checks the current role and live session after OAuth and on every inventory or account operation. Ordinary Google users cannot access the admin tools. Follow the bootstrap instructions in [ADMIN_TEST_USERS.md](docs/ADMIN_TEST_USERS.md).

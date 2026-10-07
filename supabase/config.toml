@@ -1,6 +1,10 @@
 [auth]
 site_url = "https://30daysleepcoach.com"
 additional_redirect_urls = [
+  "https://30daysleepcoach.com/admin/",
+  "https://www.30daysleepcoach.com/admin/",
+  "http://localhost:8000/admin/",
+  "http://127.0.0.1:8000/admin/",
   "thirtydaysleepcoach://auth/callback",
   "thirtydaysleepcoach://**",
   "thirtydaysleepcoach-dev://auth/callback",
@@ -27,4 +31,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.send-push-notifications]
+verify_jwt = false
+
+[functions.admin-test-users]
+# The handler verifies Auth with getUser; the DB checks the current admin role
+# and session. This also supports the browser's publishable API key.
 verify_jwt = false
