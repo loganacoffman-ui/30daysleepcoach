@@ -4,7 +4,7 @@ Visit `/admin/` (or `/admin`, which static hosting redirects to the directory). 
 
 ## Deploy and enable
 
-The existing main-branch workflows deploy the migration and `admin-test-users` Edge Function; Netlify publishes the static `admin/` directory. Both backend deployments must finish before the page can be used. No service-role key belongs in a browser or static file.
+The existing main-branch workflows deploy the migration and `admin-test-users` Edge Function; Netlify publishes the static `admin/` directory. The expanded fixtures require migration `20261007011246_expand_admin_test_fixtures.sql` and the updated function. Both backend deployments must finish before the page can be used. No service-role key belongs in a browser or static file.
 
 Google OAuth uses PKCE and returns to `/admin/` in the same browser tab. The callback exchanges the one-time code, removes it from browser history, and checks the current server-side admin role before opening the inventory. A successful Google login alone never grants admin access. Non-admin Google users are rejected and their separate admin session is signed out.
 
@@ -41,9 +41,9 @@ Admin creation sets the selected confirmation state and **does not send a confir
 
 ## Inventory and reuse
 
-The portal lists existing managed test accounts, with email confirmation, exact onboarding step, current check-in and coaching-report counts, concern, sleep window, timezone, creation time, last sign-in, and latest check-in date. These come from current app records, so continuing to use a test account updates its inventory state.
+The portal lists existing managed test accounts, with email confirmation, exact onboarding step, current check-in, coaching-report, conversation, message, and wearable-night counts, the last Mem0 submission receipt, concern, sleep window, timezone, creation time, last sign-in, and latest check-in date. These come from current app records, so continuing to use a test account updates its inventory state.
 
-Search by email, filter confirmation/onboarding status, or show only accounts matching the selected scenario. Matches compare current email status, onboarding step, concern, check-in count, and feedback count; they do not promise identical history contents or sleep settings. Matching accounts appear first, and the creation form shows a reuse notice. Copy an existing account's email and use its previously saved password. Passwords are never exposed in the inventory.
+Search by email, filter confirmation/onboarding status, or show only accounts matching the selected scenario. Matches compare current email status, onboarding step, concern, check-in, feedback, conversation, message, and wearable counts. Memory matching compares the last seeded scenario/custom facts, not current Mem0 contents. Matches do not promise identical history contents or sleep settings. Matching accounts appear first, and the creation form shows a reuse notice. Copy an existing account's email and use its previously saved password. Passwords are never exposed in the inventory.
 
 Accounts load in pages of 200; “Load more accounts” includes older users in the search and match results. Reset/delete works for every loaded page. Accounts whose protected identity changed remain visible for inspection but cannot be reset or deleted.
 
@@ -51,9 +51,20 @@ Accounts load in pages of 200; “Load more accounts” includes older users in 
 
 Presets cover an unconfirmed signup, unfinished onboarding, completed onboarding without history, one improving week, and 30 mixed check-ins. Override confirmation status, any onboarding resume step, concern, follow-up answer, sleep window, timezone, schedule variation, reminder time, check-in count (0–90), trend, feedback, and whether today is included. Incomplete onboarding requires zero check-ins.
 
-Fixtures populate native `sleep_profiles`, `daily_checkins`, `behavior_commitments`, `coach_recommendations`, and `app_open_days`, plus the web app's legacy `entries`. Scores use the explicit manual-sleep path. Wearable connections and device notification permissions are not fabricated. Reminder time is a stored preference, not a scheduled notification.
+Additional controls cover:
 
-The generator is deterministic and makes **zero LLM calls**. Feedback is labeled synthetic and stored as the normal historical coaching artifact. Normal in-app coaching may still call models when opening today, regenerating advice, chatting, or refreshing the profile; fixtures do not disable those product features or impersonate a valid server generation fingerprint.
+- **Conversations:** 0–20 threads, 1–30 user/coach exchanges each (up to 60 messages). Scripts cover wind-down habits, experiment outcomes, and corrected context. Messages use the real chat tables with synthetic metadata, timestamps, and assistant-to-user reply links, so history and continuation work normally.
+- **Mem0:** goals/preferences (3 facts), progress/outcomes (5), or corrections/resolved events (6), plus up to 20 custom facts of 300 characters each, one per line. Memories and chat history are independent: choose either or both. The tool sends explicit facts to the test user's actual UUID-scoped Mem0 store using [`infer: false`](https://docs.mem0.ai/api-reference/memory/add-memories), skipping extraction. The returned event ID and submitted fact count are saved in the inventory. Mem0 indexes asynchronously; a receipt is not a verified live count or a guarantee that indexing has finished. Normal chat memory extraction remains unchanged.
+- **Wearable history:** 0–90 synthetic Apple Health nights, including score, duration, stages, and efficiency. Apple Health becomes the preferred stored source. These rows exercise the app's stored-data path; they do not connect HealthKit or Oura or fabricate access tokens. Scores are labeled `synthetic-v1`, not a claim to reproduce the HealthKit scoring algorithm.
+- **Score source:** manual, wearable-only (missing when no wearable row exists), or alternating manual overrides. Feedback is created only for check-ins with usable sleep evidence and uses the same resolution key as the mobile app.
+- **Missed days:** every-other-day history for gaps in charts and adherence.
+- **Today's experiment:** absent, committed, completed, partial, or skipped, independent of today's check-in.
+
+The **Mobile tour** preset includes 14 check-ins and Apple Health nights through today, mixed manual overrides, 5 chats, and progress memories. **Memory corrections** tests old versus current context; **Long conversation** creates a 60-message thread; **Missed days** exercises the missing-score gate. Switching presets clears prior extended settings. Incomplete onboarding clears chat, memory, and wearable options.
+
+Fixtures populate native `sleep_profiles`, `daily_checkins`, `behavior_commitments`, `coach_recommendations`, `app_open_days`, `sleep_nights`, `coach_conversations`, and `coach_messages`, plus legacy web `entries`. Device permissions, push delivery, Oura OAuth, and email delivery still require their normal integrations. Reminder time is a stored preference, not a scheduled notification.
+
+Local fixture generation is deterministic and makes **zero LLM calls**. Optional Mem0 submission uses the external provider and its normal storage/embedding processing. Feedback is labeled synthetic and stored as the normal historical coaching artifact. Normal in-app coaching may still call models when opening today, regenerating advice, chatting, or refreshing the profile; fixtures do not disable those product features or impersonate a valid server generation fingerprint.
 
 Passwords are only sent to Supabase Auth. They are not stored in the registry, audit log, or browser storage by the tool. Save the password when creating the account.
 
@@ -71,14 +82,24 @@ Every operation requires all of:
 
 A prefix or a user-editable tag alone is insufficient. A collision on creation returns an error; it never adopts, overwrites, or cleans up the pre-existing account. Changing a managed user's email, protected marker, or admin role makes subsequent destructive operations fail closed. There is no bulk delete or arbitrary-email adoption endpoint.
 
-Reset and delete require typing the exact test email. Operations acquire a per-account lock; abandoned operations can be retried after 15 minutes. The reset's database deletion and reseeding are atomic. If a constraint/write fails, the previous local data survives. External Mem0 cleanup happens first and cannot participate in that database transaction; memory may already be removed when a later reset step fails.
+Reset and delete require confirming the exact test email. Reset offers a **Fill test email** button that inserts the selected account's email; you still click **Reset test account** to submit. Delete requires typing the email. Operations acquire a per-account lock; abandoned operations can be retried after 15 minutes. The reset's database deletion and reseeding are atomic. If a constraint/write fails, the previous local data survives. External Mem0 cleanup happens first and cannot participate in that database transaction; memory may already be removed when a later reset step fails. The operation stays locked through local seeding and Mem0 submission. A memory submission failure marks the account `error` while preserving the newly saved local fixtures. Refresh the inventory, wait for any timed-out provider work to settle, then reset the same account to retry. Avoid resetting or deleting while a newly submitted Mem0 event is still indexing.
 
 Delete removes app history and memory before using the Auth admin deletion API. The registry cascades on Auth deletion; the audit trail remains. If Auth deletion fails, the account stays listed with error status and can be deleted again. Any future user-owned app tables must be added to the explicit cleanup allowlist and SQL regression test. Storage files are not currently part of this app's account model; if added, implement guarded Storage API cleanup before Auth deletion.
 
 ## Verification
 
 - `npm test`: fixture and endpoint tests plus the existing web/shared suite.
-- `supabase/tests/admin_test_users.sql`: run after migrations in a local/disposable Supabase database; rolls back all inserted users. Covers privileges, ordinary-user rejection, registry/tag checks, concurrency, atomic rollback, confirmation reset, session/role revocation, cleanup, and audit retention.
+- `supabase/tests/admin_test_users.sql`: run after migrations in a local/disposable Supabase database; rolls back all inserted users. Covers privileges, ordinary-user rejection, registry/tag checks, concurrency, atomic rollback, confirmation reset, session/role revocation, chat ownership/reply links, wearable inserts, repeated reset without duplicates, memory-operation locks/receipts, cleanup, and audit retention.
 - The implementation was also exercised against the connected schema by running the migration plus SQL checks inside a single rollback transaction. No production roles/accounts or schema were retained by that verification.
 
 The Supabase security advisor's existing project findings were unchanged: intentional server-only RLS tables without client policies, and [leaked-password protection disabled](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection). The two new registry/audit tables intentionally have RLS without client policies; all access goes through the guarded function.
+
+## Mobile smoke test
+
+1. Create the Mobile tour preset, save its password, and sign in on the mobile app.
+2. Open Today: inspect the completed check-in, resolved sleep score, feedback, and experiment; change the experiment status.
+3. Open Coach history: inspect older threads and continue one. Use the long-conversation preset to exercise scrolling through 60 messages.
+4. After Mem0 indexing settles, start a fresh chat and ask what wind-down preferences or coffee cutoff the coach remembers. Use the corrections preset to check that ended work/travel is treated as past context.
+5. Inspect sleep charts and manual overrides. Reset with wearable-only scores and no nights to exercise missing evidence; use missed-day spacing to inspect gaps.
+6. Reset with today's check-in excluded and today's experiment absent to exercise the fresh daily flow. Reset to an incomplete-onboarding preset to test resuming setup.
+7. Sign out before reset, then sign back in to clear mobile caches. Delete the managed account when finished; cleanup includes both chat and wearable rows and Mem0.

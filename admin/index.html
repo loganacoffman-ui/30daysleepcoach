@@ -24,7 +24,7 @@
     </section>
     <p id="message" role="status" aria-live="polite"></p>
     <div id="workspace" hidden>
-      <div class="intro"><div><p class="eyebrow">TEST USER WORKSPACE</p><h1>Start at any stage.</h1><p>Create realistic sleep histories, replay onboarding, and clean up after a test.</p></div><span class="badge">0 LLM calls to generate</span></div>
+      <div class="intro"><div><p class="eyebrow">TEST USER WORKSPACE</p><h1>Start at any stage.</h1><p>Create realistic sleep histories, replay onboarding, and clean up after a test.</p></div><span class="badge">DETERMINISTIC FIXTURES</span></div>
       <p class="notice">Only accounts created by this tool can be managed here. Reset and delete verify protected test tags and the account registry on the server.</p>
       <div class="workspace-tabs" role="tablist" aria-label="Test account tools">
         <button type="button" id="scenario-tab" role="tab" aria-selected="true" aria-controls="scenario-panel">Build a test scenario</button>
@@ -33,7 +33,7 @@
       <div class="workspace-panels">
         <section id="scenario-panel" class="card" role="tabpanel" aria-labelledby="scenario-tab"><h2>Build a test scenario</h2>
           <form id="scenario-form">
-            <label>Start with a preset<select id="preset"><option value="week">One week · improving sleep</option><option value="new">New signup · unconfirmed</option><option value="onboarding">Confirmed · onboarding unfinished</option><option value="ready">Onboarding complete · no check-ins</option><option value="month">30 check-ins · mixed results</option></select></label>
+            <label>Start with a preset<select id="preset"><option value="week">One week · improving sleep</option><option value="new">New signup · unconfirmed</option><option value="onboarding">Confirmed · onboarding unfinished</option><option value="ready">Onboarding complete · no check-ins</option><option value="month">30 check-ins · mixed results</option><option value="full">Mobile tour · chats, memory, wearable history</option><option value="recall">Memory corrections · returning user</option><option value="longChat">Long conversation · 60 messages</option><option value="missing">Missed days · no sleep scores</option></select></label>
             <div class="pair"><label>Email status<select name="emailConfirmed"><option value="true">Confirmed</option><option value="false">Unconfirmed</option></select></label>
             <label>Onboarding state<select name="onboardingStep"><option value="intro">Not started</option><option value="concern">Choosing a concern</option><option value="window">Setting sleep times</option><option value="followup">Answering follow-up</option><option value="results">Viewing results</option><option value="wearable">Connecting a wearable</option><option value="reminder">Setting a reminder</option><option value="complete" selected>Complete</option></select></label></div>
             <label>Primary concern<select name="primaryConcern"><option value="night_waking">Waking during the night</option><option value="falling_asleep">Falling asleep</option><option value="early_waking">Waking too early</option><option value="unrefreshed">Waking unrefreshed</option><option value="irregular_schedule">Irregular schedule</option></select></label>
@@ -43,8 +43,20 @@
             <label class="check"><input name="scheduleVaries" type="checkbox"> Sleep schedule varies</label>
             <div class="pair"><label>Check-ins<input name="checkinCount" type="number" min="0" max="90" value="7" required></label><label>Sleep trend<select name="trend"><option value="improving">Improving</option><option value="mixed">Mixed</option><option value="struggling">Struggling</option></select></label></div>
             <label class="check"><input name="feedback" type="checkbox" checked> Add synthetic coaching feedback</label>
-            <label class="check"><input name="includeToday" type="checkbox"> Include a completed check-in today</label>
-            <p class="hint">History ends yesterday by default, leaving today ready to test. Scores are manual; wearable connections are not simulated. Reminder preferences do not send notifications.</p>
+            <label class="check"><input name="includeToday" type="checkbox"> Include today in generated history</label>
+            <div class="pair"><label>History spacing<select name="historySpacing"><option value="daily">Every day</option><option value="gaps">Every other day · missed days</option></select></label><label>Today’s experiment<select name="todayCommitment"><option value="committed">Committed</option><option value="none">None · choose an experiment</option><option value="completed">Completed</option><option value="partial">Partially completed</option><option value="skipped">Skipped</option></select></label></div>
+            <h3>Sleep data</h3>
+            <div class="pair"><label>Apple Health nights<input name="wearableCount" type="number" min="0" max="90" value="0" required></label><label>Check-in sleep scores<select name="scoreMode"><option value="manual">Manual scores</option><option value="wearable">Use wearable · missing if unavailable</option><option value="mixed">Manual override on alternating check-ins</option></select></label></div>
+            <p class="hint">History ends yesterday unless today is included. Apple Health samples exercise stored sleep data and charts. Connecting a wearable and granting permissions still require a device. Reminders are preferences and do not send notifications.</p>
+            <h3>Coach conversations</h3>
+            <div class="pair"><label>Conversations<input name="chatCount" type="number" min="0" max="20" value="0" required></label><label>User/coach exchanges per conversation<input name="chatTurns" type="number" min="1" max="30" value="3" required></label></div>
+            <p class="hint">Alternating user and coach messages cover routines, experiment follow-ups, and corrected context. Open and continue them in the mobile Coach tab. Select 30 exchanges to test a long thread.</p>
+            <h3>Coaching memory · Mem0</h3>
+            <label>Memory scenario<select name="memoryScenario"><option value="none">No preset memories</option><option value="preferences">Goals and preferences · 3 facts</option><option value="progress">Experiment outcomes · 5 facts</option><option value="corrections">Corrections and resolved events · 6 facts</option></select></label>
+            <label>Additional synthetic facts<textarea name="customMemories" rows="4" maxlength="6000" placeholder="I prefer reading a paper book before bed.&#10;My work trip ended and I am back to my normal schedule."></textarea></label>
+            <p class="hint">Optional: one fact per line, up to 20 facts and 300 characters each. These are sent to this test user’s real Mem0 store, independently of chat history. Indexing may take a moment.</p>
+            <p id="memory-availability" class="hint"></p>
+            <p id="scenario-summary" class="notice" role="status"></p>
             <hr><h3>Create a new account</h3><p id="reuse-hint" class="notice" role="status"></p>
             <label>Test name<input name="alias" pattern="[a-z0-9][a-z0-9-]{0,31}" maxlength="32" placeholder="demo-week" required></label>
             <p id="email-preview" class="hint"></p>
@@ -57,10 +69,10 @@
         <section id="inventory-panel" class="card accounts" role="tabpanel" aria-labelledby="inventory-tab" hidden><div class="section-heading"><h2>Test account inventory</h2><button id="refresh">Refresh</button></div><p class="hint">Reset uses the settings in the “Build a test scenario” tab and preserves the email, password, and user ID. Sign out of the test app before resetting, then sign back in to clear cached data.</p><label>Search test email<input id="inventory-search" type="search" placeholder="Search existing accounts"></label>
           <div class="pair"><label>Filter email status<select id="filter-confirmation"><option value="all">Any status</option><option value="confirmed">Confirmed</option><option value="unconfirmed">Unconfirmed</option></select></label><label>Filter onboarding<select id="filter-onboarding"><option value="all">Any stage</option><option value="complete">Complete</option><option value="incomplete">Incomplete</option></select></label></div>
           <label class="check"><input id="filter-matches" type="checkbox"> Only accounts matching the selected state</label>
-          <p class="hint">Matches compare current email status, onboarding step, concern, check-in count, and feedback count. Check sleep times and other details before reusing an account.</p>
+          <p class="hint">Matches compare current email status, onboarding step, concern, check-ins, feedback, chats, messages, and wearable counts. Memory matches use the last seeded scenario and custom facts; counts are submission receipts, not live Mem0 counts. Check sleep times and other details before reusing an account.</p>
           <p id="inventory-summary" class="hint" role="status"></p><div id="accounts"></div><button id="load-more" hidden>Load more accounts</button></section>
       </div>
     </div>
-    <dialog id="confirm-dialog"><form method="dialog" id="confirm-form"><h2 id="confirm-title"></h2><p id="confirm-description"></p><label>Type the exact test email<input id="confirm-email" autocomplete="off" required></label><div class="actions"><button type="button" id="cancel-confirm">Cancel</button><button class="danger" id="confirm-action" type="submit">Confirm</button></div></form></dialog>
+    <dialog id="confirm-dialog"><form method="dialog" id="confirm-form"><h2 id="confirm-title"></h2><p id="confirm-description"></p><label>Confirm the exact test email<input id="confirm-email" autocomplete="off" required></label><button type="button" id="fill-confirm-email" hidden>Fill test email</button><div class="actions"><button type="button" id="cancel-confirm">Cancel</button><button class="danger" id="confirm-action" type="submit">Confirm</button></div></form></dialog>
   </main>
 </body></html>

@@ -3,3 +3,5 @@
 .inventory-match{display:table;margin-top:10px}.actions{flex-wrap:wrap}#reuse-hint{font-size:12px}#load-more{margin-top:18px}
 
 .google-login{width:100%;font-size:14px;padding:13px;margin:10px 0 12px;border-color:#aebfc2}.login-divider{text-align:center;font-size:12px;margin:22px 0;color:var(--muted)}
+
+textarea{width:100%;resize:vertical;padding:11px 12px;border:1px solid #c8d4d5;border-radius:7px;color:var(--ink);font:14px/1.5 system-ui;margin-top:6px}textarea:focus{outline:3px solid #aed4ca;outline-offset:2px}

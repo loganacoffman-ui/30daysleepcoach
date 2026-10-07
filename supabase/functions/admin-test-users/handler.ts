@@ -17,6 +17,8 @@ export function makeHandler(deps: {
   admin: AdminClient;
   caller: (jwt: string) => CallerClient;
   deleteMemories: (userId: string) => Promise<void>;
+  seedMemories: (userId: string, facts: string[], operationId: string) => Promise<{ eventId: string | null }>;
+  memoryEnabled: boolean;
   domain: string;
 }) {
   const origins = ['https://30daysleepcoach.com', 'https://www.30daysleepcoach.com', 'http://localhost:8000', 'http://127.0.0.1:8000'];
@@ -50,7 +52,7 @@ export function makeHandler(deps: {
         if (failure) {
           if (failure.code === '42501') throw new TestUserError('Admin or test-account safety check failed.', 403);
           if (failure.code === '55P03') throw new TestUserError('Another operation is in progress. Retry later.', 409);
-          throw new TestUserError('The database operation failed. Refresh the list and retry; existing data is preserved when a reset fails.', 500);
+          throw new TestUserError('The database step failed. Refresh the inventory before retrying; earlier completed steps may already be saved.', 500);
         }
         return result;
       };
@@ -65,12 +67,34 @@ export function makeHandler(deps: {
         const page = body.page ?? 0;
         if (typeof page !== 'number' || !Number.isInteger(page) || page < 0 || page > 100000) throw new TestUserError('Invalid inventory page.');
         const pageUsers = page === 0 ? users : await rpc('list', undefined, { page }) as Registry[];
-        return reply({ users: pageUsers, domain: deps.domain, hasMore: pageUsers.length === 200 });
+        return reply({ users: pageUsers, domain: deps.domain, memoryEnabled: deps.memoryEnabled, hasMore: pageUsers.length === 200 });
       }
       if (typeof body.action !== 'string' || !['create', 'reset', 'delete'].includes(body.action)) throw new TestUserError('Unknown action.');
       const token = crypto.randomUUID();
+      const seed = async (userId: string, options: ReturnType<typeof parseOptions>) => {
+        const fixtures = buildFixtures(options);
+        const { memories, ...localFixtures } = fixtures;
+        await rpc!('seed', userId, { operation_id: token, fixtures: localFixtures, defer_finish: true });
+        let eventId: string | null = null;
+        if (memories.length) {
+          try {
+            ({ eventId } = await deps.seedMemories(userId, memories, token));
+          } catch {
+            throw new TestUserError('App fixtures were saved, but Mem0 submission failed or timed out. Memory may be partial. Wait a minute, then reset this account to retry; do not create a duplicate.', 502);
+          }
+        }
+        await rpc!('finish', userId, { operation_id: token, memory_count: memories.length, memory_event_id: eventId });
+        return { chats: fixtures.conversations.length, messages: fixtures.conversations.reduce((sum, row) => sum + row.messages.length, 0),
+          wearableNights: fixtures.sleepNights.length, memoryFactsSubmitted: memories.length, memoryEventId: eventId };
+      };
+      const validateMemory = (options: ReturnType<typeof parseOptions>) => {
+        if ((options.memoryScenario !== 'none' || options.customMemories) && !deps.memoryEnabled) {
+          throw new TestUserError('Mem0 is not configured. Add MEM0_API_KEY to the admin-test-users function or choose no memories.', 503);
+        }
+      };
       if (body.action === 'create') {
         const options = parseOptions(body.options);
+        validateMemory(options);
         const email = testEmail(body.alias, deps.domain);
         if (typeof body.password !== 'string' || body.password.length < 12 || body.password.length > 128) {
           throw new TestUserError('Use a password of 12–128 characters.');
@@ -97,15 +121,16 @@ export function makeHandler(deps: {
           throw registerError;
         }
         claimed = { id: user.id, token };
-        await rpc('seed', user.id, { operation_id: token, fixtures: buildFixtures(options) });
+        const summary = await seed(user.id, options);
         claimed = undefined;
-        return reply({ ok: true, email, userId: user.id });
+        return reply({ ok: true, email, userId: user.id, summary });
       }
       if (typeof body.userId !== 'string' || !/^[0-9a-f-]{36}$/i.test(body.userId)) throw new TestUserError('Choose a managed test account.');
       // Inspect the exact registered UUID so older inventory pages remain usable.
       const registry = await rpc('inspect', body.userId) as Registry;
       if (!registry || registry.user_id !== body.userId || body.confirmEmail !== registry.email) throw new TestUserError('Type the exact test email to confirm this operation.');
       const options = body.action === 'reset' ? parseOptions(body.options) : undefined;
+      if (options) validateMemory(options);
       await rpc('claim', body.userId, { operation_id: token });
       claimed = { id: body.userId, token };
       const { data: target, error: targetError } = await deps.admin.auth.admin.getUserById(body.userId);
@@ -114,8 +139,9 @@ export function makeHandler(deps: {
       // External memory must be removed before replacing/deleting the identity.
       // Failure leaves local data intact and releases the operation for retry.
       await deps.deleteMemories(body.userId);
+      let summary;
       if (body.action === 'reset') {
-        await rpc('seed', body.userId, { operation_id: token, fixtures: buildFixtures(options!) });
+        summary = await seed(body.userId, options!);
       } else {
         await rpc('clear', body.userId, { operation_id: token });
         const { data: current, error: currentError } = await deps.admin.auth.admin.getUserById(body.userId);
@@ -125,7 +151,7 @@ export function makeHandler(deps: {
         if (deleteError) throw new TestUserError('App data was cleared, but Auth deletion failed. The test account remains listed; retry Delete.', 500);
       }
       claimed = undefined;
-      return reply({ ok: true, email: registry.email, userId: body.userId });
+      return reply({ ok: true, email: registry.email, userId: body.userId, summary });
     } catch (error) {
       if (claimed && rpc) {
         try { await rpc('fail', claimed.id, { operation_id: claimed.token }); } catch { /* abandoned lock expires after 15 minutes */ }

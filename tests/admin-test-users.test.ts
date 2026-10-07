@@ -17,11 +17,12 @@ function harness(overrides: Record<string, any> = {}) {
     },
   } };
   const deleteMemories = vi.fn(async () => {});
-  const handler = makeHandler({ admin, caller: () => ({ rpc }), deleteMemories, domain: 'example.test', ...overrides });
+  const seedMemories = vi.fn(async (_userId: string, _facts: string[], _operationId: string) => ({ eventId: 'memory-event' }));
+  const handler = makeHandler({ admin, caller: () => ({ rpc }), deleteMemories, seedMemories, memoryEnabled: true, domain: 'example.test', ...overrides });
   const request = (body: unknown, token = 'session') => handler(new Request('https://example.test', {
     method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: JSON.stringify(body),
   }));
-  return { admin, rpc, deleteMemories, request };
+  return { admin, rpc, deleteMemories, seedMemories, request };
 }
 describe('deterministic test fixtures', () => {
   it('supports owned domains without accepting a caller-supplied email', () => {
@@ -113,7 +114,7 @@ describe('admin endpoint authorization and destructive safety', () => {
   it('resets a guarded account without replacing its identity or password', async () => {
     const h = harness();
     expect((await h.request({ action: 'reset', userId: id, confirmEmail: email, options: defaultOptions })).status).toBe(200);
-    expect(h.rpc.mock.calls.map(([, args]) => args.p_action)).toEqual(['list', 'inspect', 'claim', 'seed']);
+    expect(h.rpc.mock.calls.map(([, args]) => args.p_action)).toEqual(['list', 'inspect', 'claim', 'seed', 'finish']);
     expect(h.admin.auth.admin.createUser).not.toHaveBeenCalled(); expect(h.admin.auth.admin.deleteUser).not.toHaveBeenCalled();
   });
   it('cleans up only the exact guarded identity and rechecks before Auth deletion', async () => {
@@ -137,7 +138,7 @@ describe('create lifecycle', () => {
     h.admin.auth.admin.createUser.mockImplementation(async (attributes: any) => ({ data: { user: { ...target, email: attributes.email, app_metadata: attributes.app_metadata } }, error: null }));
     const response = await h.request({ action: 'create', alias: 'demo', password: 'long-test-password', options: defaultOptions });
     expect(response.status).toBe(200);
-    expect(h.rpc.mock.calls.map(([, args]) => args.p_action)).toEqual(['list', 'register', 'seed']);
+    expect(h.rpc.mock.calls.map(([, args]) => args.p_action)).toEqual(['list', 'register', 'seed', 'finish']);
     expect(h.deleteMemories).not.toHaveBeenCalled();
     expect(h.admin.auth.admin.createUser.mock.calls[0][0]).not.toHaveProperty('user_metadata');
   });
@@ -165,5 +166,90 @@ describe('inventory pagination', () => {
     h.rpc.mockImplementation(async (_name, args) => ({ data: args.p_action === 'list' ? [] : registry, error: null }));
     expect((await h.request({ action: 'reset', userId: id, confirmEmail: email, options: defaultOptions })).status).toBe(200);
     expect(h.rpc.mock.calls.map(([, args]) => args.p_action)).toContain('inspect');
+  });
+});
+
+
+describe('expanded mobile scenarios', () => {
+  it('seeds bounded, chronological chats with both roles and readable history', () => {
+    const f = buildFixtures(parseOptions({ chatCount: 20, chatTurns: 30 }), new Date('2026-10-07T01:00:00Z'));
+    expect(f.conversations).toHaveLength(20);
+    for (const chat of f.conversations) {
+      expect(chat.messages).toHaveLength(60);
+      expect(chat.messages.map(m => m.role)).toEqual(Array.from({ length: 30 }, () => ['user', 'assistant']).flat());
+      expect(chat.messages.every(m => m.metadata.synthetic && m.content.length > 0)).toBe(true);
+      expect(chat.updated_at).toBe(chat.messages.at(-1)?.created_at);
+      expect(Date.parse(chat.updated_at)).toBeGreaterThan(Date.parse(chat.created_at));
+    }
+  });
+  it('can seed memories independently of chat history with dated corrections and custom facts', () => {
+    const f = buildFixtures(parseOptions({ memoryScenario: 'corrections', customMemories: ' I like reading.\n\nI stopped late coffee. ' }), new Date('2026-10-07T01:00:00Z'));
+    expect(f.conversations).toEqual([]);
+    expect(f.memories).toHaveLength(8);
+    expect(f.memories.join(' ')).toContain('Correction as of 2026-10-06');
+    expect(f.memories.slice(-2)).toEqual(['I like reading.', 'I stopped late coffee.']);
+  });
+  it('rejects excessive counts, malformed memories, and history before onboarding', () => {
+    for (const invalid of [{ chatCount: 21 }, { chatTurns: 0 }, { chatTurns: 31 }, { wearableCount: 91 }, { chatCount: '2' },
+      { customMemories: 'a'.repeat(301) }, { customMemories: Array(21).fill('fact').join('\n') }, { customMemories: null },
+      { memoryScenario: 'unknown' }, { onboardingStep: 'intro', checkinCount: 0, chatCount: 1 }]) {
+      expect(() => parseOptions(invalid)).toThrow();
+    }
+  });
+  it('supports wearable scores, manual overrides, missed days, and missing-score feedback gates', () => {
+    const o = parseOptions({ wearableCount: 3, checkinCount: 7, scoreMode: 'mixed', historySpacing: 'gaps', todayCommitment: 'none' });
+    const f = buildFixtures(o, new Date('2026-10-07T01:00:00Z'));
+    expect(f.sleepNights).toHaveLength(3);
+    expect(f.checkins.map(c => c.checkin_date)).toEqual(['2026-09-23', '2026-09-25', '2026-09-27', '2026-09-29', '2026-10-01', '2026-10-03', '2026-10-05']);
+    expect(f.recommendations).toHaveLength(5);
+    expect(f.recommendations.at(-2)?.source_context.sleep_resolution_key).toContain('apple_health');
+    expect(f.recommendations.at(-1)?.source_context.sleep_resolution_key).toContain('manual');
+    expect(f.commitments.some(c => c.behavior_date === '2026-10-06')).toBe(false);
+    const missing = buildFixtures(parseOptions({ scoreMode: 'wearable', wearableCount: 0 }));
+    expect(missing.recommendations).toEqual([]);
+    expect(missing.checkins.every(c => c.manual_sleep_score === null && c.manual_sleep_submitted_at === null)).toBe(true);
+  });
+  it('sets today’s selected commitment even when a check-in already exists', () => {
+    for (const todayCommitment of ['none', 'committed', 'partial', 'skipped', 'completed'] as const) {
+      const f = buildFixtures(parseOptions({ includeToday: true, todayCommitment }), new Date('2026-10-07T01:00:00Z'));
+      expect(f.commitments.find(c => c.behavior_date === '2026-10-06')?.status).toBe(todayCommitment === 'none' ? undefined : todayCommitment);
+    }
+  });
+  it('holds the lock until Mem0 accepts facts and records an honest submission receipt', async () => {
+    const h = harness();
+    const response = await h.request({ action: 'reset', userId: id, confirmEmail: email, options: { memoryScenario: 'progress', chatCount: 2 } });
+    expect(response.status).toBe(200);
+    expect(h.seedMemories).toHaveBeenCalledWith(id, expect.any(Array), expect.any(String));
+    expect(h.seedMemories.mock.calls[0][1]).toHaveLength(5);
+    const calls = h.rpc.mock.calls.map(([, args]) => args);
+    const seed = calls.find(args => args.p_action === 'seed')!;
+    expect(seed.p_payload.defer_finish).toBe(true);
+    expect(seed.p_payload.fixtures).not.toHaveProperty('memories');
+    expect(calls.at(-1)?.p_payload).toMatchObject({ memory_count: 5, memory_event_id: 'memory-event' });
+    expect((await response.json()).summary).toMatchObject({ chats: 2, messages: 12, memoryFactsSubmitted: 5 });
+  });
+  it('fails before account creation or reset cleanup when requested memory is unconfigured', async () => {
+    const h = harness({ memoryEnabled: false });
+    expect((await h.request({ action: 'create', alias: 'demo', password: 'long-test-password', options: { memoryScenario: 'preferences' } })).status).toBe(503);
+    expect((await h.request({ action: 'reset', userId: id, confirmEmail: email, options: { customMemories: 'Fact' } })).status).toBe(503);
+    expect(h.admin.auth.admin.createUser).not.toHaveBeenCalled();
+    expect(h.deleteMemories).not.toHaveBeenCalled();
+  });
+  it('keeps partial memory failures visible and retryable without claiming completion', async () => {
+    const h = harness(); h.seedMemories.mockRejectedValue(new Error('provider failure'));
+    const response = await h.request({ action: 'reset', userId: id, confirmEmail: email, options: { memoryScenario: 'preferences' } });
+    expect(response.status).toBe(502);
+    expect((await response.json()).error).toContain('App fixtures were saved');
+    expect(h.rpc.mock.calls.map(([, args]) => args.p_action)).toEqual(['list', 'inspect', 'claim', 'seed', 'fail']);
+    expect(h.admin.auth.admin.deleteUser).not.toHaveBeenCalled();
+  });
+  it('never submits memories when local seeding fails or target tags changed', async () => {
+    const h = harness();
+    h.rpc.mockImplementation(async (_name, args) => args.p_action === 'seed' ? { data: null, error: { code: '23514' } } as any : { data: registry, error: null });
+    expect((await h.request({ action: 'reset', userId: id, confirmEmail: email, options: { memoryScenario: 'progress' } })).status).toBe(500);
+    expect(h.seedMemories).not.toHaveBeenCalled();
+    h.admin.auth.admin.getUserById.mockResolvedValue({ data: { user: { ...target, app_metadata: {} } } } as any);
+    expect((await h.request({ action: 'reset', userId: id, confirmEmail: email, options: { memoryScenario: 'progress' } })).status).toBe(403);
+    expect(h.seedMemories).not.toHaveBeenCalled();
   });
 });

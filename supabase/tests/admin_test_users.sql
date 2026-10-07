@@ -59,6 +59,13 @@ begin
     'entries',jsonb_build_array(jsonb_build_object('date','Oct 1, 2026','ts',1790856000000,'hrv',55,'sleep_score',75,
       'bedtime','22:30','waketime','06:30','night_wake','1','note','Synthetic note','pos','[]'::jsonb,'neg','[]'::jsonb))
   );
+  fixtures := fixtures || jsonb_build_object(
+    'sleepNights', jsonb_build_array(jsonb_build_object('sleep_date','2026-10-01','sleep_score',80,
+      'total_sleep_minutes',420,'awake_minutes',30,'in_bed_minutes',450,'rem_minutes',80,'deep_minutes',60,
+      'core_minutes',280,'sleep_efficiency',0.93,'timezone','America/Los_Angeles','synced_at',now())),
+    'conversations', jsonb_build_array(jsonb_build_object('title','[Synthetic] Test chat','created_at',now(),'updated_at',now(),
+      'messages',jsonb_build_array(jsonb_build_object('role','user','content','I tried reading before bed.','created_at',now(), 'user_id',ids.normal_id),
+        jsonb_build_object('role','assistant','content','How did the next morning feel?','created_at',now() + interval '1 minute')))));
   payload := jsonb_build_object('operation_id',ids.operation_id,'fixtures',fixtures);
   perform public.admin_test_user_action('seed',ids.test_id,payload);
   if (select count(*) from public.daily_checkins where user_id=ids.test_id) <> 1
@@ -67,9 +74,18 @@ begin
     or (select email_confirmed_at is null from auth.users where id=ids.test_id) then
     raise exception 'Seed state incorrect';
   end if;
+  if (select count(*) from public.coach_conversations where user_id=ids.test_id) <> 1
+    or (select count(*) from public.coach_messages where user_id=ids.test_id) <> 2
+    or (select count(*) from public.sleep_nights where user_id=ids.test_id) <> 1
+    or exists(select 1 from public.coach_messages where user_id=ids.normal_id)
+    or not exists(select 1 from public.coach_messages a join public.coach_messages u on a.metadata->>'responding_to'=u.id::text
+      where a.user_id=ids.test_id and u.role='user' and a.role='assistant' and a.conversation_id=u.conversation_id) then
+    raise exception 'Expanded fixtures were not correctly scoped or linked';
+  end if;
   select value into listed from jsonb_array_elements(public.admin_test_user_action('list'))
     where value->>'user_id' = ids.test_id::text;
-  if listed->>'onboarding_step' <> 'complete' or (listed->>'checkin_count')::integer <> 1
+  if (listed->>'chat_count')::integer <> 1 or (listed->>'message_count')::integer <> 2 or (listed->>'wearable_count')::integer <> 1
+    or listed->>'onboarding_step' <> 'complete' or (listed->>'checkin_count')::integer <> 1
     or (listed->>'feedback_count')::integer <> 1 or listed->>'primary_concern' <> 'night_waking'
     or listed->>'last_checkin_date' <> '2026-10-01' or not (listed->>'manageable')::boolean then
     raise exception 'Inventory does not reflect current account state';
@@ -83,13 +99,29 @@ begin
   exception when lock_not_available then denied := true; end;
   if not denied then raise exception 'Concurrent mutation allowed'; end if;
 
+  -- Preserve the operation lock across local commit and asynchronous memory submission.
+  perform public.admin_test_user_action('seed',ids.test_id,payload || '{"defer_finish":true}');
+  if (select status <> 'working' or operation_id is null from public.admin_test_users where user_id=ids.test_id) then
+    raise exception 'Seed released memory operation lock early'; end if;
+  denied := false;
+  begin perform public.admin_test_user_action('finish',ids.test_id,jsonb_build_object('operation_id',gen_random_uuid(),'memory_count',3));
+  exception when insufficient_privilege then denied := true; end;
+  if not denied then raise exception 'Unowned operation finalized'; end if;
+  perform public.admin_test_user_action('finish',ids.test_id,jsonb_build_object('operation_id',ids.operation_id,'memory_count',3,'memory_event_id','test-event'));
+  if (select status <> 'ready' or operation_id is not null or memory_seed->>'facts_submitted' <> '3'
+    from public.admin_test_users where user_id=ids.test_id) then raise exception 'Memory receipt not persisted'; end if;
+  if (select count(*) from public.coach_messages where user_id=ids.test_id) <> 2 then raise exception 'Reset duplicated chat history'; end if;
+  perform public.admin_test_user_action('claim',ids.test_id,payload);
+
   -- A constraint failure after deletes must roll back the whole reset.
   denied := false;
   begin perform public.admin_test_user_action('seed',ids.test_id,
     jsonb_set(payload,'{fixtures,checkins,0,manual_sleep_score}','999'::jsonb));
   exception when check_violation then denied := true; end;
   if not denied or (select count(*) from public.entries where user_id=ids.test_id) <> 1
-    or (select count(*) from public.daily_checkins where user_id=ids.test_id) <> 1 then
+    or (select count(*) from public.daily_checkins where user_id=ids.test_id) <> 1
+    or (select count(*) from public.coach_messages where user_id=ids.test_id) <> 2
+    or (select count(*) from public.sleep_nights where user_id=ids.test_id) <> 1 then
     raise exception 'Failed reset lost existing data';
   end if;
   -- Reset confirmed -> unconfirmed and revoke all refreshable test sessions.
