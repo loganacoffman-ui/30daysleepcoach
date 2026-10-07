@@ -7,6 +7,29 @@ const adminClient = supabase.createClient(ADMIN_SUPABASE_URL, ADMIN_PUBLIC_KEY, 
 });
 const byId = id => document.getElementById(id);
 const form = byId('scenario-form');
+const workspaceTabs = [...document.querySelectorAll('.workspace-tabs [role="tab"]')];
+function selectWorkspaceTab(selectedTab) {
+  for (const tab of workspaceTabs) {
+    const selected = tab === selectedTab;
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+    byId(tab.getAttribute('aria-controls')).hidden = !selected;
+  }
+}
+workspaceTabs.forEach((tab, index) => {
+  tab.addEventListener('click', () => selectWorkspaceTab(tab));
+  tab.addEventListener('keydown', event => {
+    let nextIndex;
+    if (event.key === 'ArrowRight') nextIndex = (index + 1) % workspaceTabs.length;
+    else if (event.key === 'ArrowLeft') nextIndex = (index - 1 + workspaceTabs.length) % workspaceTabs.length;
+    else if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = workspaceTabs.length - 1;
+    else return;
+    event.preventDefault();
+    selectWorkspaceTab(workspaceTabs[nextIndex]);
+    workspaceTabs[nextIndex].focus();
+  });
+});
 let domain = 'example.test';
 let pending;
 let busy = false;

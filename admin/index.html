@@ -26,8 +26,12 @@
     <div id="workspace" hidden>
       <div class="intro"><div><p class="eyebrow">TEST USER WORKSPACE</p><h1>Start at any stage.</h1><p>Create realistic sleep histories, replay onboarding, and clean up after a test.</p></div><span class="badge">0 LLM calls to generate</span></div>
       <p class="notice">Only accounts created by this tool can be managed here. Reset and delete verify protected test tags and the account registry on the server.</p>
-      <div class="layout">
-        <section class="card"><h2>Build a test scenario</h2>
+      <div class="workspace-tabs" role="tablist" aria-label="Test account tools">
+        <button type="button" id="scenario-tab" role="tab" aria-selected="true" aria-controls="scenario-panel">Build a test scenario</button>
+        <button type="button" id="inventory-tab" role="tab" aria-selected="false" aria-controls="inventory-panel" tabindex="-1">Test account inventory</button>
+      </div>
+      <div class="workspace-panels">
+        <section id="scenario-panel" class="card" role="tabpanel" aria-labelledby="scenario-tab"><h2>Build a test scenario</h2>
           <form id="scenario-form">
             <label>Start with a preset<select id="preset"><option value="week">One week · improving sleep</option><option value="new">New signup · unconfirmed</option><option value="onboarding">Confirmed · onboarding unfinished</option><option value="ready">Onboarding complete · no check-ins</option><option value="month">30 check-ins · mixed results</option></select></label>
             <div class="pair"><label>Email status<select name="emailConfirmed"><option value="true">Confirmed</option><option value="false">Unconfirmed</option></select></label>
@@ -50,7 +54,7 @@
             <button type="submit" class="primary">Create test account</button>
           </form>
         </section>
-        <section class="card accounts"><div class="section-heading"><h2>Test account inventory</h2><button id="refresh">Refresh</button></div><p class="hint">Reset uses the scenario on the left and preserves the email, password, and user ID. Sign out of the test app before resetting, then sign back in to clear cached data.</p><label>Search test email<input id="inventory-search" type="search" placeholder="Search existing accounts"></label>
+        <section id="inventory-panel" class="card accounts" role="tabpanel" aria-labelledby="inventory-tab" hidden><div class="section-heading"><h2>Test account inventory</h2><button id="refresh">Refresh</button></div><p class="hint">Reset uses the settings in the “Build a test scenario” tab and preserves the email, password, and user ID. Sign out of the test app before resetting, then sign back in to clear cached data.</p><label>Search test email<input id="inventory-search" type="search" placeholder="Search existing accounts"></label>
           <div class="pair"><label>Filter email status<select id="filter-confirmation"><option value="all">Any status</option><option value="confirmed">Confirmed</option><option value="unconfirmed">Unconfirmed</option></select></label><label>Filter onboarding<select id="filter-onboarding"><option value="all">Any stage</option><option value="complete">Complete</option><option value="incomplete">Incomplete</option></select></label></div>
           <label class="check"><input id="filter-matches" type="checkbox"> Only accounts matching the selected state</label>
           <p class="hint">Matches compare current email status, onboarding step, concern, check-in count, and feedback count. Check sleep times and other details before reusing an account.</p>
