@@ -510,6 +510,7 @@ function AppContent() {
       return (
         <Onboarding
           key={session.user.id}
+          onCancel={signOut}
           onComplete={completeOnboarding}
           session={session}
         />
