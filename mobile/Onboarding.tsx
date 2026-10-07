@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  BackHandler,
   LayoutChangeEvent,
   Linking,
   PanResponder,
@@ -80,6 +81,7 @@ type FollowUp = {
 type OnboardingProps = {
   session: Session;
   onComplete: () => void | Promise<void>;
+  onCancel: () => void;
 };
 
 const concernOptions: ConcernOption[] = [
@@ -262,7 +264,7 @@ const getSummary = (answers: IntakeAnswers) => {
   ];
 };
 
-export function Onboarding({ session, onComplete }: OnboardingProps) {
+export function Onboarding({ session, onComplete, onCancel }: OnboardingProps) {
   const [step, setStep] = useState<Step>('intro');
   const [timezone, setTimezone] = useState(detectTimeZone);
   const [answers, setAnswers] = useState<IntakeAnswers>({});
@@ -381,6 +383,19 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
       mounted = false;
     };
   }, [onComplete, session.user.id]);
+
+  useEffect(() => {
+    if (step !== 'intro') {
+      return;
+    }
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      onCancel();
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, [onCancel, step]);
 
   const transitionTo = (nextStep: Step, direction = 1) =>
     new Promise<void>((resolve) => {
@@ -698,7 +713,18 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
   }
 
   const renderBackButton = () =>
-    step !== 'intro' ? (
+    step === 'intro' ? (
+      <Pressable
+        accessibilityLabel="Cancel and return to sign in"
+        accessibilityRole="button"
+        disabled={saving}
+        hitSlop={12}
+        onPress={onCancel}
+        style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+      >
+        <Text style={styles.backButtonText}>Cancel</Text>
+      </Pressable>
+    ) : (
       <Pressable
         accessibilityRole="button"
         disabled={saving}
@@ -708,8 +734,6 @@ export function Onboarding({ session, onComplete }: OnboardingProps) {
       >
         <Text style={styles.backButtonText}>← Back</Text>
       </Pressable>
-    ) : (
-      <View style={styles.backButtonPlaceholder} />
     );
 
   const renderStep = () => {
@@ -1160,9 +1184,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     justifyContent: 'center',
     minHeight: 48,
-  },
-  backButtonPlaceholder: {
-    height: 48,
   },
   backButtonText: {
     color: colors.textMuted,
