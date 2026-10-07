@@ -13,13 +13,13 @@
     <section id="login-panel" class="card narrow">
       <p class="eyebrow">ADMIN ACCESS</p><h1>A separate space<br>for testing.</h1>
       <p>Sign in with an administrator account. Your regular app session stays separate.</p>
-      <button id="google-login" type="button" class="google-login">Continue with Google</button>
+      <button id="google-login" type="button" disabled class="google-login">Continue with Google</button>
       <p class="hint">Your Google account must already have administrator access.</p>
       <p class="login-divider">or sign in with email</p>
       <form id="login-form">
-        <label>Email<input name="email" type="email" autocomplete="username" required></label>
-        <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
-        <button type="submit" class="primary">Sign in to admin</button>
+        <label>Email<input name="email" type="email" disabled autocomplete="username" required></label>
+        <label>Password<input name="password" type="password" disabled autocomplete="current-password" required></label>
+        <button type="submit" class="primary" disabled>Sign in to admin</button>
       </form>
     </section>
     <p id="message" role="status" aria-live="polite"></p>

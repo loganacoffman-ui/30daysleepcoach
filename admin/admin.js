@@ -1,7 +1,12 @@
+import { loadAdminConfig } from './config.mjs';
 import { adminAuthOptions, signInAdminWithGoogle, restoreAdminSession } from './auth.mjs';
 import { matchesState, filterInventory, stepLabels, concernLabels } from './inventory.mjs';
-const ADMIN_SUPABASE_URL = 'https://qfnouotdhfltgvjhfbld.supabase.co';
-const ADMIN_PUBLIC_KEY = 'sb_publishable_1csWLFwsCRBlVAXag1rcHQ_Jpz9t2_l';
+const { url: ADMIN_SUPABASE_URL, publishableKey: ADMIN_PUBLIC_KEY } = await loadAdminConfig().catch(error => {
+  const notice = document.getElementById('message');
+  notice.textContent = error.message;
+  notice.classList.add('error');
+  throw error;
+});
 const adminClient = supabase.createClient(ADMIN_SUPABASE_URL, ADMIN_PUBLIC_KEY, {
   auth: adminAuthOptions(sessionStorage),
 });
@@ -232,6 +237,7 @@ byId('confirm-form').addEventListener('submit', event => {
 });
 adminClient.auth.onAuthStateChange(event => { if (event === 'SIGNED_OUT') showWorkspace(false); });
 followUpChoices(); emailPreview();
+document.querySelectorAll('#login-form input').forEach(input => { input.disabled = false; });
 run(async () => {
   const authorized = await restoreAdminSession(
     adminClient.auth, window.location.href,

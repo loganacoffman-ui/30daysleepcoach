@@ -16,6 +16,10 @@ In the Supabase dashboard, keep the existing Google provider enabled and add the
 
 The existing deployment workflows apply migrations/functions, **not Auth URL settings**, so the hosted redirect allowlist must be updated separately in Supabase. Google Cloud's authorized callback remains `https://qfnouotdhfltgvjhfbld.supabase.co/auth/v1/callback`; do not replace it with the admin page. No new Google client secret is needed in the frontend. See [Supabase Google login documentation](https://supabase.com/docs/guides/auth/social-login/auth-google).
 
+The admin frontend obtains public configuration from the Netlify `admin-config` function. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in Netlify's environment variables, with Functions scope (or all scopes), then redeploy. Only a `sb_publishable_…` key is accepted; secret/service-role keys are rejected. The key remains visible in browser requests by design, but is no longer embedded in the admin source. The existing main web app's configuration is unchanged.
+
+For local admin development, run through Netlify Dev with those same environment variables; a plain Python static server cannot serve this configuration endpoint. Netlify discovers `netlify/functions/` by default, so no frontend build step is required. Missing/invalid configuration leaves login disabled and displays a setup message.
+
 One-time bootstrap: identify an existing, email-confirmed operator account in Supabase Auth. For Google users, use the exact Supabase identity associated with their Google login (they can first sign in through the regular app). In the Supabase SQL editor, grant that exact account the protected `app_metadata.role`:
 
 ```sql
