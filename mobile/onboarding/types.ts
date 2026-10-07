@@ -5,7 +5,7 @@ export type PrimaryConcern =
   | 'unrefreshed'
   | 'irregular_schedule';
 
-export type SleepSource = 'apple_health' | 'oura';
+export type SleepSource = 'apple_health' | 'health_connect' | 'oura';
 
 export type SleepProfile = {
   displayName: string;

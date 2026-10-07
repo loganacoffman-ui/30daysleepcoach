@@ -70,7 +70,9 @@ const personalizedGreeting = (state: CoachHomeState | null) => {
       ? "self-reported "
       : state.sleepSource === "apple_health"
         ? "Apple Health-derived "
-        : state.sleepSource === "oura"
+        : state.sleepSource === "health_connect"
+          ? "Health Connect-derived "
+          : state.sleepSource === "oura"
           ? "Oura "
           : "";
     const energy = state.morningFeeling ? ` You said you feel ${feelingLabel(state.morningFeeling).toLowerCase()} this morning.` : "";

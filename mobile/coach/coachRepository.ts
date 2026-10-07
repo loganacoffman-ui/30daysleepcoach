@@ -3,13 +3,13 @@ import type { User } from '@supabase/supabase-js';
 import { fetch as expoFetch } from 'expo/fetch';
 
 import { createAsyncMemo } from '../cache/asyncMemo';
-import { syncAppleHealthForDate } from '../healthkit/appleHealth';
+import { syncDeviceSleepForDate } from '../sleep/deviceSleep';
 import type { SleepProfile } from '../onboarding/types';
 import {
   isUnavailableSleepSchemaError,
   loadPreferredSleepSource,
 } from '../sleep/sourcePreference';
-import { resolveWearableSleepHistory } from '../sleep/sourceSelection';
+import { isSleepSource, resolveWearableSleepHistory } from '../sleep/sourceSelection';
 import type { WearableSleep } from '../sleep/sourceSelection';
 import { supabase, supabasePublicKey, supabaseUrl } from '../supabase';
 import type { MorningFeeling } from '../today/feeling';
@@ -47,7 +47,7 @@ export type CoachHomeState = {
   morningFeeling: MorningFeeling | null;
   sleepScore: number | null;
   previousSleepScore: number | null;
-  sleepSource: 'apple_health' | 'oura' | 'manual' | 'missing';
+  sleepSource: 'apple_health' | 'health_connect' | 'oura' | 'manual' | 'missing';
   suspectedFactor: string | null;
 };
 
@@ -87,13 +87,13 @@ const loadWearableSleep = (user: User, dayCount: number): Promise<WearableSleep[
   wearableSleepMemo.run(`${user.id}:${dayCount}`, () => fetchWearableSleep(user, dayCount));
 
 const fetchWearableSleep = async (user: User, dayCount: number): Promise<WearableSleep[]> => {
-  await syncAppleHealthForDate(user.id).catch(() => undefined);
+  await syncDeviceSleepForDate(user.id).catch(() => undefined);
   const [appleResult, preferredSleepSource, ouraResult] = await Promise.all([
     supabase
       .from('sleep_nights')
-      .select('sleep_date, sleep_score, score_version, total_sleep_minutes')
+      .select('provider, sleep_date, sleep_score, score_version, total_sleep_minutes')
       .eq('user_id', user.id)
-      .eq('provider', 'apple_health')
+      .in('provider', ['apple_health', 'health_connect'])
       .gte('sleep_date', daysAgo(dayCount))
       .order('sleep_date', { ascending: false }),
     loadPreferredSleepSource(user.id),
@@ -106,11 +106,11 @@ const fetchWearableSleep = async (user: User, dayCount: number): Promise<Wearabl
   }
 
   const rows: WearableSleep[] = (appleResult.data ?? [])
-    .filter(row => typeof row.sleep_score === 'number')
+    .filter(row => typeof row.sleep_score === 'number' && isSleepSource(row.provider))
     .map(row => ({
       day: row.sleep_date,
       score: row.sleep_score as number,
-      source: 'apple_health',
+      source: row.provider as WearableSleep['source'],
       scoreVersion: row.score_version,
       totalSleepMinutes: row.total_sleep_minutes,
     }));

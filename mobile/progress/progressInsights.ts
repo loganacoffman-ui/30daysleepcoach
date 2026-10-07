@@ -14,7 +14,7 @@ export type ProgressCommitment = {
   status: string;
 };
 
-export type SleepPoint = { date: string; score: number; source: 'manual' | 'apple_health' | 'oura' };
+export type SleepPoint = { date: string; score: number; source: 'manual' | 'apple_health' | 'health_connect' | 'oura' };
 
 export const addDays = (date: string, count: number) => {
   const value = new Date(`${date}T12:00:00`);

@@ -6,7 +6,7 @@ import { coachHomeExperience } from '../mobile/coach/homeExperience';
 
 vi.mock('../mobile/supabase', () => ({ supabase: { from: vi.fn(), functions: { invoke: vi.fn() } } }));
 vi.mock('../mobile/node_modules/expo/fetch.js', () => ({ fetch: vi.fn() }));
-vi.mock('../mobile/healthkit/appleHealth', () => ({ syncAppleHealthForDate: vi.fn().mockResolvedValue({ status: 'unavailable' }) }));
+vi.mock('../mobile/sleep/deviceSleep', () => ({ syncDeviceSleepForDate: vi.fn().mockResolvedValue({ status: 'unavailable' }) }));
 vi.mock('../mobile/sleep/sourcePreference', () => ({
   isUnavailableSleepSchemaError: vi.fn().mockReturnValue(false),
   loadPreferredSleepSource: vi.fn().mockResolvedValue(null),
@@ -24,7 +24,7 @@ beforeEach(() => {
   vi.mocked(supabase.from).mockImplementation((table: string) => {
     const query = {
       select: () => query,
-      eq: () => query,
+      eq: () => query, in: () => query,
       gte: () => query,
       order: () => query,
       limit: () => query,

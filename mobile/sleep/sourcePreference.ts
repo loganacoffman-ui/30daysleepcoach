@@ -6,7 +6,7 @@ import { supabase } from '../supabase';
 const preferenceKey = (userId: string) => `sleep-coach:preferred-sleep-source:${userId}`;
 
 const asSleepSource = (value: unknown): SleepSource | null =>
-  value === 'apple_health' || value === 'oura' ? value : null;
+  value === 'apple_health' || value === 'health_connect' || value === 'oura' ? value : null;
 
 export const isUnavailableSleepSchemaError = (error: unknown) => {
   if (!error || typeof error !== 'object') return false;
@@ -43,12 +43,14 @@ export async function savePreferredSleepSource(userId: string, source: SleepSour
   if (error && !isUnavailableSleepSchemaError(error)) throw error;
 }
 
-export async function clearPreferredSleepSource(userId: string) {
-  await AsyncStorage.removeItem(preferenceKey(userId));
+export async function clearPreferredSleepSource(userId: string, source: SleepSource = 'apple_health') {
+  if (await AsyncStorage.getItem(preferenceKey(userId)) === source) {
+    await AsyncStorage.removeItem(preferenceKey(userId));
+  }
   const { error } = await supabase
     .from('sleep_profiles')
     .update({ preferred_sleep_source: null, updated_at: new Date().toISOString() })
     .eq('user_id', userId)
-    .eq('preferred_sleep_source', 'apple_health');
+    .eq('preferred_sleep_source', source);
   if (error && !isUnavailableSleepSchemaError(error)) throw error;
 }

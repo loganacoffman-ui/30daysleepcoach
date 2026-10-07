@@ -26,7 +26,7 @@ function validSleepData(value: unknown): value is SleepData {
   if (!value || typeof value !== 'object') return false;
   const data = value as SleepData;
   return validScore(data.score) && ((data.status === 'manual' && data.source === 'manual') ||
-    (data.status === 'wearable' && (data.source === 'apple_health' || data.source === 'oura')));
+    (data.status === 'wearable' && (data.source === 'apple_health' || data.source === 'health_connect' || data.source === 'oura')));
 }
 
 export function restoreCheckinDraft(raw: string, currentSleepData: SleepData): StoredCheckinDraft | null {

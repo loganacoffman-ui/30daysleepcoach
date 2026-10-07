@@ -8,10 +8,16 @@ export type WearableSleep = {
   totalSleepMinutes?: number | null;
 };
 
-const sourceOrder = (preferred: SleepSource | null): SleepSource[] =>
-  preferred === 'apple_health'
-    ? ['apple_health', 'oura']
-    : ['oura', 'apple_health'];
+export const isSleepSource = (value: unknown): value is SleepSource =>
+  value === 'apple_health' || value === 'health_connect' || value === 'oura';
+
+export const sleepSourceLabel = (source: string | null) =>
+  source === 'apple_health' ? 'Apple Health' : source === 'health_connect' ? 'Health Connect' : source === 'oura' ? 'Oura' : 'Manual';
+
+const sourceOrder = (preferred: SleepSource | null): SleepSource[] => {
+  const fallback: SleepSource[] = ['oura', 'apple_health', 'health_connect'];
+  return preferred ? [preferred, ...fallback.filter(source => source !== preferred)] : fallback;
+};
 
 export function selectWearableSleepForDate(
   rows: WearableSleep[],

@@ -1,13 +1,14 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useMemo, useState } from 'react';
 import { AppState, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import { subscribeToDailyCheckInNotifications } from '../notificationNavigation';
-import { syncDailyCheckInReminder } from '../notifications';
+import { remindersAvailable, syncDailyCheckInReminder } from '../notifications';
 
 import { colors } from '../design/theme';
-import { syncAppleHealthForDate } from '../healthkit/appleHealth';
+import { syncDeviceSleepForDate } from '../sleep/deviceSleep';
 import type { SleepProfile } from '../onboarding/types';
 import type { SleepProfileDraft } from '../onboarding/profileFields';
 import { createSupabaseTodayRepository } from '../today/supabaseTodayRepository';
@@ -26,6 +27,7 @@ type Tab='progress'|'coach'|'settings';
 const tabs:{key:Tab;icon:string;label:string}[]=[{key:'coach',icon:'✦',label:'Coach'},{key:'progress',icon:'↗',label:'Progress'},{key:'settings',icon:'○',label:'Settings'}];
 
 export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccount,onProfileSaved}:{session:Session;profile:SleepProfile;onProfileSaved:(draft:SleepProfileDraft)=>void;busy:boolean;onSignOut:()=>void;onDeleteAccount:()=>void}){
+  const insets = useSafeAreaInsets();
   const [tab,setTab]=useState<Tab>('coach');
   // Each tab is mounted the first time it is opened and then kept, so switching
   // tabs preserves scroll position, open sections, and loaded data instead of
@@ -52,7 +54,7 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
     setDailyViewRequest(value=>value+1);
   }),[]);
   useEffect(()=>{
-    if(Platform.OS==='web')return;
+    if(!remindersAvailable())return;
     const sync=(devicePushToken?:Notifications.DevicePushToken)=>{void syncDailyCheckInReminder(session.user.id,profile.reminderTime || '07:30',devicePushToken,profile.timezone)
       .catch(error=>console.warn('Daily reminder registration could not be refreshed',error));};
     sync();
@@ -63,7 +65,7 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
   useEffect(()=>{
     // A synced night is new evidence for the coach, so the shared context window
     // has to be dropped before the screens below refresh against it.
-    const sync=()=>{void syncAppleHealthForDate(session.user.id).then(r=>{if(r.status==='synced'){invalidateCoachContext(session.user.id);setRefreshKey(k=>k+1);}}).catch(()=>undefined);};
+    const sync=()=>{void syncDeviceSleepForDate(session.user.id).then(r=>{if(r.status==='synced'||r.status==='no_data'){invalidateCoachContext(session.user.id);setRefreshKey(k=>k+1);}}).catch(()=>undefined);};
     sync();
     const subscription=AppState.addEventListener('change',state=>{if(state==='active')sync();});
     return()=>subscription.remove();
@@ -81,7 +83,7 @@ export default function ProductApp({session,profile,busy,onSignOut,onDeleteAccou
           <SettingsScreen onProfileSaved={draft=>{invalidateCoachContext(session.user.id);onProfileSaved(draft);setRefreshKey(value=>value+1);}} busy={busy} onDeleteAccount={onDeleteAccount} onSignOut={onSignOut} profile={profile} user={session.user} />
         </View>}
       </View>
-      <View style={styles.tabs}>
+      <View style={[styles.tabs, { paddingBottom: Math.max(20, insets.bottom) }]}>
         {tabs.map(item => <Pressable accessibilityRole="tab" accessibilityState={{selected:tab===item.key}} key={item.key} onPress={()=>selectTab(item.key)} style={styles.tab}><Text style={[styles.icon,tab===item.key&&styles.selected]}>{item.icon}</Text><Text style={[styles.label,tab===item.key&&styles.selected]}>{item.label}</Text></Pressable>)}
       </View>
       <StatusBar style="light" />

@@ -327,3 +327,80 @@ TestFlight processing.
 
 On the first build, sign in to Expo and Apple when prompted. EAS can create and
 manage the iOS distribution certificate and provisioning profile.
+
+## Android preview for Pixel / Health Connect
+
+The `preview` EAS profile produces a standalone APK with bundled JavaScript,
+using the production package and backend. No Metro server or Firebase setup is
+needed. Build with `pnpm build:android:preview`, then open the EAS installation
+link on the phone and allow the browser to install apps from that source.
+
+Android push defaults to **off**. Onboarding skips reminders, Settings hides
+reminder controls, startup does not register tokens or notification listeners,
+and the native manifest removes `POST_NOTIFICATIONS`. iOS reminders continue
+working. To enable Android push later:
+
+1. Register `com.thirtydaysleepcoach.app` in Firebase (and the `.dev` package if
+   using development builds), then download its `google-services.json`.
+2. Configure EAS's FCM v1 service-account credentials.
+3. Set `ANDROID_PUSH_ENABLED=true` and `GOOGLE_SERVICES_JSON` to the matching
+   config file path in the build environment. EAS file environment variables
+   work for `GOOGLE_SERVICES_JSON`. A missing file setting fails configuration
+   early. Keep service-account private keys out of the app and repository.
+4. Rebuild the native app. The existing reminder onboarding, Settings controls,
+   notification channels, and registration flow become available automatically.
+
+Health Connect requests read-only Sleep access. On the Pixel, first connect
+Google Health / Fitbit to Health Connect and allow it to **write Sleep**, then
+connect Sleep Coach and grant **read Sleep** access. Sync runs in the foreground:
+initial connection imports up to 14 nights, and refresh rechecks the last three
+nights to pick up delayed or corrected records. Health Connect itself limits
+historical access; no background or extended-history permission is requested.
+Unknown stages are ignored. A stage-less session cannot produce measured sleep
+or a score; generic sleeping stages can produce duration but no staged score.
+Manual check-in remains available when the watch has not synced or detail is
+insufficient. The score is Sleep Coach's calculation, not Google's score.
+
+The source migration `20261007042229_add_health_connect_sleep_source.sql` was
+applied to the linked production database on October 6, 2026 (Pacific time).
+Existing ownership policies remain in place. Other environments need the same
+migration before syncing. Deploy the updated root `privacy.html` with the web
+site; the APK also contains an offline Health Connect privacy explanation.
+
+The pinned `react-native-health-connect@4.1.3` patch adapts its bundled Expo
+module to the current `expo-module-gradle-plugin` build setup. Keep
+`patches/` and `pnpm-workspace.yaml` with the lockfile when building.
+
+Physical-device acceptance: fresh install; Google/email login and return links;
+onboarding without notifications; allow/deny/revoke Sleep access; sync one real
+night; confirm score appears in Your Day, coach and Progress; refresh after a
+late watch sync; manual score override; disconnect and remove imported data;
+restart; sign out/account deletion; keyboard and Android Back/gesture navigation.
+A new native binary is required for Health Connect; Expo Go cannot test it.
+
+### Local build without uploading source
+
+With Android SDK 36, build-tools 36.0.0, NDK 27.1.12297006, and Java installed,
+set `JAVA_HOME` and `ANDROID_HOME`, then run from `mobile`:
+
+```sh
+node node_modules/expo/bin/cli prebuild --platform android --no-install
+cd android
+NODE_ENV=production ./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a
+cd ..
+node scripts/sign-android-preview.mjs
+```
+
+The signing script produces `dist/sleep-coach-preview.apk`, using a private key
+in the ignored `.android-signing/` directory. Back up that directory privately.
+Keep the same key for subsequent APK updates; import it into EAS credentials if
+switching this installed package to cloud builds later. The arm64 build supports
+the Pixel 10. Other architectures require a different Gradle architecture flag.
+
+Verification for this preview: TypeScript passes; 395 automated tests pass across
+the full suite and the final added Health Connect daily-view test; an arm64
+release APK compiles and verifies its signature. The signed APK installs and
+opens the login screen without Metro on the Android API 36.1 emulator. The
+Health Connect privacy activity opens before login.
+Real account sign-in and Pixel Watch sleep sync still require testing on the
+phone. The website privacy update remains local until the next web deployment.
