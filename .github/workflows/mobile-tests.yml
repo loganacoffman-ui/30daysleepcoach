@@ -6,7 +6,6 @@ on:
       - "mobile/**"
       - "tests/**"
       - "admin/**"
-      - "netlify/functions/admin-config.mjs"
       - "supabase/functions/admin-test-users/**"
       - "supabase/functions/_shared/testUserFixtures.ts"
       - "package.json"
