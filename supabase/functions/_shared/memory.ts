@@ -128,6 +128,22 @@ export class Mem0MemoryProvider implements MemoryProvider {
     }, 5_000);
   }
 
+  // Admin fixtures are already explicit facts; avoid model extraction or merging.
+  // Mem0 v3 acknowledges an asynchronous job, not completed indexing.
+  async seedFacts(userId: string, facts: string[], metadata: Record<string, unknown>): Promise<{ eventId: string | null }> {
+    const response = await this.request("/v3/memories/add/", {
+      user_id: userId,
+      messages: facts.map(content => ({ role: "user", content })),
+      infer: false,
+      metadata,
+    }, 10_000);
+    const payload = await response.json() as { event_id?: unknown; status?: unknown };
+    if (typeof payload.event_id !== "string" || !payload.event_id.trim() || payload.status === "FAILED") {
+      throw new Error('Mem0 did not acknowledge the synthetic memory submission');
+    }
+    return { eventId: payload.event_id };
+  }
+
   async deleteUser(userId: string): Promise<void> {
     await this.request(
       `/v1/memories/?user_id=${encodeURIComponent(userId)}`,

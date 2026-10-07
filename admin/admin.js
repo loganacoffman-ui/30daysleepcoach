@@ -36,11 +36,16 @@ let busy = false;
 let inventory = [];
 let inventoryPage = 0;
 let inventoryHasMore = false;
+const historyDefaults = { chatCount: 0, chatTurns: 3, memoryScenario: 'none', customMemories: '', wearableCount: 0, scoreMode: 'manual', historySpacing: 'daily', todayCommitment: 'committed', includeToday: false, feedback: true };
 const presets = {
   week: { emailConfirmed: true, onboardingStep: 'complete', checkinCount: 7, trend: 'improving' },
   new: { emailConfirmed: false, onboardingStep: 'intro', checkinCount: 0, trend: 'mixed' },
   onboarding: { emailConfirmed: true, onboardingStep: 'followup', checkinCount: 0, trend: 'mixed' },
   ready: { emailConfirmed: true, onboardingStep: 'complete', checkinCount: 0, trend: 'improving' },
+  full: { emailConfirmed: true, onboardingStep: 'complete', checkinCount: 14, trend: 'improving', chatCount: 5, memoryScenario: 'progress', wearableCount: 14, scoreMode: 'mixed', includeToday: true },
+  recall: { emailConfirmed: true, onboardingStep: 'complete', checkinCount: 7, trend: 'mixed', chatCount: 3, memoryScenario: 'corrections' },
+  longChat: { emailConfirmed: true, onboardingStep: 'complete', checkinCount: 7, trend: 'mixed', chatCount: 1, chatTurns: 30 },
+  missing: { emailConfirmed: true, onboardingStep: 'complete', checkinCount: 7, trend: 'struggling', historySpacing: 'gaps', scoreMode: 'wearable', feedback: false, todayCommitment: 'none' },
   month: { emailConfirmed: true, onboardingStep: 'complete', checkinCount: 30, trend: 'mixed' },
 };
 function message(text, error = false) {
@@ -98,6 +103,8 @@ function options() {
     scheduleVaries: form.elements.scheduleVaries.checked,
     checkinCount: Number(value('checkinCount')), trend: value('trend'),
     feedback: form.elements.feedback.checked, includeToday: form.elements.includeToday.checked,
+    chatCount: Number(value('chatCount')), chatTurns: Number(value('chatTurns')), memoryScenario: value('memoryScenario'), customMemories: value('customMemories'),
+    wearableCount: Number(value('wearableCount')), scoreMode: value('scoreMode'), historySpacing: value('historySpacing'), todayCommitment: value('todayCommitment'),
   };
 }
 function followUpChoices() {
@@ -109,8 +116,12 @@ function followUpChoices() {
 }
 function onboardingChanged() {
   const complete = form.elements.onboardingStep.value === 'complete';
-  form.elements.checkinCount.disabled = !complete;
-  if (!complete) form.elements.checkinCount.value = '0';
+  for (const name of ['checkinCount', 'chatCount', 'chatTurns', 'memoryScenario', 'customMemories', 'wearableCount', 'todayCommitment']) form.elements[name].disabled = !complete;
+  if (!complete) {
+    for (const name of ['checkinCount', 'chatCount', 'wearableCount']) form.elements[name].value = '0';
+    form.elements.memoryScenario.value = 'none'; form.elements.customMemories.value = '';
+    form.elements.todayCommitment.value = 'none';
+  }
 }
 function emailPreview() {
   byId('email-preview').textContent = `sleepcoach-test+${form.elements.alias.value || 'your-test-name'}@${domain}`;
@@ -119,15 +130,24 @@ function ask(action, user) {
   pending = { action, userId: user.user_id, options: action === 'reset' ? options() : undefined };
   byId('confirm-title').textContent = action === 'reset' ? 'Reset this test account?' : 'Delete this test account?';
   byId('confirm-description').textContent = action === 'reset'
-    ? `${user.email}: replace all app history and coaching memory with ${pending.options.checkinCount} check-ins, onboarding “${pending.options.onboardingStep}”, and ${pending.options.emailConfirmed ? 'confirmed' : 'unconfirmed'} email. The password stays the same. Sign out of the test app first.`
+    ? `${user.email}: replace all app history and coaching memory with ${pending.options.checkinCount} check-ins, ${pending.options.chatCount} chats (${pending.options.chatCount * pending.options.chatTurns * 2} messages), ${pending.options.wearableCount} wearable nights, ${memoryCount(pending.options)} memory facts, onboarding “${pending.options.onboardingStep}”, and ${pending.options.emailConfirmed ? 'confirmed' : 'unconfirmed'} email. The password stays the same. Sign out of the test app first.`
     : `Permanently delete ${user.email}, its app data, and coaching memory.`;
   byId('confirm-email').value = '';
   byId('confirm-email').placeholder = user.email;
+  byId('fill-confirm-email').hidden = action !== 'reset';
   byId('confirm-action').textContent = action === 'reset' ? 'Reset test account' : 'Delete test account';
   byId('confirm-dialog').showModal();
 }
+function memoryCount(scenario) {
+  return ({ none: 0, preferences: 3, progress: 5, corrections: 6 }[scenario.memoryScenario] ?? 0) + scenario.customMemories.split('\n').filter(line => line.trim()).length;
+}
+function resultSummary(result) {
+  const s = result.summary;
+  return s ? ` ${s.chats} chats / ${s.messages} messages, ${s.wearableNights} wearable nights, ${s.memoryFactsSubmitted} facts submitted to Mem0.${s.memoryFactsSubmitted ? ' Memory indexing may take a moment.' : ''}` : '';
+}
 function renderInventory() {
   const scenario = options();
+  byId('scenario-summary').textContent = `${scenario.checkinCount} check-ins · ${scenario.chatCount} conversations / ${scenario.chatCount * scenario.chatTurns * 2} messages · ${scenario.wearableCount} wearable nights · ${memoryCount(scenario)} memory facts. ${scenario.scoreMode !== 'manual' ? 'Feedback is only seeded for nights with a sleep score.' : ''}`;
   const matches = inventory.filter(user => matchesState(user, scenario));
   byId('reuse-hint').textContent = matches.length
     ? `${matches.length} existing account${matches.length === 1 ? ' matches' : 's match'} this state. Check the inventory before creating another.`
@@ -154,7 +174,7 @@ function renderInventory() {
       const badge = document.createElement('span'); badge.className = 'badge inventory-match'; badge.textContent = 'MATCHES SELECTED STATE'; article.append(badge);
     }
     const state = document.createElement('p');
-    state.textContent = `${user.email_confirmed ? 'Email confirmed' : 'Email unconfirmed'} · Onboarding: ${stepLabels[user.onboarding_step] ?? 'Unknown'} · ${user.checkin_count} check-ins · ${user.feedback_count} coaching reports · ${user.status}`;
+    state.textContent = `${user.email_confirmed ? 'Email confirmed' : 'Email unconfirmed'} · Onboarding: ${stepLabels[user.onboarding_step] ?? 'Unknown'} · ${user.checkin_count} check-ins · ${user.feedback_count} coaching reports · ${user.chat_count ?? 0} chats / ${user.message_count ?? 0} messages · ${user.wearable_count ?? 0} wearable nights · ${user.memory_seed?.facts_submitted ?? 0} memory facts last submitted · ${user.status}`;
     const profile = document.createElement('p');
     profile.textContent = `${concernLabels[user.primary_concern] ?? 'No concern selected'} · ${user.typical_bedtime?.slice(0, 5) ?? '—'}–${user.typical_wake_time?.slice(0, 5) ?? '—'} · ${user.timezone ?? 'No time zone'}`;
     const activity = document.createElement('p');
@@ -183,6 +203,7 @@ async function refresh(append = false) {
   const page = append ? inventoryPage + 1 : 0;
   const result = await api({ action: 'list', page });
   domain = result.domain;
+  byId('memory-availability').textContent = result.memoryEnabled ? 'Mem0 is configured.' : 'Mem0 is not configured. Memory scenarios require the server’s MEM0_API_KEY.';
   emailPreview();
   inventory = [...new Map([...(append ? inventory : []), ...result.users].map(user => [user.user_id, user])).values()];
   inventoryPage = page;
@@ -216,7 +237,11 @@ for (const id of ['inventory-search', 'filter-confirmation', 'filter-onboarding'
 form.addEventListener('input', renderInventory);
 form.addEventListener('change', renderInventory);
 byId('preset').addEventListener('change', event => {
-  for (const [key, value] of Object.entries(presets[event.target.value])) form.elements[key].value = String(value);
+  for (const [key, value] of Object.entries({ ...historyDefaults, ...presets[event.target.value] })) {
+    const input = form.elements[key];
+    if (input.type === 'checkbox') input.checked = value;
+    else input.value = String(value);
+  }
   onboardingChanged();
   renderInventory();
 });
@@ -235,9 +260,15 @@ form.addEventListener('submit', event => {
   event.preventDefault(); run(async () => {
     message('Creating test account…');
     const result = await api({ action: 'create', alias: form.elements.alias.value, password: form.elements.password.value, options: options() });
-    message(`Created ${result.email}. Save your test password before leaving this page.`);
+    message(`Created ${result.email}. Save your test password before leaving this page.${resultSummary(result)}`);
     await refresh();
   });
+});
+byId('fill-confirm-email').addEventListener('click', () => {
+  if (pending?.action !== 'reset') return;
+  const input = byId('confirm-email');
+  input.value = input.placeholder;
+  input.focus();
 });
 byId('cancel-confirm').addEventListener('click', () => { byId('confirm-dialog').close(); pending = undefined; });
 byId('confirm-form').addEventListener('submit', event => {
@@ -249,7 +280,7 @@ byId('confirm-form').addEventListener('submit', event => {
   run(async () => {
     message(operation.action === 'reset' ? 'Resetting test account…' : 'Deleting test account…');
     const result = await api({ ...operation, confirmEmail });
-    message(`${operation.action === 'reset' ? 'Reset' : 'Deleted'} ${result.email}.`);
+    message(`${operation.action === 'reset' ? 'Reset' : 'Deleted'} ${result.email}.${resultSummary(result)}`);
     await refresh();
   });
 });

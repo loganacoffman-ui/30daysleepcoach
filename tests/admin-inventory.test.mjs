@@ -27,3 +27,17 @@ describe('test account inventory', () => {
     expect(filterInventory([user], scenario, { ...filters, search: 'missing' })).toEqual([]);
   });
 });
+
+describe('expanded inventory matching', () => {
+  it('requires actual chat/message/wearable counts, even if saved options match', () => {
+    const expanded = { ...scenario, chatCount: 2, chatTurns: 3, wearableCount: 7 };
+    const current = { ...user, chat_count: 2, message_count: 12, wearable_count: 7 };
+    expect(matchesState(current, expanded)).toBe(true);
+    expect(matchesState({ ...current, message_count: 13, options: expanded }, expanded)).toBe(false);
+    expect(matchesState({ ...current, wearable_count: 6 }, expanded)).toBe(false);
+  });
+  it('accounts for missing scores when matching feedback', () => {
+    expect(matchesState({ ...user, feedback_count: 0 }, { ...scenario, scoreMode: 'wearable' })).toBe(true);
+    expect(matchesState({ ...user, wearable_count: 3, feedback_count: 5 }, { ...scenario, wearableCount: 3, scoreMode: 'mixed' })).toBe(true);
+  });
+});
