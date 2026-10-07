@@ -1,6 +1,10 @@
 [auth]
 site_url = "https://30daysleepcoach.com"
 additional_redirect_urls = [
+  "https://30daysleepcoach.com/reset-password/",
+  "https://www.30daysleepcoach.com/reset-password/",
+  "http://localhost:8000/reset-password/",
+  "http://127.0.0.1:8000/reset-password/",
   "https://30daysleepcoach.com/admin/",
   "https://www.30daysleepcoach.com/admin/",
   "http://localhost:8000/admin/",
