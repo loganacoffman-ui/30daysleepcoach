@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { checkinAnswerValues } from './checkinReplyContract';
+import { checkinAnswerValues, validSleepFactors } from './checkinReplyContract';
 import { assertCheckinNoteLength, checkinNote, type CheckinConversation } from './checkinConversation';
 import type { TodaySnapshot } from './types';
 
@@ -37,6 +37,7 @@ export function restoreCheckinDraft(raw: string, currentSleepData: SleepData): S
       !Array.isArray(conversation.turns) || conversation.turns.some((turn: { role?: unknown; content?: unknown } | null) =>
         !turn || !['assistant', 'user'].includes(String(turn.role)) || typeof turn.content !== 'string') ||
       (conversation.morningFeeling !== undefined && !checkinAnswerValues.feeling.includes(conversation.morningFeeling)) ||
+      (conversation.suspectedFactors !== undefined && !validSleepFactors(conversation.suspectedFactors)) ||
       (conversation.suspectedFactor !== undefined && !checkinAnswerValues.factor.includes(conversation.suspectedFactor)) ||
       (conversation.adherence !== undefined && !checkinAnswerValues.adherence.includes(conversation.adherence)) ||
       (conversation.commitmentId !== undefined && typeof conversation.commitmentId !== 'string') ||

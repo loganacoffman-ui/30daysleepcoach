@@ -35,7 +35,7 @@ import {
   scoreForTouch,
   trackLeftFromTouch,
 } from './sleepScoreGesture';
-import { answerCheckin, appendCheckinReply, checkinChoices, checkinDraft, initialCheckin, remainingCheckinCharacters, startCheckin, type CheckinConversation, type CheckinTurn } from './checkinConversation';
+import { completeFactorSelection, selectedCheckinFactors, toggleCheckinFactor, answerCheckin, appendCheckinReply, checkinChoices, checkinDraft, initialCheckin, remainingCheckinCharacters, startCheckin, type CheckinConversation, type CheckinTurn } from './checkinConversation';
 import type {
   TodayRepository,
   TodaySnapshot,
@@ -473,7 +473,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     }
   };
 
-  const reply = async (text: string, choice?: string) => {
+  const reply = async (text: string, choice?: string, options: { advanceFactors?: boolean; finish?: boolean } = {}) => {
     if (!text.trim() || savingRef.current || interpretingRef.current) return;
     if (snapshot?.checkin) {
       if (!chat || chat.sending || chat.disabled) return;
@@ -507,9 +507,10 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     try {
       const interpretation = await interpretTypedCheckinReply(conversation, text.trim());
       if (request !== replyRequestRef.current) return;
-      const next = answerCheckin(conversation, text, undefined, interpretation);
+      const interpreted = answerCheckin(conversation, text, undefined, interpretation);
+      const next = options.advanceFactors && interpretation.addressed ? completeFactorSelection(interpreted) : interpreted;
       setConversation(next);
-      if (interpretation.finish) await submitCheckin('', next);
+      if (interpretation.finish || (options.finish && interpretation.addressed)) await submitCheckin('', next);
     } catch (replyError) {
       if (request === replyRequestRef.current) {
         setConversation(conversation);
@@ -524,10 +525,27 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     }
   };
 
+  const nextFromFactors = () => {
+    if (savingRef.current || interpretingRef.current) return;
+    if (input.trim()) { void reply(input, undefined, { advanceFactors: true }); return; }
+    try {
+      setConversation(completeFactorSelection(conversation));
+      setError('');
+      scrollToLatest();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Please shorten this reply.');
+    }
+  };
+
   const submitCheckin = async (finalText = input, baseConversation = conversation) => {
     if (!snapshot || !sleepContextReady || savingRef.current) return;
-    // Include an unsent composer draft when the user taps Finish, without
-    // clearing it if it exceeds the aggregate journal limit.
+    if (finalText.trim()) {
+      if (interpretingRef.current) return;
+      await reply(finalText, undefined, { finish: true });
+      return;
+    }
+    // Unsent prose is interpreted above; the accepted conversation is now
+    // ready to save, with its original wording and corrected factors.
     let finalConversation: CheckinConversation;
     let draft;
     try {
@@ -852,21 +870,37 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
             ))}
             {interpreting && <ChatBubble role="assistant" thinking />}
             {!snapshot.checkin && (
-              <View style={styles.chipRow}>
-                {checkinChoices(conversation.step).map(option => (
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={saving || interpreting}
-                    key={option.value}
-                    onPress={() => void reply(input.trim() ? `${option.label}. ${input.trim()}` : option.label, option.value)}
-                    style={({ pressed }) => [styles.chip, pressed && styles.pressed]}
-                  >
-                    <Text style={styles.chipText}>{option.label}</Text>
-                  </Pressable>
-                ))}
+              <View>
+                {conversation.step === 'factor' && <Text style={styles.promptHint}>Select all that apply · {selectedCheckinFactors(conversation).length} selected</Text>}
+                <View style={styles.chipRow}>
+                  {checkinChoices(conversation.step).map(option => {
+                    const isFactor = conversation.step === 'factor';
+                    const selected = isFactor && selectedCheckinFactors(conversation).some(value => value === option.value);
+                    return (
+                      <Pressable
+                        accessibilityRole={isFactor ? 'checkbox' : 'button'}
+                        accessibilityState={isFactor ? { checked: selected, disabled: saving || interpreting } : { disabled: saving || interpreting }}
+                        disabled={saving || interpreting}
+                        key={option.value}
+                        onPress={() => isFactor
+                          ? setConversation(current => toggleCheckinFactor(current, option.value))
+                          : void reply(input.trim() ? `${option.label}. ${input.trim()}` : option.label, option.value)}
+                        style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && styles.pressed]}
+                      >
+                        <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{selected ? '✓ ' : ''}{option.label}</Text>
+                      </Pressable>
+                    );
+                  })}
                 {conversation.step === 'details' && (
                   <Pressable accessibilityRole="button" disabled={saving || interpreting} onPress={() => void submitCheckin()} style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
                     {saving ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.chipText}>{error ? 'Try finishing again' : 'Finish check-in'}</Text>}
+                  </Pressable>
+                )}
+                </View>
+                {conversation.step === 'factor' && (
+                  <Pressable accessibilityRole="button" accessibilityLabel="Next" disabled={saving || interpreting} onPress={nextFromFactors}
+                    style={({ pressed }) => [styles.primaryButton, (saving || interpreting) && styles.primaryButtonDisabled, pressed && styles.pressed]}>
+                    {interpreting ? <ActivityIndicator color={colors.ink} /> : <Text style={styles.primaryButtonText}>Next →</Text>}
                   </Pressable>
                 )}
               </View>
@@ -1249,6 +1283,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 9,
   },
+  chipSelected: { backgroundColor: colors.surfaceAccent, borderColor: colors.accent },
+  chipTextSelected: { color: colors.accent },
   chipText: {
     color: colors.textMuted,
     fontSize: 13,

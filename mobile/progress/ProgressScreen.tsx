@@ -72,7 +72,7 @@ export default function ProgressScreen({ active = true, profile, refreshRequest,
     if (!lastLoadedAt.current) setError('');
     lastLoadedAt.current = Date.now();
     const [checkinResult, commitmentResult, appleResult, preferred, ouraResult, journeyResult] = await Promise.all([
-      supabase.from('daily_checkins').select('checkin_date, morning_feeling, feeling, manual_sleep_score, suspected_factor, note').eq('user_id', user.id).order('checkin_date', { ascending: false }).limit(60),
+      supabase.from('daily_checkins').select('checkin_date, morning_feeling, feeling, manual_sleep_score, suspected_factor, suspected_factors, note').eq('user_id', user.id).order('checkin_date', { ascending: false }).limit(60),
       supabase.from('behavior_commitments').select('behavior_date, behavior, status').eq('user_id', user.id).order('behavior_date', { ascending: false }).limit(90),
       supabase.from('sleep_nights').select('provider, sleep_date, sleep_score').eq('user_id', user.id).in('provider', ['apple_health', 'health_connect']).gte('sleep_date', daysAgo(35)),
       loadPreferredSleepSource(user.id),
@@ -84,7 +84,7 @@ export default function ProgressScreen({ active = true, profile, refreshRequest,
     setJourney(nextJourney);
     if (checkinResult.error || commitmentResult.error) setError(checkinResult.error?.message ?? commitmentResult.error?.message ?? 'Progress could not be loaded.');
     else setError('');
-    const normalized = (checkinResult.data ?? []).map(row => ({ checkin_date: row.checkin_date, manual_sleep_score: row.manual_sleep_score, morningFeeling: normalizeMorningFeeling(row.morning_feeling, row.feeling), note: row.note, suspected_factor: row.suspected_factor }));
+    const normalized = (checkinResult.data ?? []).map(row => ({ checkin_date: row.checkin_date, manual_sleep_score: row.manual_sleep_score, morningFeeling: normalizeMorningFeeling(row.morning_feeling, row.feeling), note: row.note, suspected_factor: row.suspected_factor, suspected_factors: row.suspected_factors }));
     const sources: Array<{day:string;score:number;source:'apple_health'|'health_connect'|'oura'}> = [];
     (appleResult.data ?? []).forEach(row => { if (typeof row.sleep_score === 'number') sources.push({ day: row.sleep_date, score: row.sleep_score, source: row.provider }); });
     if (!ouraResult.error) (ouraResult.data?.data ?? []).forEach(row => { if (typeof row.score === 'number') sources.push({ day: row.day, score: row.score, source: 'oura' }); });
@@ -172,7 +172,7 @@ export default function ProgressScreen({ active = true, profile, refreshRequest,
     latestCheckin?.checkin_date ?? '',
     latestCheckin?.morningFeeling ?? '',
     latestCheckin?.manual_sleep_score ?? '',
-    latestCheckin?.suspected_factor ?? '',
+    latestCheckin?.suspected_factors?.join(',') ?? latestCheckin?.suspected_factor ?? '',
     latestCheckin?.note ?? '',
     wearable.length,
     latestNight?.date ?? '',
@@ -199,7 +199,8 @@ export default function ProgressScreen({ active = true, profile, refreshRequest,
   const selectedEntry = selectedDay === null || selectedDay < journeyOffset ? undefined : journey[selectedDay];
   const signalObservation = (date: string, positive: boolean) => {
     const checkin = checkins.find(row => row.checkin_date === date);
-    const factor = factorLabel(checkin?.suspected_factor ?? null);
+    const factor = (checkin?.suspected_factors ?? (checkin?.suspected_factor ? [checkin.suspected_factor] : []))
+      .filter(value => !['none', 'unknown'].includes(value)).map(factorLabel).join(', ');
     if (factor) return `${factor} may have contributed.`;
     const note = checkin?.note?.trim().replace(/\s+/g, ' ');
     if (note) {

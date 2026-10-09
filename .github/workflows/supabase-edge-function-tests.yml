@@ -73,3 +73,9 @@ jobs:
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260925215917_add_llm_usage_events.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/llm_usage_events.sql
+
+      - name: Verify check-in factor validation and legacy compatibility
+        run: |
+          psql -v ON_ERROR_STOP=1 -c 'create table public.daily_checkins (id integer primary key, suspected_factor text, note text);'
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261009015232_checkin_multiple_sleep_factors.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/checkin_sleep_factors.sql

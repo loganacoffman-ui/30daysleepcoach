@@ -6,7 +6,11 @@ export type ProgressCheckin = {
   morningFeeling: MorningFeeling | null;
   note: string | null;
   suspected_factor: string | null;
+  suspected_factors?: string[] | null;
 };
+
+const reportedFactors = (row: ProgressCheckin) => [...new Set(row.suspected_factors ?? (row.suspected_factor ? [row.suspected_factor] : []))]
+  .filter(value => !['none', 'unknown'].includes(value));
 
 export type ProgressCommitment = {
   behavior_date: string;
@@ -98,7 +102,7 @@ export function rankSleepSignals(
     evidence.set(key, existing);
   };
   checkins.forEach(row => {
-    if (row.suspected_factor && row.suspected_factor !== 'unknown') addEvidence(`factor:${row.suspected_factor}`, row.suspected_factor, 'factor', deltaByDate.get(row.checkin_date));
+    reportedFactors(row).forEach(factor => addEvidence(`factor:${factor}`, factor, 'factor', deltaByDate.get(row.checkin_date)));
   });
   commitments.forEach(item => {
     if (item.status !== 'completed') return;
@@ -149,7 +153,7 @@ export function sleepProfileSummary(checkins: ProgressCheckin[], experiments: Ex
   const feelings = feelingTrend(checkins);
   const helpful = experiments.find(item => item.verdict === 'Likely helpful');
   const factorCounts = new Map<string, number>();
-  checkins.forEach(row => { if (row.suspected_factor) factorCounts.set(row.suspected_factor, (factorCounts.get(row.suspected_factor) ?? 0) + 1); });
+  checkins.forEach(row => reportedFactors(row).forEach(factor => factorCounts.set(factor, (factorCounts.get(factor) ?? 0) + 1)));
   const factor = [...factorCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   const parts = [feelings.current ? `Your recent mornings most often feel ${feelings.current}` : null,
     helpful ? `${helpful.behavior} is emerging as a helpful pattern` : null,

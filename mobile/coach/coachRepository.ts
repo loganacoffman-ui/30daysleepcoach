@@ -131,7 +131,7 @@ export const loadCoachHomeState = async (user: User): Promise<CoachHomeState> =>
   const [checkinResult, wearableSleep] = await Promise.all([
     supabase
       .from('daily_checkins')
-      .select('checkin_date, morning_feeling, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, note')
+      .select('checkin_date, morning_feeling, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, suspected_factors, note')
       .eq('user_id', user.id)
       .order('checkin_date', { ascending: false })
       .limit(7),
@@ -232,7 +232,7 @@ const loadCoachContext = (user: User, profile: SleepProfile): Promise<CoachConte
 
 const fetchCoachContext = async (user: User, profile: SleepProfile): Promise<CoachContext> => {
   const [checkinsResult, commitmentsResult, wearableSleep] = await Promise.all([
-    supabase.from('daily_checkins').select('checkin_date, morning_feeling, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, note, completed_at').eq('user_id', user.id).order('checkin_date', { ascending: false }).limit(14),
+    supabase.from('daily_checkins').select('checkin_date, morning_feeling, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, suspected_factors, note, completed_at').eq('user_id', user.id).order('checkin_date', { ascending: false }).limit(14),
     // Bound by dates, not row count: inserting today's generated commitment
     // must not evict an older adherence row and change the source fingerprint.
     supabase.from('behavior_commitments').select('behavior_date, behavior, status').eq('user_id', user.id).gte('behavior_date', daysAgo(14)).lte('behavior_date', localDate()).order('behavior_date', { ascending: false }),

@@ -6,7 +6,7 @@ import {
   loadCoachConversation,
   saveCheckinTranscript,
 } from '../mobile/coach/coachRepository';
-import { answerCheckin, startCheckin } from '../mobile/today/checkinConversation';
+import { completeFactorSelection, answerCheckin, startCheckin } from '../mobile/today/checkinConversation';
 
 vi.mock('../mobile/supabase', () => ({ supabase: { from: vi.fn() } }));
 vi.mock('../mobile/node_modules/expo/fetch.js', () => ({ fetch: vi.fn() }));
@@ -25,7 +25,7 @@ const completedCheckin = () => {
   const adherence = startCheckin('Take a five-minute walk', 'commitment-1');
   const feeling = answerCheckin(adherence, 'Did it', 'completed');
   const factor = answerCheckin(feeling, 'Okay', 'okay');
-  return answerCheckin(factor, 'Stress', 'stress');
+  return completeFactorSelection(answerCheckin(factor, 'Stress', 'stress'));
 };
 
 beforeEach(() => {
@@ -69,8 +69,10 @@ describe('persisted daily check-in transcript', () => {
       ['user', 'Did it'],
       ['assistant', 'How are you feeling this morning?'],
       ['user', 'Okay'],
-      ['assistant', 'What do you think affected your sleep last night? You can pick one or tell me in your own words.'],
+      ['assistant', 'What do you think affected your sleep last night? Choose all that apply, or tell me in your own words. Tap Next when you’re ready.'],
       ['user', 'Stress'],
+      ['assistant', 'You can adjust your selections or add more detail. Tap Next when you’re ready.'],
+      ['user', 'Sleep factors: Stress.'],
       ['assistant', 'Anything else you’d like me to know? There’s room for the whole story, or you can finish here.'],
     ]);
     for (const row of inserts[0]) {
