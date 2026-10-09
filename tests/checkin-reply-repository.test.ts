@@ -44,3 +44,12 @@ describe('mobile check-in interpretation API', () => {
     }
   });
 });
+
+it('sends selected factors for correction and validates every returned factor', async () => {
+  const state = { ...startCheckin(), step: 'factor' as const, suspectedFactors: ['stress' as const] };
+  invoke.mockResolvedValueOnce({ data: { interpretation: { addressed: true, answer: 'stress', factors: ['stress', 'caffeine'], finish: false, clarification: null } }, error: null } as never);
+  expect((await interpretTypedCheckinReply(state, 'Also coffee')).factors).toEqual(['stress', 'caffeine']);
+  expect(invoke.mock.calls[0][1]!.body.checkinReply.selectedFactors).toEqual(['stress']);
+  invoke.mockResolvedValueOnce({ data: { interpretation: { addressed: true, answer: null, factors: ['invented'], finish: false, clarification: null } }, error: null } as never);
+  await expect(interpretTypedCheckinReply(state, 'Also coffee')).rejects.toThrow('try sending again');
+});

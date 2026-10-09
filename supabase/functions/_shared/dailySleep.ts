@@ -9,7 +9,7 @@ export async function loadDailySleepContext(supabase: SupabaseClient, userId: st
   start.setUTCDate(start.getUTCDate() - 13);
   const startDate = start.toISOString().slice(0, 10);
   const [checkins, nights, profile, adherence, oura, recentReports] = await Promise.all([
-    supabase.from('daily_checkins').select('checkin_date, morning_feeling, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, note, completed_at').eq('user_id', userId).gte('checkin_date', startDate).lte('checkin_date', date).order('checkin_date', { ascending: false }),
+    supabase.from('daily_checkins').select('checkin_date, morning_feeling, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, suspected_factors, note, completed_at').eq('user_id', userId).gte('checkin_date', startDate).lte('checkin_date', date).order('checkin_date', { ascending: false }),
     supabase.from('sleep_nights').select('sleep_date, sleep_score, provider, score_version, total_sleep_minutes').eq('user_id', userId).gte('sleep_date', startDate).lte('sleep_date', date),
     supabase.from('sleep_profiles').select('primary_concern, typical_bedtime, typical_wake_time, timezone, preferred_sleep_source').eq('user_id', userId).maybeSingle(),
     supabase.from('behavior_commitments').select('behavior_date, behavior, status').eq('user_id', userId).gte('behavior_date', startDate).lt('behavior_date', date).order('behavior_date', { ascending: false }),

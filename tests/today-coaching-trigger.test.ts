@@ -3,6 +3,7 @@ import { createElement } from '../mobile/node_modules/react';
 import { act, create, type ReactTestRenderer } from '../mobile/node_modules/react-test-renderer';
 import TodayScreen from '../mobile/today/TodayScreen';
 import { loadDailyCoaching } from '../mobile/coach/coachRepository';
+import { interpretTypedCheckinReply } from '../mobile/today/checkinReplyRepository';
 import { checkinDraftStorage } from '../mobile/today/checkinDraftStorage';
 import type { TodayRepository, TodaySnapshot } from '../mobile/today/types';
 
@@ -51,13 +52,13 @@ afterEach(async () => {
   delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
 });
 
-async function openReadyCheckin(sleepData: TodaySnapshot['sleepData'], onCheckinComplete?: () => Promise<void>) {
+async function openReadyCheckin(sleepData: TodaySnapshot['sleepData'], onCheckinComplete?: () => Promise<void>, factorStep = false) {
   let snapshot: TodaySnapshot = {
     date: '2026-09-23', dayNumber: 3, checkin: null, sleepData,
     dailyCoaching: null, commitment: null, previousCommitment: null,
   };
   vi.mocked(checkinDraftStorage.load).mockResolvedValue({
-    conversation: { step: 'details', morningFeeling: 'okay', turns: [{ role: 'user', content: 'A quiet evening.' }] },
+    conversation: { step: factorStep ? 'factor' : 'details', morningFeeling: 'okay', turns: [{ role: 'user', content: 'A quiet evening.' }] },
     input: '', manualSleepScore: sleepData.status === 'manual' ? sleepData.score : null,
     manualSleepFallback: sleepData.status === 'manual',
     sleepReviewed: true, reviewedSleepData: sleepData,
@@ -158,4 +159,48 @@ it('retries with cache reuse, while an explicit Rewrite remains a forced generat
   const rewrite = screen!.root.findByProps({ accessibilityLabel: 'Rewrite today’s coaching' });
   await act(async () => rewrite.props.onPress());
   expect(vi.mocked(loadDailyCoaching).mock.calls[2][2]).toEqual({ freshSources: true, refresh: true });
+});
+
+it('keeps multiple choices selected until the separate Next button advances, then saves them all', async () => {
+  const { repository, finish } = await openReadyCheckin({ status: 'wearable', score: 79, source: 'oura' }, undefined, true);
+  const checkbox = (label: string) => screen!.root.findAllByType('Pressable' as any).find(button =>
+    button.props.accessibilityRole === 'checkbox' && button.findAllByType('Text' as any)
+      .some(text => [text.props.children].flat().join('').includes(label)))!;
+  expect(screen!.root.findAllByType('Pressable' as any).filter(button => button.props.accessibilityRole === 'checkbox')).toHaveLength(22);
+  await act(async () => checkbox('Stress').props.onPress());
+  await act(async () => checkbox('Caffeine').props.onPress());
+  expect(checkbox('Stress').props.accessibilityState.checked).toBe(true);
+  expect(checkbox('Caffeine').props.accessibilityState.checked).toBe(true);
+  expect(repository.saveCheckin).not.toHaveBeenCalled();
+  expect(interpretTypedCheckinReply).not.toHaveBeenCalled();
+  await act(async () => screen!.root.findByProps({ accessibilityLabel: 'Next' }).props.onPress());
+  expect(screen!.root.findAllByType('Pressable' as any).filter(button => button.props.accessibilityRole === 'checkbox')).toHaveLength(0);
+  await act(async () => finish().props.onPress());
+  expect(repository.saveCheckin).toHaveBeenCalledWith(expect.objectContaining({ suspectedFactors: ['stress', 'caffeine'] }));
+});
+
+it('Next interprets typed detail alongside selections and preserves both after a parsing failure', async () => {
+  const { repository, finish } = await openReadyCheckin({ status: 'wearable', score: 79, source: 'oura' }, undefined, true);
+  const stress = screen!.root.findAllByType('Pressable' as any).find(button =>
+    button.props.accessibilityRole === 'checkbox' && button.findAllByType('Text' as any)
+      .some(text => [text.props.children].flat().join('') === 'Stress'))!;
+  await act(async () => stress.props.onPress());
+  await act(async () => screen!.root.findByType('ChatComposer' as any).props.onChangeText('Coffee late too, no alcohol'));
+  vi.mocked(interpretTypedCheckinReply).mockRejectedValueOnce(new Error('Try again'));
+  await act(async () => screen!.root.findByProps({ accessibilityLabel: 'Next' }).props.onPress());
+  expect(screen!.root.findByType('ChatComposer' as any).props.value).toBe('Coffee late too, no alcohol');
+  expect(repository.saveCheckin).not.toHaveBeenCalled();
+  vi.mocked(interpretTypedCheckinReply).mockResolvedValueOnce({ addressed: true, answer: 'stress', factors: ['stress', 'caffeine'], finish: false, clarification: null });
+  await act(async () => screen!.root.findByProps({ accessibilityLabel: 'Next' }).props.onPress());
+  expect(interpretTypedCheckinReply).toHaveBeenLastCalledWith(expect.objectContaining({ suspectedFactors: ['stress'] }), 'Coffee late too, no alcohol');
+  await act(async () => finish().props.onPress());
+  expect(repository.saveCheckin).toHaveBeenCalledWith(expect.objectContaining({ suspectedFactors: ['stress', 'caffeine'], note: expect.stringContaining('Coffee late too, no alcohol') }));
+});
+
+it('Finish parses unsent detail before saving corrected factors', async () => {
+  const { repository, finish } = await openReadyCheckin({ status: 'wearable', score: 79, source: 'oura' });
+  await act(async () => screen!.root.findByType('ChatComposer' as any).props.onChangeText('Also the dog woke me'));
+  vi.mocked(interpretTypedCheckinReply).mockResolvedValueOnce({ addressed: true, answer: null, factors: ['bed_partner'], finish: false, clarification: null });
+  await act(async () => finish().props.onPress());
+  expect(repository.saveCheckin).toHaveBeenCalledWith(expect.objectContaining({ suspectedFactors: ['bed_partner'], note: expect.stringContaining('Also the dog woke me') }));
 });

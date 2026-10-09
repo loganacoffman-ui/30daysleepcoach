@@ -1,13 +1,6 @@
 export type CommitmentStatus = 'committed' | 'completed' | 'partial' | 'skipped';
 
-export type SuspectedFactorKey =
-  | 'stress'
-  | 'late_meal'
-  | 'alcohol'
-  | 'screens'
-  | 'temperature'
-  | 'noise'
-  | 'unknown';
+export type SuspectedFactorKey = import('./checkinReplyContract').SleepFactor;
 
 export type BehaviorCommitment = {
   id: string;
@@ -25,6 +18,7 @@ export type DailyCheckin = {
   morningFeeling: MorningFeeling;
   manualSleepScore?: number;
   suspectedFactor?: SuspectedFactorKey;
+  suspectedFactors?: SuspectedFactorKey[];
   note?: string;
   completedAt: string;
 };
@@ -63,6 +57,7 @@ export type DailyCheckinDraft = {
   morningFeeling: MorningFeeling;
   manualSleepScore?: number;
   suspectedFactor?: SuspectedFactorKey;
+  suspectedFactors?: SuspectedFactorKey[];
   note?: string;
 };
 

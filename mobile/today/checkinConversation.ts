@@ -9,6 +9,7 @@ export type CheckinConversation = {
   turns: CheckinTurn[];
   morningFeeling?: MorningFeeling;
   suspectedFactor?: SuspectedFactorKey;
+  suspectedFactors?: SuspectedFactorKey[];
   adherence?: Exclude<CommitmentStatus, 'committed'>;
   commitmentId?: string;
 };
@@ -35,13 +36,28 @@ export function assertCheckinNoteLength(note: string) {
     throw new Error('This check-in can hold 20,000 characters. Shorten this message, or finish here and keep chatting with your coach.');
   }
 }
-export const factorOptions: CheckinChoice[] = [
+export const factorOptions: (CheckinChoice & { value: SuspectedFactorKey })[] = [
   { value: 'stress', label: 'Stress' },
+  { value: 'caffeine', label: 'Caffeine' },
   { value: 'late_meal', label: 'Late meal' },
   { value: 'alcohol', label: 'Alcohol' },
   { value: 'screens', label: 'Screens' },
   { value: 'temperature', label: 'Temperature' },
   { value: 'noise', label: 'Noise' },
+  { value: 'light', label: 'Light' },
+  { value: 'exercise', label: 'Exercise' },
+  { value: 'naps', label: 'Naps' },
+  { value: 'irregular_schedule', label: 'Changed sleep schedule' },
+  { value: 'travel', label: 'Travel / jet lag' },
+  { value: 'illness', label: 'Illness' },
+  { value: 'pain', label: 'Pain / discomfort' },
+  { value: 'medication', label: 'Medication / supplements' },
+  { value: 'bathroom', label: 'Bathroom trips' },
+  { value: 'caregiving', label: 'Kids / caregiving' },
+  { value: 'bed_partner', label: 'Partner / pets' },
+  { value: 'wind_down', label: 'Wind-down routine' },
+  { value: 'other', label: 'Something else' },
+  { value: 'none', label: 'Nothing in particular' },
   { value: 'unknown', label: 'Not sure' },
 ];
 export const adherenceOptions: CheckinChoice[] = [
@@ -92,11 +108,16 @@ export function answerCheckin(state: CheckinConversation, text: string, choice?:
   }
   if (state.step === 'feeling') {
     next.morningFeeling = result.answer as MorningFeeling;
-    return ask('What do you think affected your sleep last night? You can pick one or tell me in your own words.', 'factor');
+    return ask('What do you think affected your sleep last night? Choose all that apply, or tell me in your own words. Tap Next when you’re ready.', 'factor');
   }
   if (state.step === 'factor') {
-    next.suspectedFactor = result.answer as SuspectedFactorKey | null ?? undefined;
-    return ask('Anything else you’d like me to know? There’s room for the whole story, or you can finish here.', 'details');
+    next.suspectedFactors = result.factors ?? (result.answer ? [result.answer as SuspectedFactorKey] : []);
+    next.suspectedFactor = next.suspectedFactors[0];
+    return ask('You can adjust your selections or add more detail. Tap Next when you’re ready.', 'factor');
+  }
+  if (result.factors !== undefined) {
+    next.suspectedFactors = result.factors;
+    next.suspectedFactor = result.factors[0];
   }
   return result.finish ? next : ask('I’ve added that. You can keep sharing, or finish whenever you’re ready.', 'details');
 }
@@ -109,6 +130,29 @@ export function checkinDraft(state: CheckinConversation, manualSleepScore?: numb
     morningFeeling: state.morningFeeling,
     manualSleepScore,
     suspectedFactor: state.suspectedFactor,
+    suspectedFactors: selectedCheckinFactors(state),
     note,
   };
+}
+
+export const selectedCheckinFactors = (state: CheckinConversation): SuspectedFactorKey[] =>
+  state.suspectedFactors ?? (state.suspectedFactor ? [state.suspectedFactor] : []);
+
+export function toggleCheckinFactor(state: CheckinConversation, factor: string): CheckinConversation {
+  if (state.step !== 'factor' || !factorOptions.some(option => option.value === factor)) return state;
+  const value = factor as SuspectedFactorKey;
+  const current = selectedCheckinFactors(state);
+  const factors = current.includes(value) ? current.filter(item => item !== value)
+    : value === 'none' || value === 'unknown' ? [value]
+    : [...current.filter(item => item !== 'none' && item !== 'unknown'), value];
+  return { ...state, suspectedFactors: factors, suspectedFactor: factors[0] };
+}
+
+export function completeFactorSelection(state: CheckinConversation): CheckinConversation {
+  if (state.step !== 'factor') return state;
+  const factors = selectedCheckinFactors(state);
+  const labels = factors.map(value => factorOptions.find(option => option.value === value)!.label);
+  const next = appendCheckinReply(state, labels.length ? `Sleep factors: ${labels.join(', ')}.` : 'No sleep factors selected.');
+  return { ...next, step: 'details', turns: [...next.turns, { role: 'assistant',
+    content: 'Anything else you’d like me to know? There’s room for the whole story, or you can finish here.' }] };
 }

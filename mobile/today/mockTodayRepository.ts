@@ -50,6 +50,7 @@ export const mockTodayRepository: TodayRepository = {
       morningFeeling: draft.morningFeeling,
       manualSleepScore: draft.manualSleepScore,
       suspectedFactor: draft.suspectedFactor,
+      suspectedFactors: draft.suspectedFactors,
       note: draft.note?.trim() || undefined,
       completedAt: new Date().toISOString(),
     };

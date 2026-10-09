@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerCheckin, appendCheckinReply, checkinChoices, checkinDraft, checkinNote, initialCheckin, MAX_CHECKIN_NOTE_LENGTH, remainingCheckinCharacters, startCheckin } from '../mobile/today/checkinConversation';
+import { completeFactorSelection, toggleCheckinFactor, answerCheckin, appendCheckinReply, checkinChoices, checkinDraft, checkinNote, initialCheckin, MAX_CHECKIN_NOTE_LENGTH, remainingCheckinCharacters, startCheckin } from '../mobile/today/checkinConversation';
 import { readFileSync } from 'node:fs';
 import type { CheckinInterpretation } from '../mobile/today/checkinReplyContract';
 
@@ -48,7 +48,8 @@ describe('conversational mobile check-in', () => {
   it('accepts rich answers outside the factor categories and preserves long notes', () => {
     let state = answerCheckin(startCheckin(), 'Rested', 'rested');
     state = answerCheckin(state, 'The baby was sick and I stayed up with her.', undefined, understood(null));
-    expect(state.step).toBe('details');
+    expect(state.step).toBe('factor');
+    state = completeFactorSelection(state);
     expect(state.suspectedFactor).toBeUndefined();
     const detail = 'Here is more context about my night. '.repeat(80);
     state = answerCheckin(state, detail, undefined, understood(null));
@@ -77,7 +78,7 @@ describe('conversational mobile check-in', () => {
   });
 
   it('uses model finish intent and keeps unsent detail when Finish is tapped', () => {
-    const state = answerCheckin(answerCheckin(startCheckin(), 'Great', 'great'), 'Not sure', 'unknown');
+    const state = completeFactorSelection(answerCheckin(answerCheckin(startCheckin(), 'Great', 'great'), 'Not sure', 'unknown'));
     const continuing = answerCheckin(state, 'I was done with work late.', undefined, understood(null));
     expect(continuing.turns.at(-1)?.role).toBe('assistant');
     const done = answerCheckin(continuing, 'That about covers it for today', undefined, understood(null, true));
@@ -91,7 +92,8 @@ describe('conversational mobile check-in', () => {
     let state = answerCheckin(startCheckin(), 'My partner was tired', undefined, clarify('How did you feel yourself?'));
     state = answerCheckin(state, 'I felt rested.', 'rested');
     state = answerCheckin(state, 'The room was cool.', undefined, understood('temperature'));
-    expect(checkinDraft(state)?.note).toBe('My partner was tired\n\nI felt rested.\n\nThe room was cool.');
+    state = completeFactorSelection(state);
+    expect(checkinDraft(state)?.note).toBe('My partner was tired\n\nI felt rested.\n\nThe room was cool.\n\nSleep factors: Temperature.');
     expect(state.turns.some(turn => turn.role === 'assistant' && turn.content === 'How did you feel yourself?')).toBe(true);
   });
 
@@ -115,4 +117,43 @@ describe('conversational mobile check-in', () => {
     expect([...checkinDraft(full)!.note!]).toHaveLength(MAX_CHECKIN_NOTE_LENGTH);
     expect(() => appendCheckinReply(full, '🌙')).toThrow();
   });
+});
+
+it('toggles multiple factors without advancing and logs all selections only on Next', () => {
+  let state = answerCheckin(startCheckin(), 'Tired', 'tired');
+  const turns = state.turns;
+  state = toggleCheckinFactor(toggleCheckinFactor(state, 'stress'), 'caffeine');
+  expect(state.step).toBe('factor');
+  expect(state.turns).toBe(turns);
+  expect(checkinDraft(state)).toBeNull();
+  state = toggleCheckinFactor(state, 'stress');
+  state = toggleCheckinFactor(state, 'noise');
+  const draft = checkinDraft(completeFactorSelection(state))!;
+  expect(draft.suspectedFactors).toEqual(['caffeine', 'noise']);
+  expect(draft.note).toContain('Sleep factors: Caffeine, Noise.');
+});
+
+it('keeps none and uncertainty exclusive and permits skipping', () => {
+  let state = answerCheckin(startCheckin(), 'Okay', 'okay');
+  state = toggleCheckinFactor(toggleCheckinFactor(state, 'stress'), 'unknown');
+  expect(state.suspectedFactors).toEqual(['unknown']);
+  state = toggleCheckinFactor(state, 'pain');
+  expect(state.suspectedFactors).toEqual(['pain']);
+  state = toggleCheckinFactor(state, 'none');
+  expect(state.suspectedFactors).toEqual(['none']);
+  state = toggleCheckinFactor(state, 'none');
+  expect(checkinDraft(completeFactorSelection(state))?.suspectedFactors).toEqual([]);
+});
+
+it('logs model-extracted factors and applies later corrections while retaining the original words', () => {
+  let state = answerCheckin(startCheckin(), 'Tired', 'tired');
+  state = answerCheckin(state, 'Coffee at 5 and noisy neighbors, no alcohol', undefined,
+    { ...understood('caffeine'), factors: ['caffeine', 'noise'] });
+  expect(state.step).toBe('factor');
+  expect(state.suspectedFactors).toEqual(['caffeine', 'noise']);
+  state = completeFactorSelection(state);
+  state = answerCheckin(state, 'Actually it was decaf, but I was also stressed', undefined,
+    { ...understood(null), factors: ['noise', 'stress'] });
+  expect(checkinDraft(state)?.suspectedFactors).toEqual(['noise', 'stress']);
+  expect(checkinDraft(state)?.note).toContain('Actually it was decaf');
 });

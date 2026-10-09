@@ -57,3 +57,14 @@ it('uses Health Connect in Your Day and preserves the manual override', async ()
   state.checkin = null;
   expect((await repository.loadToday()).sleepData).toEqual({ status: 'wearable', source: 'health_connect', score: 81 });
 });
+
+it('writes and reloads every sleep factor with the original note', async () => {
+  state.checkin.suspected_factor = 'caffeine';
+  state.checkin.suspected_factors = ['caffeine', 'noise'];
+  const saved = await repository.saveCheckin({ morningFeeling: 'tired', suspectedFactors: ['caffeine', 'noise'], note: 'Coffee and noisy neighbors, no alcohol.' });
+  expect(state.writes.find(write => write.table === 'daily_checkins').record).toMatchObject({
+    suspected_factor: 'caffeine', suspected_factors: ['caffeine', 'noise'], note: 'Coffee and noisy neighbors, no alcohol.',
+  });
+  expect(saved.suspectedFactors).toEqual(['caffeine', 'noise']);
+  expect((await repository.loadToday()).checkin?.suspectedFactors).toEqual(['caffeine', 'noise']);
+});

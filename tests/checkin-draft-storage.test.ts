@@ -120,3 +120,12 @@ describe('same-day check-in persistence', () => {
     expect(await store.load('user-a', date, wearable)).toEqual(draft());
   });
 });
+
+it('restores multiple pending selections and rejects malformed or contradictory arrays', () => {
+  const original = draft();
+  original.conversation = { step: 'factor', morningFeeling: 'tired', turns: [], suspectedFactors: ['stress', 'caffeine'] };
+  expect(restoreCheckinDraft(JSON.stringify(original), wearable)?.conversation.suspectedFactors).toEqual(['stress', 'caffeine']);
+  for (const factors of [['stress', 'unknown'], ['made_up'], ['stress', 'stress'], 'stress']) {
+    expect(restoreCheckinDraft(JSON.stringify({ ...original, conversation: { ...original.conversation, suspectedFactors: factors } }), wearable)).toBeNull();
+  }
+});

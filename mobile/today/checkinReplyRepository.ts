@@ -1,6 +1,6 @@
 import { supabase } from '../supabase';
 import { parseCheckinInterpretation, type CheckinInterpretation } from './checkinReplyContract';
-import type { CheckinConversation } from './checkinConversation';
+import { selectedCheckinFactors, type CheckinConversation } from './checkinConversation';
 
 export async function interpretTypedCheckinReply(state: CheckinConversation, message: string): Promise<CheckinInterpretation> {
   if (state.step === 'sleep') throw new Error('Start with your sleep score.');
@@ -11,6 +11,7 @@ export async function interpretTypedCheckinReply(state: CheckinConversation, mes
     const { data, error } = await supabase.functions.invoke('sleep-coach', {
       body: { mode: 'checkin_reply', checkinReply: {
         step: state.step, message,
+        ...(['factor', 'details'].includes(state.step) ? { selectedFactors: selectedCheckinFactors(state) } : {}),
         turns: turns.map(turn => ({ ...turn, content: turn.content.slice(0, 4000) })),
       } },
     });
