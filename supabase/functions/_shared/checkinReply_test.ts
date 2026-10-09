@@ -93,3 +93,21 @@ Deno.test('factor arrays reject duplicates, unknown categories, contradictory se
   assertThrows(() => parseCheckinInterpretation('adherence', { ...skipped, factors: ['stress'] }));
   assertEquals(parseCheckinInterpretation('details', { ...base, factors: ['caregiving', 'stress'] }).factors, ['caregiving', 'stress']);
 });
+
+Deno.test('legacy factor answers are derived from the validated canonical array', async () => {
+  for (const [factors, expected] of [
+    [['noise'], 'noise'],
+    [['caffeine', 'noise', 'stress'], 'noise'],
+    [['other'], null],
+    [['none'], null],
+    [['unknown'], 'unknown'],
+    [[], null],
+  ] as const) {
+    const result = await interpretCheckinReply({ ...request, step: 'factor' }, 'test-key', 'test-model', () =>
+      Promise.resolve(Response.json({ content: [{ type: 'tool_use', name: 'interpret_checkin_reply', input: {
+        addressed: true, answer: 'stress', factors, finish: false, clarification: null,
+      } }] })));
+    assertEquals(result.answer, expected);
+    assertEquals(result.factors, [...factors]);
+  }
+});

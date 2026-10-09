@@ -2,12 +2,26 @@
 -- NULL denotes an older writer; readers fall back to suspected_factor.
 alter table public.daily_checkins add column suspected_factors text[];
 
+-- Match the application vocabulary and uniqueness rules at the write boundary.
+-- Custom descriptions remain unrestricted in note and use the 'other' category.
+create function public.valid_checkin_sleep_factors(factors text[]) returns boolean
+language sql immutable security invoker set search_path = '' as $$
+  select factors is null or (
+    (cardinality(factors) = 0 or (array_ndims(factors) = 1 and array_lower(factors, 1) = 1))
+    and factors <@ array[
+      'stress', 'caffeine', 'late_meal', 'alcohol', 'screens', 'temperature',
+      'noise', 'light', 'exercise', 'naps', 'irregular_schedule', 'travel',
+      'illness', 'pain', 'medication', 'bathroom', 'caregiving', 'bed_partner',
+      'wind_down', 'other', 'none', 'unknown'
+    ]::text[]
+    -- COUNT(DISTINCT) also excludes NULL, so NULL elements fail this check.
+    and cardinality(factors) = (select count(distinct factor) from unnest(factors) as items(factor))
+    and (cardinality(factors) <= 1 or not (factors && array['none', 'unknown']))
+  );
+$$;
+
 alter table public.daily_checkins add constraint daily_checkins_suspected_factors_check
-  check (suspected_factors is null or (
-    cardinality(suspected_factors) <= 22
-    and array_position(suspected_factors, null) is null
-    and (cardinality(suspected_factors) <= 1 or not (suspected_factors && array['none', 'unknown']))
-  ));
+  check (public.valid_checkin_sleep_factors(suspected_factors));
 
 -- Keep old mobile releases able to edit their single factor, and preserve the
 -- first factor for existing consumers when a new client writes the full set.

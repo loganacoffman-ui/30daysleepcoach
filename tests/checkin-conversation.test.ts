@@ -157,3 +157,12 @@ it('logs model-extracted factors and applies later corrections while retaining t
   expect(checkinDraft(state)?.suspectedFactors).toEqual(['noise', 'stress']);
   expect(checkinDraft(state)?.note).toContain('Actually it was decaf');
 });
+
+it('preserves custom sleep influences verbatim while storing the other category', () => {
+  const description = 'The new mattress smell kept me awake, and a vivid dream woke me up.';
+  let state = answerCheckin(startCheckin(), 'Tired', 'tired');
+  state = answerCheckin(state, description, undefined, { ...understood(null), factors: ['other'] });
+  const draft = checkinDraft(completeFactorSelection(state))!;
+  expect(draft.suspectedFactors).toEqual(['other']);
+  expect(draft.note).toContain(description);
+});

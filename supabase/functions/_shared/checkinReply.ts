@@ -15,7 +15,7 @@ Return your interpretation using interpret_checkin_reply.`;
 
 export async function interpretCheckinReply(request: CheckinReplyRequest, apiKey: string, model: string, fetcher: typeof fetch = fetch) {
   // The scalar answer remains readable by mobile versions with the original seven choices.
-  const answerValues = request.step === 'factor'
+  const answerValues: readonly string[] = request.step === 'factor'
     ? ['stress', 'late_meal', 'alcohol', 'screens', 'temperature', 'noise', 'unknown']
     : checkinAnswerValues[request.step];
   const reasoning = [DEFAULT_COACH_MODEL, SONNET_5_MODEL, SONNET_5_5_MODEL].includes(model);
@@ -68,6 +68,11 @@ export async function interpretCheckinReply(request: CheckinReplyRequest, apiKey
   const interpretation = parseCheckinInterpretation(request.step, tool?.input);
   if (['factor', 'details'].includes(request.step) && interpretation.factors === undefined) {
     throw new Error('Missing sleep factors in check-in interpretation.');
+  }
+  // Older clients consume only answer. Derive it from the canonical set so
+  // a contradictory model scalar cannot log a different sleep influence.
+  if (request.step === 'factor') {
+    return { ...interpretation, answer: interpretation.factors!.find(factor => answerValues.includes(factor)) ?? null };
   }
   return interpretation;
 }
