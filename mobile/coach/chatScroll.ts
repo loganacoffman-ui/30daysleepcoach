@@ -7,6 +7,7 @@ export class ChatScrollPosition {
   viewportHeight = 0;
   offset = 0;
   interacting = false;
+  latestOffset: number | null = null;
   private layoutTarget: number | null = null;
 
   constructor(public following = true) {}
@@ -15,11 +16,24 @@ export class ChatScrollPosition {
     return Math.max(0, this.contentHeight - this.viewportHeight);
   }
 
+  get latestTarget() {
+    return Math.min(this.end, Math.max(0, this.latestOffset ?? this.end));
+  }
+
+  setLatestOffset(offset: number | null): number | null {
+    this.latestOffset = offset;
+    return this.following && !this.interacting && this.viewportHeight > 0
+      ? this.moveTo(this.latestTarget)
+      : null;
+  }
+
   observeScroll(offset: number) {
     this.offset = Math.max(0, offset);
     if (this.interacting) {
       this.layoutTarget = null;
-      this.following = this.end - this.offset <= NEAR_LATEST_DISTANCE;
+      this.following = this.latestOffset === null
+        ? this.end - this.offset <= NEAR_LATEST_DISTANCE
+        : Math.abs(this.latestTarget - this.offset) <= NEAR_LATEST_DISTANCE;
     }
   }
 
@@ -29,7 +43,7 @@ export class ChatScrollPosition {
     const previousHeight = this.viewportHeight;
     this.viewportHeight = height;
     if (this.interacting) return null;
-    if (this.following) return this.moveTo(this.end);
+    if (this.following) return this.moveTo(this.latestTarget);
     if (!previousHeight || previousHeight === height) return null;
     // Anchor the bottom of the visible conversation as the keyboard or a
     // multiline composer changes height, even when reading an older message.
@@ -39,14 +53,14 @@ export class ChatScrollPosition {
   contentChanged(height: number): number | null {
     this.contentHeight = height;
     return this.following && !this.interacting && this.viewportHeight > 0
-      ? this.moveTo(this.end)
+      ? this.moveTo(this.latestTarget)
       : null;
   }
 
   latest(): number {
     this.following = true;
     this.interacting = false;
-    return this.moveTo(this.end);
+    return this.moveTo(this.latestTarget);
   }
 
   settleLayout(): number | null {
@@ -54,7 +68,7 @@ export class ChatScrollPosition {
     // Native scroll events during a keyboard animation may report a clamped
     // offset against the old viewport. Retry the intended position once the
     // animation completes, without treating that clamp as a new reading anchor.
-    if (this.following) return this.moveTo(this.end);
+    if (this.following) return this.moveTo(this.latestTarget);
     return this.layoutTarget === null ? null : this.moveTo(this.layoutTarget);
   }
 

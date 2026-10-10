@@ -255,11 +255,19 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
   const replyRequestRef = useRef(0);
   useEffect(() => () => { replyRequestRef.current += 1; }, []);
   const scrollRef = useRef<ScrollView>(null);
-  const { scrollProps, scrollToLatest, showLatest } = useChatScroll({
+  const factorLayout = useRef<{ conversationY: number; promptY: number | null }>({ conversationY: 0, promptY: null });
+  const { scrollProps, scrollToLatest, setLatestOffset, showLatest } = useChatScroll({
     scrollTo: (y, animated) => scrollRef.current?.scrollTo({ y, animated }),
     scrollToEnd: animated => scrollRef.current?.scrollToEnd({ animated }),
     initiallyFollowing: false,
   });
+  const showingFactors = !snapshot?.checkin && sleepReviewed && conversation.step === 'factor';
+  useEffect(() => {
+    if (!showingFactors) {
+      factorLayout.current.promptY = null;
+      setLatestOffset(null);
+    }
+  }, [showingFactors, setLatestOffset]);
   const [manualSleepFallback, setManualSleepFallback] = useState(false);
   const [manualSleepScore, setManualSleepScore] = useState<number | null>(null);
   const [manualSleepSaving, setManualSleepSaving] = useState(false);
@@ -863,15 +871,29 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
         )}
 
         {((conversation.step !== 'sleep' && (sleepReviewed || snapshot.checkin)) || (snapshot.checkin && checkinTurns.length > 0)) && (
-          <View style={styles.conversation}>
+          <View style={styles.conversation} onLayout={event => {
+            factorLayout.current.conversationY = event.nativeEvent.layout.y;
+            if (showingFactors && factorLayout.current.promptY !== null) {
+              setLatestOffset(factorLayout.current.conversationY + factorLayout.current.promptY);
+            }
+          }}>
             {!snapshot.checkin && <Text style={styles.promptHint}>Sleep score {sleepData!.score ?? manualSleepScore} · {sleepSourceLabel(sleepData!.source)}</Text>}
             {checkinTurns.map((turn, index) => (
-              <ChatBubble content={turn.content} key={index} role={turn.role} />
+              showingFactors && turn.role === 'assistant' && index === checkinTurns.length - 1 ? (
+                <View key={index} onLayout={event => {
+                  factorLayout.current.promptY = event.nativeEvent.layout.y;
+                  setLatestOffset(factorLayout.current.conversationY + event.nativeEvent.layout.y);
+                  scrollToLatest();
+                }}>
+                  <ChatBubble content={turn.content} role={turn.role} />
+                  <Text style={styles.promptHint}>Select all that apply, or type your reply below. Scroll for more choices, then tap Next.</Text>
+                </View>
+              ) : <ChatBubble content={turn.content} key={index} role={turn.role} />
             ))}
             {interpreting && <ChatBubble role="assistant" thinking />}
             {!snapshot.checkin && (
               <View>
-                {conversation.step === 'factor' && <Text style={styles.promptHint}>Select all that apply · {selectedCheckinFactors(conversation).length} selected</Text>}
+                {conversation.step === 'factor' && <Text style={styles.promptHint}>{selectedCheckinFactors(conversation).length} selected</Text>}
                 <View style={styles.chipRow}>
                   {checkinChoices(conversation.step).map(option => {
                     const isFactor = conversation.step === 'factor';
@@ -951,7 +973,7 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
           </View>
         )}
       </ScrollView>
-      {showLatest && <JumpToLatest onPress={scrollToLatest} />}
+      {showLatest && !showingFactors && <JumpToLatest onPress={scrollToLatest} />}
       </View>
       <ChatComposer
         value={input}

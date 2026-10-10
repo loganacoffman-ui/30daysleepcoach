@@ -31,7 +31,7 @@ export function useChatScroll({ scrollTo, scrollToEnd, initiallyFollowing = true
     frame.current = requestAnimationFrame(() => {
       frame.current = null;
       userGesture.current = false;
-      if (nativeEnd) scroll.current.scrollToEnd(animated);
+      if (nativeEnd && position.current.latestOffset === null) scroll.current.scrollToEnd(animated);
       else scroll.current.scrollTo(offset, animated);
     });
   }, [cancelScroll]);
@@ -60,6 +60,11 @@ export function useChatScroll({ scrollTo, scrollToEnd, initiallyFollowing = true
     // newly sent bubble has actually been measured.
   }, [scheduleScroll]);
 
+  // Long check-in choices follow the question's top instead of the list's end.
+  const setLatestOffset = useCallback((offset: number | null) => {
+    scheduleScroll(position.current.setLatestOffset(offset));
+  }, [scheduleScroll]);
+
   const reset = useCallback(() => {
     cancelScroll();
     userGesture.current = false;
@@ -86,6 +91,7 @@ export function useChatScroll({ scrollTo, scrollToEnd, initiallyFollowing = true
   return {
     reset,
     scrollToLatest,
+    setLatestOffset,
     showLatest,
     scrollProps: {
       onLayout: ({ nativeEvent }: LayoutChangeEvent) => {

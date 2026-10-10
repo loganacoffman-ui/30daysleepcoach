@@ -15,6 +15,35 @@ const readOlderMessage = (position: ChatScrollPosition, offset = 400) => {
 };
 
 describe('chat reading position', () => {
+  it('keeps the full check-in question in view above a long list of choices', () => {
+    const position = thread();
+    expect(position.setLatestOffset(500)).toBe(500);
+    expect(position.latest()).toBe(500);
+    expect(position.contentChanged(2200)).toBe(500);
+    expect(position.resize(300)).toBe(500);
+    expect(position.settleLayout()).toBe(500);
+    expect(position.resize(600)).toBe(500);
+    // The choices are still freely scrollable; selecting one must not pull
+    // someone reading lower choices back to the question.
+    readOlderMessage(position, 1000);
+    expect(position.following).toBe(false);
+    expect(position.contentChanged(2250)).toBeNull();
+    expect(position.offset).toBe(1000);
+    // Advancing to the next step restores normal chat following.
+    position.setLatestOffset(null);
+    expect(position.latest()).toBe(1650);
+  });
+
+  it('repositions a measured question and clamps it for short content', () => {
+    const position = thread();
+    expect(position.setLatestOffset(500)).toBe(500);
+    expect(position.setLatestOffset(550)).toBe(550);
+    expect(position.contentChanged(800)).toBe(200);
+    expect(position.contentChanged(1600)).toBe(550);
+    position.interacting = true;
+    expect(position.setLatestOffset(600)).toBeNull();
+  });
+
   it('keeps the latest message above an opening keyboard and returns when it closes', () => {
     const position = thread();
     expect(position.resize(300)).toBe(1300);
