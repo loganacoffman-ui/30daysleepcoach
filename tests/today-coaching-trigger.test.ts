@@ -7,6 +7,8 @@ import { interpretTypedCheckinReply } from '../mobile/today/checkinReplyReposito
 import { checkinDraftStorage } from '../mobile/today/checkinDraftStorage';
 import type { TodayRepository, TodaySnapshot } from '../mobile/today/types';
 
+const checkinScroll = vi.hoisted(() => ({ scrollToLatest: vi.fn(), setLatestOffset: vi.fn() }));
+
 // Exercise the real screen state/effects with native rendering and I/O stubbed.
 vi.mock('../mobile/node_modules/react-native', () => ({
   ActivityIndicator: 'ActivityIndicator', KeyboardAvoidingView: 'KeyboardAvoidingView',
@@ -32,7 +34,7 @@ vi.mock('../mobile/coach/ChatBubble', () => ({ default: 'ChatBubble', plainCoach
 vi.mock('../mobile/coach/ChatComposer', () => ({ default: 'ChatComposer' }));
 vi.mock('../mobile/coach/JumpToLatest', () => ({ default: 'JumpToLatest' }));
 vi.mock('../mobile/coach/useChatScroll', () => ({
-  useChatScroll: () => ({ scrollProps: {}, scrollToLatest: vi.fn(), showLatest: false }),
+  useChatScroll: () => ({ scrollProps: {}, ...checkinScroll, showLatest: false }),
 }));
 
 const user = { id: 'user' } as Parameters<typeof loadDailyCoaching>[0];
@@ -58,7 +60,10 @@ async function openReadyCheckin(sleepData: TodaySnapshot['sleepData'], onCheckin
     dailyCoaching: null, commitment: null, previousCommitment: null,
   };
   vi.mocked(checkinDraftStorage.load).mockResolvedValue({
-    conversation: { step: factorStep ? 'factor' : 'details', morningFeeling: 'okay', turns: [{ role: 'user', content: 'A quiet evening.' }] },
+    conversation: { step: factorStep ? 'factor' : 'details', morningFeeling: 'okay', turns: [
+      { role: 'user', content: 'A quiet evening.' },
+      { role: 'assistant', content: factorStep ? 'What do you think affected your sleep last night?' : 'Anything else you’d like me to know?' },
+    ] },
     input: '', manualSleepScore: sleepData.status === 'manual' ? sleepData.score : null,
     manualSleepFallback: sleepData.status === 'manual',
     sleepReviewed: true, reviewedSleepData: sleepData,
@@ -159,6 +164,21 @@ it('retries with cache reuse, while an explicit Rewrite remains a forced generat
   const rewrite = screen!.root.findByProps({ accessibilityLabel: 'Rewrite today’s coaching' });
   await act(async () => rewrite.props.onPress());
   expect(vi.mocked(loadDailyCoaching).mock.calls[2][2]).toEqual({ freshSources: true, refresh: true });
+});
+
+it('anchors the factor screen at its complete question and instructions, then clears the anchor on Next', async () => {
+  await openReadyCheckin({ status: 'wearable', score: 79, source: 'oura' }, undefined, true);
+  const prompt = screen!.root.findAllByType('ChatBubble' as any).find(bubble =>
+    bubble.props.content === 'What do you think affected your sleep last night?')!.parent!;
+  expect(prompt.findByType('Text' as any).props.children).toContain('Scroll for more choices, then tap Next.');
+  await act(async () => {
+    prompt.parent!.props.onLayout({ nativeEvent: { layout: { y: 320 } } });
+    prompt.props.onLayout({ nativeEvent: { layout: { y: 180 } } });
+  });
+  expect(checkinScroll.setLatestOffset).toHaveBeenLastCalledWith(500);
+  expect(checkinScroll.scrollToLatest).toHaveBeenCalled();
+  await act(async () => screen!.root.findByProps({ accessibilityLabel: 'Next' }).props.onPress());
+  expect(checkinScroll.setLatestOffset).toHaveBeenLastCalledWith(null);
 });
 
 it('keeps multiple choices selected until the separate Next button advances, then saves them all', async () => {

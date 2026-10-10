@@ -20,7 +20,9 @@ Deno.test('check-in interpretation sends the question and full reply to the mode
   assertEquals(body.thinking, { type: 'disabled' });
   assertEquals(JSON.parse(body.messages[0].content), request);
   assertEquals(body.tool_choice.name, 'interpret_checkin_reply');
-  assertEquals(body.tools[0].input_schema.properties.answer.enum, ['completed', 'partial', 'skipped', null]);
+  assertEquals(body.tools[0].input_schema.properties.answer, {
+    anyOf: [{ type: 'string', enum: ['completed', 'partial', 'skipped'] }, { type: 'null' }],
+  });
 });
 
 Deno.test('check-in interpretation uses Sonnet 5.5 thinking and tool settings', async () => {
@@ -41,6 +43,48 @@ Deno.test('check-in model failure never becomes an unanswered question or a gues
   await assertRejects(() => interpretCheckinReply(request, 'test-key', 'test-model', () => Promise.resolve(new Response('', { status: 503 }))));
   await assertRejects(() => interpretCheckinReply(request, 'test-key', 'test-model', () => Promise.resolve(Response.json({ content: [] }))));
   await assertRejects(() => interpretCheckinReply(request, 'test-key', 'test-model', () => Promise.resolve(Response.json({ content: [{ type: 'tool_use', name: 'interpret_checkin_reply', input: { ...skipped, answer: 'great' } }] }))));
+});
+
+Deno.test('details replies use a null-only strict schema and preserve additional messages and finish intent', async () => {
+  for (const [message, finish] of [
+    ['I was done with work late and had coffee at 5.', false],
+    ['That about covers it for today.', true],
+  ] as const) {
+    const detailsRequest: CheckinReplyRequest = {
+      ...request, step: 'details', message, selectedFactors: ['noise'],
+    };
+    const input: CheckinInterpretation = {
+      addressed: true, answer: null, factors: ['noise', 'caffeine'], finish, clarification: null,
+    };
+    const result = await interpretCheckinReply(detailsRequest, 'test-key', SONNET_5_5_MODEL, (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      assertEquals(body.tools[0].strict, true);
+      assertEquals(body.tools[0].input_schema.properties.answer, { type: 'null' });
+      assertEquals(JSON.parse(body.messages[0].content), detailsRequest);
+      return Promise.resolve(Response.json({ content: [{ type: 'tool_use', name: 'interpret_checkin_reply', input }] }));
+    });
+    assertEquals(result, input);
+  }
+});
+
+Deno.test('categorical steps allow null separately from string enums for clarification', async () => {
+  for (const step of ['adherence', 'feeling', 'factor'] as const) {
+    const input: CheckinInterpretation = {
+      addressed: false, answer: null, factors: [], finish: false, clarification: 'Could you clarify?',
+    };
+    const result = await interpretCheckinReply({ ...request, step }, 'test-key', SONNET_5_5_MODEL, (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      const answer = body.tools[0].input_schema.properties.answer;
+      assertEquals(answer.type, undefined);
+      assertEquals(answer.enum, undefined);
+      assertEquals(answer.anyOf[0].type, 'string');
+      assertEquals(answer.anyOf[0].enum.length > 0, true);
+      assertEquals(answer.anyOf[0].enum.every((value: unknown) => typeof value === 'string'), true);
+      assertEquals(answer.anyOf[1], { type: 'null' });
+      return Promise.resolve(Response.json({ content: [{ type: 'tool_use', name: 'interpret_checkin_reply', input }] }));
+    });
+    assertEquals(result, input);
+  }
 });
 
 Deno.test('check-in contract rejects invalid categories, missing answers, and premature completion', () => {
@@ -79,7 +123,7 @@ Deno.test('factor extraction uses adaptive reasoning and an array schema on the 
   assertEquals(body.output_config.effort, 'medium');
   assertEquals(body.tool_choice.type, 'auto');
   assertEquals(body.tools[0].input_schema.properties.factors.type, 'array');
-  assertEquals(body.tools[0].input_schema.properties.answer.enum.includes('caffeine'), false);
+  assertEquals(body.tools[0].input_schema.properties.answer.anyOf[0].enum.includes('caffeine'), false);
   assertEquals(body.tools[0].input_schema.properties.factors.items.enum.includes('caffeine'), true);
   assertEquals(JSON.parse(body.messages[0].content).selectedFactors, ['noise']);
 });

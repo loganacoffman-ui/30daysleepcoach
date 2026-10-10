@@ -40,7 +40,11 @@ export async function interpretCheckinReply(request: CheckinReplyRequest, apiKey
           type: 'object',
           properties: {
             addressed: { type: 'boolean' },
-            answer: { type: ['string', 'null'], enum: [...answerValues, null] },
+            // Anthropic's strict schema compiler rejects null in a union-typed enum.
+            // Details has no scalar choices; avoid creating an empty string enum.
+            answer: answerValues.length === 0
+              ? { type: 'null' }
+              : { anyOf: [{ type: 'string', enum: [...answerValues] }, { type: 'null' }] },
             factors: { type: 'array', items: { type: 'string', enum: [...checkinAnswerValues.factor] } },
             finish: { type: 'boolean' },
             clarification: { type: ['string', 'null'] },
