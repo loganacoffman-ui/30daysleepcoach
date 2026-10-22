@@ -1,3 +1,4 @@
+import { backgroundTask } from './performance.ts';
 // Braintrust tracing for the coach's Anthropic calls.
 // In production: supabase secrets set BRAINTRUST_API_KEY=...
 // Imported from esm.sh rather than npm: the npm package ships ~23MB of optional
@@ -74,9 +75,9 @@ function usageMetrics(usage: unknown): Record<string, number> {
  */
 function spanInput(request: AnthropicRequest): unknown {
   if (!Array.isArray(request.messages)) return request;
-  return typeof request.system === "string"
-    ? [{ role: "system", content: request.system }, ...request.messages]
-    : request.messages;
+  const system = typeof request.system === 'string' ? request.system
+    : Array.isArray(request.system) ? request.system.map(block => block?.text ?? '').join('\n\n') : null;
+  return system ? [{ role: 'system', content: system }, ...request.messages] : request.messages;
 }
 
 /**
@@ -105,7 +106,7 @@ export function startAnthropicSpan(
   }) ?? NOOP_SPAN;
 }
 
-/** Close a span and flush, since the edge runtime stops once a response returns. */
+/** End synchronously; retain the flush with waitUntil without delaying the response. */
 export async function endAnthropicSpan(
   span: Span,
   output: unknown,
@@ -117,12 +118,7 @@ export async function endAnthropicSpan(
     metrics: usageMetrics(outcome.usage),
   });
   span.end();
-  try {
-    await logger?.flush();
-  } catch (error) {
-    // Tracing must never take the coach down with it.
-    console.error("Braintrust flush failed", error);
-  }
+  if (logger) backgroundTask(Promise.resolve().then(() => logger.flush()));
 }
 
 /**

@@ -1,10 +1,12 @@
+import { coachAdmin } from './helpers/coachAdmin';
 import { beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { resolveSleep } from '../mobile/sleep/dailySleepContract';
 
-const state = vi.hoisted(() => ({ client: null as any, handler: null as any }));
+const state = vi.hoisted(() => ({ admin: null as any, client: null as any, handler: null as any }));
+vi.mock('../supabase/functions/_shared/auth.ts', () => ({ verifiedUser: async () => (await state.client.auth.getUser()).data.user }));
 vi.mock('jsr:@supabase/functions-js/edge-runtime.d.ts', () => ({}));
 vi.mock('npm:@configcat/sdk@1/deno', () => ({}));
-vi.mock('jsr:@supabase/supabase-js@2', () => ({ createClient: () => state.client }));
+vi.mock('jsr:@supabase/supabase-js@2', () => ({ createClient: (_url: string, key: string) => key === 'service-key' ? state.admin : state.client }));
 vi.mock('../supabase/functions/_shared/tracing.ts', () => ({
   tracedAnthropic: (_name: unknown, _body: unknown, fn: () => unknown) => fn(),
   startAnthropicSpan: vi.fn(), endAnthropicSpan: vi.fn(),
@@ -15,11 +17,13 @@ let checkins: any[], nights: any[], oura: any[], stored: any, writes: string[], 
 const date = '2026-09-18';
 const manual = { checkin_date: date, manual_sleep_score: 0, manual_sleep_submitted_at: `${date}T08:00:00Z`, note: 'Restless' };
 const fetchMock = vi.fn();
+vi.mock('../supabase/functions/_shared/oura.ts', () => ({ fetchOura: async () => ({ status: 200, body: { data: oura } }) }));
 beforeAll(async () => {
-  vi.stubGlobal('Deno', { env: { get: () => undefined }, serve: (handler: unknown) => { state.handler = handler; } });
+  vi.stubGlobal('Deno', { env: { get: (key: string) => key === 'SUPABASE_SERVICE_ROLE_KEY' ? 'service-key' : undefined }, serve: (handler: unknown) => { state.handler = handler; } });
   await import('../supabase/functions/sleep-coach/index');
 });
 beforeEach(() => {
+  state.admin = coachAdmin(() => JSON.stringify({ reports, checkins, nights, oura, profile, adherence }));
   reports = []; checkins = []; nights = []; oura = []; stored = null; writes = []; filters = [];
   profile = {}; adherence = []; currentCommitment = null; cacheReadError = null;
   vi.stubGlobal('fetch', fetchMock);
@@ -126,7 +130,7 @@ it('does not publish advice when a manual submission is removed during generatio
   checkins = [manual];
   const original = fetchMock.getMockImplementation()!;
   fetchMock.mockImplementation(async (...args) => { checkins = []; return original(...args); });
-  expect((await (await request()).json()).status).toBe('awaiting_sleep_data');
+  expect((await (await request()).json()).status).toBe('sleep_data_changed');
   expect(writes).toEqual([]);
 });
 it('keeps the mobile and edge runtime contracts aligned', async () => {
@@ -221,4 +225,24 @@ it('resolves a manual score ahead of a wearable score for the same night', () =>
   expect(resolveSleep(date, [{ day: date, score: 91, source: 'apple_health' }], { ...manual, manual_sleep_score: 55 }))
     .toMatchObject({ source: 'manual', score: 55 });
   expect(resolveSleep(date, [{ day: date, score: 91, source: 'apple_health' }], { checkin_date: date })).toMatchObject({ source: 'apple_health', score: 91 });
+});
+
+it('serializes concurrent daily generation and reuses the published result', async () => {
+  checkins = [manual];
+  const responses = await Promise.all([request(), request(), request()]);
+  const bodies = await Promise.all(responses.map(response => response.json()));
+  expect(bodies[0].status).toBe('ok');
+  expect(bodies[1]).toEqual(bodies[0]);
+  expect(bodies[2]).toEqual(bodies[0]);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+it('serves an unchanged daily cache hit without a generation lease or model lookup', async () => {
+  checkins = [manual];
+  await request();
+  state.admin.calls.length = 0;
+  expect((await request()).headers.get('X-Cache')).toBe('HIT');
+  expect(state.admin.calls).not.toContain('claim_coach_generation');
+  expect(state.admin.calls).not.toContain('coach_runtime_cache');
+  expect(fetchMock).toHaveBeenCalledTimes(1);
 });

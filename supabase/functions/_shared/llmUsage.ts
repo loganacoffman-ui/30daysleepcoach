@@ -181,6 +181,7 @@ async function observeStream(body: ReadableStream<Uint8Array>, observation: Usag
 }
 
 type MeterOptions = {
+  requestId?: string;
   userId: string;
   bucket: UsageBucket;
   operation: string;
@@ -193,7 +194,7 @@ type MeterOptions = {
 
 export function createMeteredAnthropicFetch(options: MeterOptions): typeof fetch {
   const fetcher = options.fetcher ?? fetch;
-  const requestId = crypto.randomUUID();
+  const requestId = options.requestId ?? crypto.randomUUID();
   let attempt = 0;
   const save = async (row: UsageRow) => {
     for (let retry = 0; retry < 2; retry++) {
@@ -226,13 +227,13 @@ export function createMeteredAnthropicFetch(options: MeterOptions): typeof fetch
     try {
       response = await fetcher(input, init);
     } catch (error) {
-      await finish("network_error", false, error instanceof Error ? error.name : "network_error");
+      options.waitUntil(finish("network_error", false, error instanceof Error ? error.name : "network_error"));
       throw error;
     }
     row.http_status = response.status;
     row.provider_request_id = response.headers.get("request-id");
     if (!response.ok) {
-      await finish("http_error", false, "provider_http_error");
+      options.waitUntil(finish("http_error", false, "provider_http_error"));
       return response;
     }
     if (request.stream === true && response.body) {
@@ -256,9 +257,9 @@ export function createMeteredAnthropicFetch(options: MeterOptions): typeof fetch
     }
     try {
       observation.message(await response.clone().json());
-      await finish("completed", request.stream !== true);
+      options.waitUntil(finish("completed", request.stream !== true));
     } catch {
-      await finish("incomplete", false, "invalid_provider_response");
+      options.waitUntil(finish("incomplete", false, "invalid_provider_response"));
     }
     return response;
   };

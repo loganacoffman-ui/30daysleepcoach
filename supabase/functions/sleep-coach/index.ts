@@ -3,7 +3,11 @@ import {
   type GreetingDisposition, type GreetingOutcome,
 } from '../_shared/greeting.ts';
 import { PERSONALIZATION_GUIDANCE, loadRecentUserReports, formatPersonalizationMemories, formatCurrentCoachContext } from '../_shared/personalization.ts';
-import { loadDailySleepContext } from '../_shared/dailySleep.ts';
+import { loadDailySleepSnapshot, dailyEvidenceRevision } from '../_shared/dailySleep.ts';
+import { verifiedUser } from '../_shared/auth.ts';
+import { withGenerationLease } from '../_shared/serverCache.ts';
+import { requestTiming, timedDatabaseFetch, type RequestTiming } from '../_shared/performance.ts';
+import { cachedSystemPrompt } from '../_shared/promptCache.ts';
 import { sleepResolutionKey } from '../_shared/dailySleepContract.ts';
 // Supabase Edge Function: sleep-coach
 // Deploy via Supabase Dashboard → Edge Functions → Deploy a new function
@@ -48,8 +52,8 @@ import {
 } from "../_shared/tracing.ts";
 import { chooseDailyExperiment } from "../_shared/experimentCycle.ts";
 import { createMeteredAnthropicFetch, usageFeature } from "../_shared/llmUsage.ts";
-import { interpretCheckinReply } from "../_shared/checkinReply.ts";
-import { coachThinkingForModel, resolveCoachModel, SONNET_5_5_MODEL } from "../_shared/coachModel.ts";
+import { interpretCheckinReply, interpretDirectCheckinReply } from "../_shared/checkinReply.ts";
+import { coachThinkingForModel, cachedCoachModel, SONNET_5_5_MODEL } from "../_shared/coachModel.ts";
 import { parseCheckinReplyRequest } from "../_shared/checkinReplyContract.ts";
 import { anthropicHttpErrorFields, logSleepCoach } from "../_shared/sleepCoachLog.ts";
 
@@ -650,7 +654,7 @@ async function callAnthropicText(
   anthropicFetch: typeof fetch,
   model: string,
   maxTokens = 500,
-  timeoutMs?: number,
+  timeoutMs = 20_000,
   traceMetadata?: Record<string, unknown>,
   logFields?: Record<string, unknown>,
 ): Promise<AnthropicText | null> {
@@ -658,7 +662,7 @@ async function callAnthropicText(
     model,
     max_tokens: maxTokens,
     thinking: coachThinkingForModel(model),
-    system: system + formatMemoryContext(memories),
+    system: cachedSystemPrompt(system, formatMemoryContext(memories)),
     messages: [{ role: "user", content: userMessage }],
     stream: false,
   };
@@ -720,10 +724,10 @@ async function callAnthropicConversation(
     model,
     max_tokens: 800,
     thinking: coachThinkingForModel(model),
-    system: SYSTEM_PROMPT + formatMemoryContext(memories) +
+    system: cachedSystemPrompt(SYSTEM_PROMPT, formatMemoryContext(memories) +
       `\n\nCURRENT USER CONTEXT:\n${
         formatCurrentCoachContext(coachContext)
-      }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
+      }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`),
     messages,
     tools: coachToolsForModel(model),
     tool_choice: { type: "auto", disable_parallel_tool_use: true },
@@ -780,10 +784,10 @@ async function callAnthropicConversationStream(
     model,
     max_tokens: 800,
     thinking: coachThinkingForModel(model),
-    system: SYSTEM_PROMPT + formatMemoryContext(memories) +
+    system: cachedSystemPrompt(SYSTEM_PROMPT, formatMemoryContext(memories) +
       `\n\nCURRENT USER CONTEXT:\n${
         formatCurrentCoachContext(coachContext)
-      }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`,
+      }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`),
     messages,
     tools: coachToolsForModel(model),
     tool_choice: { type: "auto", disable_parallel_tool_use: true },
@@ -951,7 +955,7 @@ const executeCoachToolCall = (
   return handler.execute(supabase, toolCallId);
 };
 
-Deno.serve(async (req: Request) => {
+async function handleSleepCoach(req: Request, timing: RequestTiming): Promise<Response> {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers":
@@ -987,10 +991,10 @@ Deno.serve(async (req: Request) => {
     // Create a Supabase client that respects the user's JWT for RLS
     const authHeader = req.headers.get("Authorization");
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader ?? "" } },
+      global: { headers: { Authorization: authHeader ?? "" }, fetch: timedDatabaseFetch(timing) },
     });
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
+    const user = await timing.measure("auth", () => verifiedUser(req));
+    if (!user) {
       return new Response(
         JSON.stringify({ error: "Authentication required" }),
         {
@@ -1005,26 +1009,35 @@ Deno.serve(async (req: Request) => {
     const usageServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const usageAdmin = usageServiceKey ? createClient(SUPABASE_URL, usageServiceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
+      global: { fetch: timedDatabaseFetch(timing) },
     }) : null;
     const usageMeta = usageFeature(mode, Boolean(cacheKey));
     const requestMode = typeof mode === "string" ? mode : memoryMode;
-    const coachModel = await resolveCoachModel({ id: user.id, email: user.email });
+    let selectedModel: string | undefined;
+    let modelPromise: Promise<string> | undefined;
+    const getCoachModel = () => modelPromise ??= timing.measure('model_flag', async () => {
+      selectedModel = await cachedCoachModel(user, usageAdmin);
+      return selectedModel;
+    });
     const coachRequestLog = (): Record<string, unknown> => ({
       user_id: user.id,
       mode: requestMode,
-      coach_model: coachModel,
+      coach_model: selectedModel,
+      request_id: timing.requestId,
       usage_bucket: usageMeta.bucket,
       usage_operation: usageMeta.operation,
     });
     const anthropicFetch = createMeteredAnthropicFetch({
+      requestId: timing.requestId,
       userId: user.id,
       ...usageMeta,
       waitUntil: runInBackground,
+      fetcher: (input, init) => timing.measure('anthropic_headers', () => fetch(input, init)),
       write: async (row) => {
         if (!usageAdmin) throw new Error("Usage service key unavailable");
-        const { error } = await usageAdmin.from("llm_usage_events")
+        const { error } = await timing.measure('usage_write', () => usageAdmin.from("llm_usage_events")
           .upsert(row, { onConflict: "id" })
-          .abortSignal(AbortSignal.timeout(1500));
+          .abortSignal(AbortSignal.timeout(1500)));
         if (error) throw error;
       },
       log: (row) => logSleepCoach("llm_usage_write_failed", { ...coachRequestLog(), row }),
@@ -1096,7 +1109,7 @@ Deno.serve(async (req: Request) => {
               let raw: string | null = null;
               try {
                 raw = (await callAnthropicText(
-                  GREETING_GUIDANCE, JSON.stringify({ reports }), [], anthropicFetch, coachModel, 300,
+                  GREETING_GUIDANCE, JSON.stringify({ reports }), [], anthropicFetch, await getCoachModel(), 300,
                   attempts === 1 ? 3000 : Math.max(deadline - Date.now(), 1000),
                   { request_key: requestKey, attempt: attempts },
                   coachRequestLog(),
@@ -1142,7 +1155,13 @@ Deno.serve(async (req: Request) => {
         });
       }
       try {
-        const interpretation = await interpretCheckinReply(request, ANTHROPIC_API_KEY, coachModel, anthropicFetch);
+        const direct = interpretDirectCheckinReply(request);
+        const interpretation = direct ?? await timing.measure('checkin_interpretation', async () => {
+          const checkinModel = Deno.env.get('CHECKIN_MODEL') || await getCoachModel();
+          selectedModel = checkinModel;
+          return interpretCheckinReply(request, ANTHROPIC_API_KEY, checkinModel, anthropicFetch,
+            { effort: Deno.env.get('CHECKIN_EFFORT') === 'low' ? 'low' : 'medium' });
+        });
         return new Response(JSON.stringify({ interpretation }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -1445,12 +1464,15 @@ Deno.serve(async (req: Request) => {
         userMessageId = inserted.id;
       }
 
-      const { data: recentMessages, error: historyError } = await supabase
-        .from("coach_messages")
+      const [historyResult, recentReports] = await Promise.all([
+        supabase.from("coach_messages")
         .select("role, content")
         .eq("conversation_id", conversationId)
         .order("created_at", { ascending: false })
-        .limit(30);
+        .limit(30),
+        loadRecentUserReports(supabase, user.id).catch(() => null),
+      ]);
+      const { data: recentMessages, error: historyError } = historyResult;
       if (historyError) {
         return new Response(JSON.stringify({ error: historyError.message }), {
           status: 500,
@@ -1459,16 +1481,14 @@ Deno.serve(async (req: Request) => {
       }
 
       const chatHistory = normalizeMessages((recentMessages ?? []).reverse());
-      let recentReports;
-      try { recentReports = await loadRecentUserReports(supabase, user.id); }
-      catch { recentReports = null; }
       const groundedContext = { ...(coachContext ?? {}), recent_user_reports: recentReports ?? [] };
       // If direct corrections cannot be read, do not fall back to potentially
       // contradictory semantic memory. The current conversation still works.
-      const memories = recentReports === null ? [] : await recallCoachMemory(
-        user.id,
-        buildMemoryQuery(memoryMode, chatHistory, sleepData, groundedContext),
-      );
+      const [memories, coachModel] = await Promise.all([
+        recentReports === null ? Promise.resolve([]) : timing.measure('memory', () => recallCoachMemory(
+          user.id, buildMemoryQuery(memoryMode, chatHistory, sleepData, groundedContext))),
+        getCoachModel(),
+      ]);
       const { response: anthropicResponse, span: coachSpan } =
         await callAnthropicConversationStream(chatHistory, groundedContext, memories, anthropicFetch, coachModel);
       if (!anthropicResponse.ok || !anthropicResponse.body) {
@@ -1669,81 +1689,94 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      const memories = await recallCoachMemory(
-        user.id,
-        buildMemoryQuery(memoryMode, messages, sleepData, coachContext),
-      );
-      const profilePrompt = `You are a concise behavioral sleep coach. Build an evolving picture of this specific user from the structured context and relevant long-term memory. Synthesize quantitative sleep scores and trends with qualitative check-in notes, suspected factors, preferences, experiment adherence, and outcomes. State only patterns supported by the supplied evidence. Treat causes as hypotheses, distinguish what seems helpful from what is still being learned, and never diagnose. Write 2-4 short conversational sentences in plain text, under 90 words. No headings, bullets, Markdown, generic sleep advice, calendar dates, or nightly data recap. If evidence is sparse, say what is beginning to emerge without inventing a pattern.`;
-      const generated = await callAnthropicText(
-        profilePrompt,
-        `Create the user's current evolving sleep profile from this context:\n\n${JSON.stringify(coachContext, null, 2)}`,
-        memories,
-        anthropicFetch,
-        coachModel,
-        800,
-        undefined,
-        undefined,
-        coachRequestLog(),
-      );
-      // A cut-off profile would be cached and shown as if it were complete.
-      const summary = coachSummaryText(
-        generated && generated.stopReason !== "max_tokens" ? plainCoachText(generated.text) : "",
-      );
-      if (!summary) {
-        // A stale summary is more useful than an error the user cannot act on,
-        // and clients older than the regenerate button have no way to retry.
-        if (coachSummaryText(storedProfile?.summary)) {
-          return new Response(
-            JSON.stringify(sleepProfileResponseBody(
-              storedProfile!.summary,
-              storedProfile!.generated_at,
-              true,
-            )),
-            {
-              headers: {
-                ...corsHeaders,
-                "Content-Type": "application/json",
-                "X-Cache": "STALE",
-              },
-            },
-          );
+      return await withGenerationLease(usageAdmin, user.id, 'sleep_profile', async lease => {
+        const { data: shared, error: sharedError } = await supabase.from('coach_profile_summaries')
+          .select('summary, source_fingerprint, prompt_version, generated_at').eq('user_id', user.id).maybeSingle();
+        if (sharedError) throw sharedError;
+        if ((!forceRegenerate || lease.joined) && isSleepProfileCacheFresh(shared, profileFingerprint)) {
+          return new Response(JSON.stringify(sleepProfileResponseBody(shared!.summary, shared!.generated_at, true)), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Cache': 'HIT' },
+          });
         }
-        logSleepCoach("generation_failed", {
-          ...coachRequestLog(),
-          operation: "sleep_profile",
-          stop_reason: generated?.stopReason ?? null,
-          had_provider_response: Boolean(generated),
-        });
-        return new Response(JSON.stringify({ status: "generation_failed" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const profileGeneratedAt = new Date().toISOString();
-      const { error: profileSaveError } = await supabase
-        .from("coach_profile_summaries")
-        .upsert({
-          user_id: user.id,
-          summary,
-          source_fingerprint: profileFingerprint,
-          prompt_version: SLEEP_PROFILE_PROMPT_VERSION,
-          model: coachModel,
-          generated_at: profileGeneratedAt,
-        }, { onConflict: "user_id" });
-      // A failed write only costs the next view its cache hit.
-      if (profileSaveError) {
-        console.error("sleep_profile cache write failed", profileSaveError);
-      }
-      return new Response(
-        JSON.stringify(sleepProfileResponseBody(summary, profileGeneratedAt, false)),
-        {
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-            "X-Cache": "MISS",
+        const [memories, coachModel] = await Promise.all([
+          timing.measure('memory', () => recallCoachMemory(
+          user.id,
+          buildMemoryQuery(memoryMode, messages, sleepData, coachContext),
+          )), getCoachModel(),
+        ]);
+        const profilePrompt = `You are a concise behavioral sleep coach. Build an evolving picture of this specific user from the structured context and relevant long-term memory. Synthesize quantitative sleep scores and trends with qualitative check-in notes, suspected factors, preferences, experiment adherence, and outcomes. State only patterns supported by the supplied evidence. Treat causes as hypotheses, distinguish what seems helpful from what is still being learned, and never diagnose. Write 2-4 short conversational sentences in plain text, under 90 words. No headings, bullets, Markdown, generic sleep advice, calendar dates, or nightly data recap. If evidence is sparse, say what is beginning to emerge without inventing a pattern.`;
+        const generated = await callAnthropicText(
+          profilePrompt,
+          `Create the user's current evolving sleep profile from this context:\n\n${JSON.stringify(coachContext, null, 2)}`,
+          memories,
+          anthropicFetch,
+          coachModel,
+          800,
+          undefined,
+          undefined,
+          coachRequestLog(),
+        );
+        // A cut-off profile would be cached and shown as if it were complete.
+        const summary = coachSummaryText(
+          generated && generated.stopReason !== "max_tokens" ? plainCoachText(generated.text) : "",
+        );
+        if (!summary) {
+          // A stale summary is more useful than an error the user cannot act on,
+          // and clients older than the regenerate button have no way to retry.
+          if (coachSummaryText(storedProfile?.summary)) {
+            return new Response(
+              JSON.stringify(sleepProfileResponseBody(
+                storedProfile!.summary,
+                storedProfile!.generated_at,
+                true,
+              )),
+              {
+                headers: {
+                  ...corsHeaders,
+                  "Content-Type": "application/json",
+                  "X-Cache": "STALE",
+                },
+              },
+            );
+          }
+          logSleepCoach("generation_failed", {
+            ...coachRequestLog(),
+            operation: "sleep_profile",
+            stop_reason: generated?.stopReason ?? null,
+            had_provider_response: Boolean(generated),
+          });
+          return new Response(JSON.stringify({ status: "generation_failed" }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        await lease.assertOwned();
+        const profileGeneratedAt = new Date().toISOString();
+        const { error: profileSaveError } = await supabase
+          .from("coach_profile_summaries")
+          .upsert({
+            user_id: user.id,
+            summary,
+            source_fingerprint: profileFingerprint,
+            prompt_version: SLEEP_PROFILE_PROMPT_VERSION,
+            model: coachModel,
+            generated_at: profileGeneratedAt,
+          }, { onConflict: "user_id" });
+        // A failed write only costs the next view its cache hit.
+        if (profileSaveError) {
+          console.error("sleep_profile cache write failed", profileSaveError);
+        }
+        return new Response(
+          JSON.stringify(sleepProfileResponseBody(summary, profileGeneratedAt, false)),
+          {
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+              "X-Cache": "MISS",
+            },
           },
-        },
-      );
+        );
+      });
     }
 
     // ─── NATIVE DAILY COACH (persistent one-per-calendar-day artifact) ─
@@ -1756,7 +1789,8 @@ Deno.serve(async (req: Request) => {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const dailyContext = await loadDailySleepContext(supabase, user.id, recommendationDate);
+      const { context: dailyContext, revision: sourceRevision } = await timing.measure('daily_context', () =>
+        loadDailySleepSnapshot(supabase, usageAdmin, user.id, recommendationDate));
       if (dailyContext.sleep_resolution.source === "missing") {
         return new Response(JSON.stringify({ status: "awaiting_sleep_data" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1770,24 +1804,28 @@ Deno.serve(async (req: Request) => {
           return typeof date === "string" && date < recommendationDate;
         })
         : [];
-      const { data: currentCommitment, error: currentCommitmentError } = await supabase
+      const [commitmentResult, recommendationResult] = await Promise.all([
+        supabase
         .from("behavior_commitments")
         .select("id, behavior, status")
         .eq("user_id", user.id)
         .eq("behavior_date", recommendationDate)
-        .maybeSingle();
-      if (currentCommitmentError) throw currentCommitmentError;
-
-      const { data: existing, error: existingError } = await supabase
+        .maybeSingle(),
+        supabase
         .from("coach_recommendations")
         .select("pattern, meaning, action, why, generated_at, prompt_version, source_context")
         .eq("user_id", user.id)
         .eq("recommendation_date", recommendationDate)
-        .maybeSingle();
+        .maybeSingle(),
+      ]);
+      let { data: currentCommitment, error: currentCommitmentError } = commitmentResult;
+      let { data: existing, error: existingError } = recommendationResult;
+      if (currentCommitmentError) throw currentCommitmentError;
       // An unavailable cache is not evidence that a new report is needed.
       if (existingError) throw existingError;
 
-      if (!forceRegenerate && isDailyCoachCacheReusable(existing, sourceFingerprint)) {
+      const reuseDaily = async (allowReuse: boolean): Promise<Response | null> => {
+        if (!allowReuse || !isDailyCoachCacheReusable(existing, sourceFingerprint)) return null;
         const commitmentError = await syncDailyExperimentCommitment(
           supabase,
           user.id,
@@ -1815,146 +1853,169 @@ Deno.serve(async (req: Request) => {
             },
           },
         );
-      }
+      };
+      const hit = await reuseDaily(!forceRegenerate);
+      if (hit) return hit;
+      return await withGenerationLease(usageAdmin, user.id, `daily_coach:${recommendationDate}`, async lease => {
+        const [latestCommitment, latestRecommendation] = await Promise.all([
+          supabase.from('behavior_commitments').select('id, behavior, status')
+            .eq('user_id', user.id).eq('behavior_date', recommendationDate).maybeSingle(),
+          supabase.from('coach_recommendations').select('pattern, meaning, action, why, generated_at, prompt_version, source_context')
+            .eq('user_id', user.id).eq('recommendation_date', recommendationDate).maybeSingle(),
+        ]);
+        if (latestCommitment.error) throw latestCommitment.error;
+        if (latestRecommendation.error) throw latestRecommendation.error;
+        currentCommitment = latestCommitment.data;
+        existing = latestRecommendation.data;
+        const shared = await reuseDaily(!forceRegenerate || lease.joined);
+        if (shared) return shared;
 
-      const memories = await recallCoachMemory(
-        user.id,
-        buildMemoryQuery(memoryMode, messages, sleepData, dailyContext),
-      );
-      const userMessage =
-        `Generate today's four-section coaching recommendation from this combined context. Subjective check-ins and notes describe how the user felt and what they think affected sleep. Experiment adherence shows what they actually tried. Wearable sleep is the quantitative layer when Apple Health or Oura is connected; the source field identifies whether a score is app-derived or provider-owned. The sleep_resolution selects the quantitative source for the requested night: an explicitly submitted manual score always takes precedence over any automatic score, and otherwise the wearable score is used. When the source is manual, treat that score as the night's sleep score and never cite or contrast it with an automatically computed score. Preserve manual scores as self-reports, never as wearable measurements. Use relevant long-term memory to follow up on earlier goals, experiments, and outcomes. Be honest when data is sparse; do not invent measurements. Always return all four required sections.\n\n${
-          JSON.stringify(dailyContext, null, 2)
-        }`;
-      const dailyCoachLog = coachRequestLog();
-      let generation = await callAnthropicNonStreaming(
-        userMessage, memories, anthropicFetch, coachModel, dailyCoachLog,
-      );
-      let sections = generation ? parseRecommendation(generation.text) : null;
-      // An identical request that ran out of tokens will run out again.
-      if (!sections && generation?.stopReason !== "max_tokens") {
-        generation = await callAnthropicNonStreaming(
+        const [memories, coachModel] = await Promise.all([
+          timing.measure('memory', () => recallCoachMemory(
+          user.id,
+          buildMemoryQuery(memoryMode, messages, sleepData, dailyContext),
+          )), getCoachModel(),
+        ]);
+        const userMessage =
+          `Generate today's four-section coaching recommendation from this combined context. Subjective check-ins and notes describe how the user felt and what they think affected sleep. Experiment adherence shows what they actually tried. Wearable sleep is the quantitative layer when Apple Health or Oura is connected; the source field identifies whether a score is app-derived or provider-owned. The sleep_resolution selects the quantitative source for the requested night: an explicitly submitted manual score always takes precedence over any automatic score, and otherwise the wearable score is used. When the source is manual, treat that score as the night's sleep score and never cite or contrast it with an automatically computed score. Preserve manual scores as self-reports, never as wearable measurements. Use relevant long-term memory to follow up on earlier goals, experiments, and outcomes. Be honest when data is sparse; do not invent measurements. Always return all four required sections.\n\n${
+            JSON.stringify(dailyContext, null, 2)
+          }`;
+        const dailyCoachLog = coachRequestLog();
+        let generation = await callAnthropicNonStreaming(
           userMessage, memories, anthropicFetch, coachModel, dailyCoachLog,
         );
-        sections = generation ? parseRecommendation(generation.text) : null;
-      }
-      const rawText = generation?.text ?? null;
+        let sections = generation ? parseRecommendation(generation.text) : null;
+        // An identical request that ran out of tokens will run out again.
+        if (!sections && generation?.stopReason !== "max_tokens") {
+          generation = await callAnthropicNonStreaming(
+            userMessage, memories, anthropicFetch, coachModel, dailyCoachLog,
+          );
+          sections = generation ? parseRecommendation(generation.text) : null;
+        }
+        const rawText = generation?.text ?? null;
 
-      if (!sections) {
-        logSleepCoach("generation_failed", {
-          ...dailyCoachLog,
-          operation: "daily_coach",
-          stop_reason: generation?.stopReason ?? null,
-          had_provider_response: Boolean(generation),
-          raw_text_length: rawText?.length ?? 0,
-        });
-        return new Response(JSON.stringify({ status: "generation_failed" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Do not publish an answer generated while its qualifying evidence changed.
-      const latestContext = await loadDailySleepContext(supabase, user.id, recommendationDate);
-      if (await dailyCoachSourceFingerprint(latestContext) !== sourceFingerprint) {
-        return new Response(JSON.stringify({ status: latestContext.sleep_resolution.source === "missing"
-          ? "awaiting_sleep_data" : "sleep_data_changed" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const experiment = chooseDailyExperiment({
-        currentBehavior: currentCommitment?.status === "committed"
-          ? currentCommitment.behavior
-          : null,
-        history: experimentHistory,
-        proposedBehavior: sections.action,
-        proposedWhy: sections.why,
-      });
-      sections.action = experiment.behavior;
-      sections.why = experiment.why;
-
-      const generatedAt = new Date().toISOString();
-      const record = {
-        user_id: user.id,
-        recommendation_date: recommendationDate,
-        pattern: sections.pattern,
-        meaning: sections.meaning,
-        action: sections.action,
-        why: sections.why,
-        source_context: {
-          subjective_checkin_count:
-            Array.isArray(dailyContext?.subjective_checkins)
-              ? dailyContext.subjective_checkins.length
-              : 0,
-          adherence_count: Array.isArray(dailyContext?.experiment_adherence)
-            ? dailyContext.experiment_adherence.length
-            : 0,
-          wearable_sleep_count: Array.isArray(dailyContext?.wearable_sleep)
-            ? dailyContext.wearable_sleep.length
-            : 0,
-          source_fingerprint: sourceFingerprint,
-          sleep_resolution_key: sleepResolutionKey(dailyContext.sleep_resolution),
-          memory_count: memories.length,
-          memory_provider: memoryProvider.name,
-        },
-        prompt_version: DAILY_COACH_PROMPT_VERSION,
-        model: coachModel,
-        generated_at: generatedAt,
-      };
-
-      const { data: saved, error: saveError } = await supabase
-        .from("coach_recommendations")
-        .upsert(record, { onConflict: "user_id,recommendation_date" })
-        .select("pattern, meaning, action, why, generated_at")
-        .single();
-
-      if (saveError || !saved) {
-        return new Response(
-          JSON.stringify({
-            error: saveError?.message ?? "Could not save coaching",
-          }),
-          {
+        if (!sections) {
+          logSleepCoach("generation_failed", {
+            ...dailyCoachLog,
+            operation: "daily_coach",
+            stop_reason: generation?.stopReason ?? null,
+            had_provider_response: Boolean(generation),
+            raw_text_length: rawText?.length ?? 0,
+          });
+          return new Response(JSON.stringify({ status: "generation_failed" }), {
             status: 500,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Do not publish an answer generated while its qualifying evidence changed.
+        const latestRevision = usageAdmin ? await timing.measure('evidence_recheck', () =>
+          dailyEvidenceRevision(usageAdmin, user.id, recommendationDate)) : null;
+        // No service client is only used by local harnesses; keep full validation there.
+        const fallback = usageAdmin ? null : await loadDailySleepSnapshot(supabase, null, user.id, recommendationDate);
+        if (usageAdmin ? latestRevision !== sourceRevision :
+          await dailyCoachSourceFingerprint(fallback!.context) !== sourceFingerprint) {
+          return new Response(JSON.stringify({ status: fallback?.context.sleep_resolution.source === "missing"
+            ? "awaiting_sleep_data" : "sleep_data_changed" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const experiment = chooseDailyExperiment({
+          currentBehavior: currentCommitment?.status === "committed"
+            ? currentCommitment.behavior
+            : null,
+          history: experimentHistory,
+          proposedBehavior: sections.action,
+          proposedWhy: sections.why,
+        });
+        sections.action = experiment.behavior;
+        sections.why = experiment.why;
+
+        await lease.assertOwned();
+        const generatedAt = new Date().toISOString();
+        const record = {
+          user_id: user.id,
+          recommendation_date: recommendationDate,
+          pattern: sections.pattern,
+          meaning: sections.meaning,
+          action: sections.action,
+          why: sections.why,
+          source_context: {
+            subjective_checkin_count:
+              Array.isArray(dailyContext?.subjective_checkins)
+                ? dailyContext.subjective_checkins.length
+                : 0,
+            adherence_count: Array.isArray(dailyContext?.experiment_adherence)
+              ? dailyContext.experiment_adherence.length
+              : 0,
+            wearable_sleep_count: Array.isArray(dailyContext?.wearable_sleep)
+              ? dailyContext.wearable_sleep.length
+              : 0,
+            source_fingerprint: sourceFingerprint,
+            sleep_resolution_key: sleepResolutionKey(dailyContext.sleep_resolution),
+            memory_count: memories.length,
+            memory_provider: memoryProvider.name,
+          },
+          prompt_version: DAILY_COACH_PROMPT_VERSION,
+          model: coachModel,
+          generated_at: generatedAt,
+        };
+
+        const { data: saved, error: saveError } = await supabase
+          .from("coach_recommendations")
+          .upsert(record, { onConflict: "user_id,recommendation_date" })
+          .select("pattern, meaning, action, why, generated_at")
+          .single();
+
+        if (saveError || !saved) {
+          return new Response(
+            JSON.stringify({
+              error: saveError?.message ?? "Could not save coaching",
+            }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        const commitmentError = await syncDailyExperimentCommitment(
+          supabase,
+          user.id,
+          recommendationDate,
+          experiment.behavior,
+          currentCommitment,
+          generatedAt,
+        );
+        if (commitmentError) {
+          return new Response(JSON.stringify({ error: commitmentError }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        runInBackground(persistCoachMemory(
+          user.id,
+          memoryMode,
+          buildMemoryObservation(memoryMode, messages, sleepData, dailyContext),
+          rawText ?? Object.values(sections).join("\n"),
+        ));
+
+        return new Response(
+          JSON.stringify({
+            status: "ok",
+            recommendation: dailyCoachRecommendationBody(saved),
+          }),
+          {
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+              "X-Cache": "MISS",
+            },
           },
         );
-      }
-
-      const commitmentError = await syncDailyExperimentCommitment(
-        supabase,
-        user.id,
-        recommendationDate,
-        experiment.behavior,
-        currentCommitment,
-        generatedAt,
-      );
-      if (commitmentError) {
-        return new Response(JSON.stringify({ error: commitmentError }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      runInBackground(persistCoachMemory(
-        user.id,
-        memoryMode,
-        buildMemoryObservation(memoryMode, messages, sleepData, dailyContext),
-        rawText ?? Object.values(sections).join("\n"),
-      ));
-
-      return new Response(
-        JSON.stringify({
-          status: "ok",
-          recommendation: dailyCoachRecommendationBody(saved),
-        }),
-        {
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-            "X-Cache": "MISS",
-          },
-        },
-      );
+      });
     }
 
     // ─── RECOMMENDATION MODE (non-streaming, structured JSON) ─────────
@@ -1995,10 +2056,12 @@ Deno.serve(async (req: Request) => {
 
       // Compute summary stats
       const summary = computeSummary(sleepData);
-      const memories = await recallCoachMemory(
+      const [memories, coachModel] = await Promise.all([
+        timing.measure('memory', () => recallCoachMemory(
         user.id,
         buildMemoryQuery(memoryMode, messages, sleepData, coachContext),
-      );
+        )), getCoachModel(),
+      ]);
 
       // Build structured input for the model
       const today = new Date().toISOString().split("T")[0];
@@ -2148,10 +2211,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const memories = await recallCoachMemory(
+    const [memories, coachModel] = await Promise.all([
+      timing.measure('memory', () => recallCoachMemory(
       user.id,
       buildMemoryQuery(memoryMode, messages, sleepData, coachContext),
-    );
+      )), getCoachModel(),
+    ]);
 
     // Build the user context from sleep data
     let dataContext = "";
@@ -2175,7 +2240,7 @@ Deno.serve(async (req: Request) => {
       model: coachModel,
       max_tokens: 2048,
       thinking: coachThinkingForModel(coachModel),
-      system: SYSTEM_PROMPT + formatMemoryContext(memories),
+      system: cachedSystemPrompt(SYSTEM_PROMPT, formatMemoryContext(memories)),
       messages: anthropicMessages,
       stream: true,
     };
@@ -2291,4 +2356,12 @@ Deno.serve(async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+}
+
+Deno.serve(async (req: Request) => {
+  const timing = requestTiming('sleep-coach');
+  const response = await handleSleepCoach(req, timing);
+  timing.finish(String(response.status));
+  response.headers.set('X-Coach-Request-Id', timing.requestId);
+  return response;
 });

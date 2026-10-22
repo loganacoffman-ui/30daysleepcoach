@@ -44,6 +44,7 @@ Deno.test("non-stream usage is saved before app parsing and preserves the respon
   const payload = message();
   const h = harness(() => Promise.resolve(Response.json(payload, { headers: { "request-id": "req_test" } })));
   assertEquals(await (await h.call()).json(), payload);
+  await h.finish();
   const [pending, final] = h.rows;
   assertEquals(pending.status, "pending");
   assertEquals(pending.id, final.id);
@@ -62,12 +63,13 @@ Deno.test("non-stream usage is saved before app parsing and preserves the respon
 
 Deno.test("retries are separate charged attempts grouped under one server request", async () => {
   const h = harness(() => Promise.resolve(Response.json(message())));
-  await h.call(); await h.call();
+  await h.call(); await h.finish(); await h.call(); await h.finish();
+  await h.finish();
   assert(h.rows[1].id !== h.rows[3].id);
   assertEquals(h.rows[1].request_id, h.rows[3].request_id);
   assertEquals([h.rows[1].attempt_index, h.rows[3].attempt_index], [1, 2]);
   const other = harness(() => Promise.resolve(Response.json(message())));
-  await other.call();
+  await other.call(); await other.finish();
   assert(h.rows[1].request_id !== other.rows[1].request_id);
 });
 
@@ -99,7 +101,7 @@ for (const [model, rates] of [
 
 Deno.test("pricing follows the returned model rather than the requested model", async () => {
   const h = harness(() => Promise.resolve(Response.json({ ...message(), model: "claude-sonnet-5" })));
-  await h.call();
+  await h.call(); await h.finish();
   assertEquals(h.rows.at(-1)!.requested_model, "claude-sonnet-4-6");
   assertEquals(h.rows.at(-1)!.response_model, "claude-sonnet-5");
   assertEquals(h.rows.at(-1)!.input_usd_per_million, 2);
@@ -155,6 +157,7 @@ Deno.test("SSE provider errors retain observed usage", async () => {
 Deno.test("transport failure is rethrown and recorded without sensitive error text", async () => {
   const h = harness(() => Promise.reject(new TypeError("private URL")));
   await assertRejects(() => h.call(), TypeError);
+  await h.finish();
   assertEquals(h.rows.at(-1)!.status, "network_error");
   assertEquals(h.rows.at(-1)!.usage_status, "unavailable");
   assertEquals(h.rows.at(-1)!.input_tokens, null);
@@ -164,10 +167,11 @@ Deno.test("transport failure is rethrown and recorded without sensitive error te
 Deno.test("HTTP errors and missing usage are unknown cost rather than zero", async () => {
   const h = harness(() => Promise.resolve(new Response("error", { status: 429 })));
   assertEquals((await h.call()).status, 429);
+  await h.finish();
   assertEquals(h.rows.at(-1)!.status, "http_error");
   assertEquals(h.rows.at(-1)!.input_tokens, null);
   const missing = harness(() => Promise.resolve(Response.json({ content: [] })));
-  await missing.call();
+  await missing.call(); await missing.finish();
   assertEquals(missing.rows.at(-1)!.usage_status, "unavailable");
   assertEquals(missing.rows.at(-1)!.pricing_version, null);
 });
@@ -175,18 +179,19 @@ Deno.test("HTTP errors and missing usage are unknown cost rather than zero", asy
 Deno.test("invalid JSON does not change the provider response", async () => {
   const h = harness(() => Promise.resolve(new Response("broken JSON")));
   assertEquals(await (await h.call()).text(), "broken JSON");
+  await h.finish();
   assertEquals(h.rows.at(-1)!.status, "incomplete");
 });
 
 Deno.test("invalid counts and unknown cache TTL cannot be silently priced", async () => {
   for (const input_tokens of [-1, 1.5, "100", Number.MAX_SAFE_INTEGER + 1]) {
     const h = harness(() => Promise.resolve(Response.json(message({ input_tokens, output_tokens: 1 }))));
-    await h.call();
+    await h.call(); await h.finish();
     assertEquals(h.rows.at(-1)!.usage_status, "partial");
     assertEquals(h.rows.at(-1)!.input_tokens, null);
   }
   const h = harness(() => Promise.resolve(Response.json(message({ input_tokens: 1, output_tokens: 2, cache_creation_input_tokens: 500 }))));
-  await h.call();
+  await h.call(); await h.finish();
   assertEquals(h.rows.at(-1)!.cache_creation_input_tokens, 500);
   assertEquals(h.rows.at(-1)!.cache_creation_5m_input_tokens, null);
   assertEquals(h.rows.at(-1)!.cache_creation_1h_input_tokens, null);
@@ -197,7 +202,7 @@ Deno.test("unknown models and unsupported pricing modes keep usage but no guesse
     message({ input_tokens: 1, output_tokens: 2, service_tier: "priority" }),
     message({ input_tokens: 1, output_tokens: 2, server_tool_use: { web_search_requests: 1 } })]) {
     const h = harness(() => Promise.resolve(Response.json(payload)));
-    await h.call();
+    await h.call(); await h.finish();
     assertEquals(h.rows.at(-1)!.usage_status, "complete");
     assertEquals(h.rows.at(-1)!.pricing_version, null);
   }
@@ -213,6 +218,7 @@ Deno.test("database retries reuse the row ID; failures do not gate inference", a
     writes.push(row); return Promise.reject(new Error("database unavailable"));
   });
   assertEquals((await h.call()).status, 200);
+  await h.finish();
   assertEquals(providerCalls, 1);
   assertEquals(writes.length, 4);
   assertEquals(new Set(writes.map((row) => row.id)).size, 1);
@@ -229,7 +235,7 @@ Deno.test("successful retry of a failed final write records only one event", asy
     db.set(row.id, row); // Simulate committed write whose response was lost.
     return calls === 2 ? Promise.reject(new Error("lost response")) : Promise.resolve();
   });
-  await h.call();
+  await h.call(); await h.finish();
   assertEquals(calls, 3);
   assertEquals(db.size, 1);
   assertEquals([...db.values()][0].usage_status, "complete");

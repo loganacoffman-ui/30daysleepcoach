@@ -1,3 +1,4 @@
+import { cachedSystemPrompt } from './promptCache.ts';
 import { checkinAnswerValues, parseCheckinInterpretation, type CheckinReplyRequest } from './checkinReplyContract.ts';
 import { coachThinkingForModel, DEFAULT_COACH_MODEL, SONNET_5_MODEL, SONNET_5_5_MODEL } from './coachModel.ts';
 import { anthropicHttpErrorFields, logSleepCoach } from './sleepCoachLog.ts';
@@ -13,7 +14,21 @@ For details, accept extra detail with addressed=true and finish=false. Set finis
 If the reply really does not answer the current question, set addressed=false, answer=null, factors=[], finish=false and ask ONE brief, natural clarifying question (maximum 400 characters) informed by what they said. Otherwise clarification must be null. Do not ask the next check-in question; the app handles progression. Do not give advice, infer diagnoses, or claim anything has been saved.
 Return your interpretation using interpret_checkin_reply.`;
 
-export async function interpretCheckinReply(request: CheckinReplyRequest, apiKey: string, model: string, fetcher: typeof fetch = fetch) {
+// Exact categorical answers are already unambiguous. Everything else retains
+// semantic interpretation, including negation, corrections, and multiple factors.
+export function interpretDirectCheckinReply(request: CheckinReplyRequest) {
+  if (request.step !== 'feeling' && request.step !== 'adherence') return null;
+  const answer = request.message.trim().toLowerCase().replace(/[.!]+$/, '');
+  if (!(checkinAnswerValues[request.step] as readonly string[]).includes(answer)) return null;
+  return parseCheckinInterpretation(request.step, {
+    addressed: true, answer, factors: [], finish: false, clarification: null,
+  });
+}
+
+export async function interpretCheckinReply(request: CheckinReplyRequest, apiKey: string, model: string,
+  fetcher: typeof fetch = fetch, options: { effort?: 'low' | 'medium' } = {}) {
+  const direct = interpretDirectCheckinReply(request);
+  if (direct) return direct;
   // The scalar answer remains readable by mobile versions with the original seven choices.
   const answerValues: readonly string[] = request.step === 'factor'
     ? ['stress', 'late_meal', 'alcohol', 'screens', 'temperature', 'noise', 'unknown']
@@ -27,10 +42,10 @@ export async function interpretCheckinReply(request: CheckinReplyRequest, apiKey
       model,
       max_tokens: reasoning ? 4096 : 1200,
       thinking: reasoning ? { type: 'adaptive' } : coachThinkingForModel(model),
-      ...(reasoning ? { output_config: { effort: 'medium' } } : {}),
-      system: reasoning
+      ...(reasoning ? { output_config: { effort: options.effort ?? 'medium' } } : {}),
+      system: cachedSystemPrompt(reasoning
         ? `${system}\n\nYou must call the interpret_checkin_reply tool on every request.`
-        : system,
+        : system),
       messages: [{ role: 'user', content: JSON.stringify(request) }],
       tools: [{
         name: 'interpret_checkin_reply',
