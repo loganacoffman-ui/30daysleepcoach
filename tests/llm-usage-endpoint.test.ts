@@ -1,7 +1,9 @@
+import { coachAdmin } from './helpers/coachAdmin';
 import { beforeAll, beforeEach, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({ user: null as any, admin: null as any, handler: null as any,
   clients: [] as any[] }));
+vi.mock('../supabase/functions/_shared/auth.ts', () => ({ verifiedUser: async () => (await state.user.auth.getUser()).data.user }));
 vi.mock('jsr:@supabase/functions-js/edge-runtime.d.ts', () => ({}));
 vi.mock('npm:@configcat/sdk@1/deno', () => ({}));
 vi.mock('jsr:@supabase/supabase-js@2', () => ({ createClient: (_url: string, key: string, options: unknown) => {
@@ -19,7 +21,7 @@ const usage = { input_tokens: 100, output_tokens: 20, cache_read_input_tokens: 0
 const providerMessage = (text: string) => ({ id: 'msg_test', model: 'claude-sonnet-4-6', usage,
   content: [{ type: 'text', text }], stop_reason: 'end_turn' });
 const request = (body: Record<string, unknown>) => state.handler(new Request('https://example.test', {
-  method: 'POST', headers: { Authorization: 'Bearer caller-jwt' },
+  method: 'POST', headers: { Authorization: 'Bearer caller-jwt' }, fetch: expect.any(Function),
   body: JSON.stringify({ user_id: 'forged-user', bucket: 'forged-bucket', ...body }),
 }));
 
@@ -37,8 +39,9 @@ beforeEach(() => {
   provider.mockReset().mockImplementation(() => Promise.resolve(Response.json(providerMessage('A helpful profile.'))));
   vi.stubGlobal('fetch', provider);
   vi.stubGlobal('EdgeRuntime', { waitUntil: (task: Promise<void>) => { tasks.push(task); } });
-  state.admin = { from: (table: string) => {
-    expect(table).toBe('llm_usage_events');
+  const runtime = coachAdmin();
+  state.admin = { ...runtime, from: (table: string) => {
+    if (table !== 'llm_usage_events') return runtime.from(table);
     return { upsert: (row: unknown, options: unknown) => {
       expect(options).toEqual({ onConflict: 'id' });
       writes.push(structuredClone(row));
@@ -77,8 +80,8 @@ it('meters check-in interpretation to the authenticated user using a separate se
   expect(writes[1]).toMatchObject({ user_id: 'verified-user', bucket: 'daily_checkin',
     operation: 'checkin_reply', usage_status: 'complete', input_tokens: 100, output_tokens: 20 });
   expect(state.clients).toEqual([
-    { key: 'anon-key', options: { global: { headers: { Authorization: 'Bearer caller-jwt' } } } },
-    { key: 'service-key', options: { auth: { persistSession: false, autoRefreshToken: false } } },
+    { key: 'anon-key', options: { global: { headers: { Authorization: 'Bearer caller-jwt' }, fetch: expect.any(Function) } } },
+    { key: 'service-key', options: { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: expect.any(Function) } } },
   ]);
 });
 

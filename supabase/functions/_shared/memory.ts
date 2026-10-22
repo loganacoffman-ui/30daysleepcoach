@@ -94,7 +94,7 @@ export class Mem0MemoryProvider implements MemoryProvider {
       rerank: true,
     }, 3_500);
 
-    const payload = await response.json() as Mem0SearchResponse;
+    const payload = response as Mem0SearchResponse;
     if (!Array.isArray(payload.results)) return [];
 
     return payload.results.flatMap((candidate): Memory[] => {
@@ -137,7 +137,7 @@ export class Mem0MemoryProvider implements MemoryProvider {
       infer: false,
       metadata,
     }, 10_000);
-    const payload = await response.json() as { event_id?: unknown; status?: unknown };
+    const payload = response as { event_id?: unknown; status?: unknown };
     if (typeof payload.event_id !== "string" || !payload.event_id.trim() || payload.status === "FAILED") {
       throw new Error('Mem0 did not acknowledge the synthetic memory submission');
     }
@@ -158,7 +158,7 @@ export class Mem0MemoryProvider implements MemoryProvider {
     body: Record<string, unknown> | undefined,
     timeoutMs: number,
     method = "POST",
-  ): Promise<Response> {
+  ): Promise<unknown> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -183,7 +183,9 @@ export class Mem0MemoryProvider implements MemoryProvider {
         );
       }
 
-      return response;
+      // Keep the abort timer alive while consuming the body, not just headers.
+      const raw = await response.text();
+      return raw ? JSON.parse(raw) : null;
     } finally {
       clearTimeout(timeout);
     }

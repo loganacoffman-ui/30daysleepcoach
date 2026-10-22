@@ -1,5 +1,7 @@
+import { coachAdmin } from './helpers/coachAdmin';
 import { beforeAll, beforeEach, expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({ client: null as any, handler: null as any }));
+vi.mock('../supabase/functions/_shared/auth.ts', () => ({ verifiedUser: async () => (await state.client.auth.getUser()).data.user }));
 vi.mock('jsr:@supabase/functions-js/edge-runtime.d.ts', () => ({}));
 vi.mock('npm:@configcat/sdk@1/deno', () => ({}));
 vi.mock('jsr:@supabase/supabase-js@2', () => ({ createClient: () => state.client }));

@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { verifiedUser } from '../_shared/auth.ts';
 
 const ALLOWED_ORIGINS = ['https://30daysleepcoach.com', 'https://www.30daysleepcoach.com', 'http://localhost:8000'];
 
@@ -19,17 +19,14 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return jsonResponse(req, { error: 'Method not allowed' }, 405);
 
   try {
-    const supabaseUrl = mustEnv('SUPABASE_URL');
-    const serviceRoleKey = mustEnv('SUPABASE_SERVICE_ROLE_KEY');
     const elevenLabsKey = mustEnv('ELEVENLABS_API_KEY');
 
     const authHeader = req.headers.get('Authorization') || '';
     const jwt = authHeader.replace(/^Bearer\s+/i, '');
     if (!jwt) return jsonResponse(req, { error: 'Missing authorization' }, 401);
 
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-    const { data: userData, error: userError } = await supabase.auth.getUser(jwt);
-    if (userError || !userData.user) return jsonResponse(req, { error: 'Invalid token' }, 401);
+    const user = await verifiedUser(req);
+    if (!user) return jsonResponse(req, { error: 'Invalid token' }, 401);
 
     const contentType = req.headers.get('content-type') || '';
     if (!contentType.includes('multipart/form-data')) {
@@ -48,6 +45,7 @@ Deno.serve(async (req) => {
 
     const transcribeRes = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
       method: 'POST',
+      signal: AbortSignal.timeout(30_000),
       headers: { 'xi-api-key': elevenLabsKey },
       body: elevenLabsForm,
     });

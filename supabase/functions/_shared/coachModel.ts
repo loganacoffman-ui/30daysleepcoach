@@ -1,4 +1,7 @@
 import * as configcat from "npm:@configcat/sdk@1/deno";
+import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+import { readServerCache, writeServerCache } from './serverCache.ts';
+import { coalesce } from './greeting.ts';
 import { logSleepCoach } from "./sleepCoachLog.ts";
 
 export const DEFAULT_COACH_MODEL = "claude-sonnet-4-6";
@@ -83,4 +86,40 @@ export async function resolveCoachModel(
     });
     return DEFAULT_COACH_MODEL;
   }
+}
+
+
+export const MODEL_FLAG_TTL_MS = 60 * 60 * 1000;
+const modelCache = new Map<string, { model: string; expiresAt: number }>();
+const MODEL_CACHE_KEY = 'model-flag:useSonnet5:v1';
+function rememberModel(userId: string, model: string, expiresAt: number) {
+  if (!modelCache.has(userId) && modelCache.size >= 1000) modelCache.delete(modelCache.keys().next().value!);
+  modelCache.set(userId, { model, expiresAt });
+}
+export async function cachedCoachModel(user: FlagUser, admin: SupabaseClient | null,
+  resolve: () => Promise<string> = () => resolveCoachModel(user), now = Date.now()): Promise<string> {
+  const hit = modelCache.get(user.id);
+  if (hit && hit.expiresAt > now) return hit.model;
+  // Bound memory in long-lived workers. Entries expire at their original deadline,
+  // never one hour after a cache read.
+  for (const [key, value] of modelCache) if (value.expiresAt <= now) modelCache.delete(key);
+  return coalesce(`model:${user.id}`, async () => {
+    if (admin) {
+      try {
+        const saved = await readServerCache<{ model: string }>(admin, user.id, MODEL_CACHE_KEY);
+        if (saved && [DEFAULT_COACH_MODEL, SONNET_5_5_MODEL].includes(saved.value.model)) {
+          rememberModel(user.id, saved.value.model, saved.expiresAt);
+          return saved.value.model;
+        }
+      } catch { console.warn('Model cache read unavailable'); }
+    }
+    const model = await resolve();
+    const expiresAt = now + MODEL_FLAG_TTL_MS;
+    rememberModel(user.id, model, expiresAt);
+    if (admin) {
+      try { await writeServerCache(admin, user.id, MODEL_CACHE_KEY, { model }, expiresAt); }
+      catch { console.warn('Model cache write unavailable'); }
+    }
+    return model;
+  }).promise;
 }
