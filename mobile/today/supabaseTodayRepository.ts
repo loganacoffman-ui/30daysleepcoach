@@ -2,7 +2,7 @@ import { DAILY_COACH_PROMPT_VERSION, resolveSleep, sleepResolutionKey } from '..
 import type { User } from '@supabase/supabase-js';
 import { markCheckinSaved } from '../cache/checkinRevision';
 import { invalidateCoachContext } from '../coach/coachRepository';
-import { syncDeviceSleepForDate } from '../sleep/deviceSleep';
+import { loadOuraSleep } from '../oura/ouraSleep';
 import type { PrimaryConcern } from '../onboarding/types';
 import { isSleepSource, selectWearableSleepForDate } from '../sleep/sourceSelection';
 import type { WearableSleep } from '../sleep/sourceSelection';
@@ -19,26 +19,23 @@ const localDate = () => {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 };
 
-type OuraSleepDay = { day: string; score?: number };
-
 export const createSupabaseTodayRepository = (user: User, greetingName: string | undefined, _primaryConcern: PrimaryConcern): TodayRepository => ({
   async loadToday() {
     const date = localDate();
-    await syncDeviceSleepForDate(user.id, date).catch(() => undefined);
-    const appOpenResult = await supabase.from('app_open_days').upsert(
+    const appOpenRequest = supabase.from('app_open_days').upsert(
       { user_id: user.id, opened_date: date },
       { onConflict: 'user_id,opened_date', ignoreDuplicates: true },
     );
-    if (appOpenResult.error) throw appOpenResult.error;
     const [checkinResult, commitmentResult, historyResult, recommendationResult, ouraResult, openDaysResult, appleHealthResult, preferredSleepSource] = await Promise.all([
       supabase.from('daily_checkins').select('id, checkin_date, morning_feeling, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, suspected_factors, note, completed_at').eq('user_id', user.id).eq('checkin_date', date).maybeSingle(),
       supabase.from('behavior_commitments').select('id, behavior_date, behavior, status').eq('user_id', user.id).eq('behavior_date', date).maybeSingle(),
       supabase.from('behavior_commitments').select('id, behavior_date, behavior, status').eq('user_id', user.id).lt('behavior_date', date).order('behavior_date', { ascending: false }).limit(7),
       supabase.from('coach_recommendations').select('pattern, meaning, action, why, generated_at, prompt_version, source_context').eq('user_id', user.id).eq('recommendation_date', date).maybeSingle(),
-      supabase.functions.invoke<{ data?: OuraSleepDay[] }>('oura-proxy', {
-        body: { endpoint: 'daily_sleep', start_date: date, end_date: date },
+      loadOuraSleep(user.id, date),
+      Promise.resolve(appOpenRequest).then(result => {
+        if (result.error) throw result.error;
+        return supabase.from('app_open_days').select('opened_date', { count: 'exact', head: true }).eq('user_id', user.id);
       }),
-      supabase.from('app_open_days').select('opened_date', { count: 'exact', head: true }).eq('user_id', user.id),
       supabase.from('sleep_nights').select('provider, sleep_date, sleep_score, score_version, total_sleep_minutes').eq('user_id', user.id).in('provider', ['apple_health', 'health_connect']).eq('sleep_date', date),
       loadPreferredSleepSource(user.id),
     ]);

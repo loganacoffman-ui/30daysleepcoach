@@ -141,3 +141,17 @@ describe('check-in staleness signal', () => {
     expect(seen).toHaveLength(2);
   });
 });
+
+it('does not let an invalidated pending request evict a newer cached result', async () => {
+  let reject!: (error: Error) => void;
+  const memo = createAsyncMemo<string>(60_000);
+  const old = memo.run('alice', () => new Promise((_resolve, fail) => { reject = fail; }));
+  const failed = old.catch(() => undefined);
+  memo.invalidate('alice');
+  await memo.run('alice', async () => 'new evidence');
+  reject(new Error('old request failed'));
+  await failed;
+  const reload = vi.fn(async () => 'unexpected');
+  expect(await memo.run('alice', reload)).toBe('new evidence');
+  expect(reload).not.toHaveBeenCalled();
+});

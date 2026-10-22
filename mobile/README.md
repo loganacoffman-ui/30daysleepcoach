@@ -142,6 +142,34 @@ The journal `note` contains user replies only, with a 20,000-character aggregate
 limit enforced by the mobile flow and database constraint. Coach questions and
 clarifications stay in the separate local conversation cache.
 
+## Mobile loading behavior
+
+Your Day mounts immediately; daily-thread creation and transcript loading run
+alongside its snapshot and local draft reads. Coach home publishes check-in
+status before wearable data returns. History reads run in parallel and revisited
+threads render from memory while reconciling with the server. A late read cannot
+replace a newly sent message or a just-saved check-in.
+
+ProductApp owns background device sync. Screen reads use stored nights and
+refresh after sync, rather than syncing on every read. Sync work is shared per
+account and date for 60 seconds after completion. Oura reads across home, Your
+Day, chat context and Progress share a 35-day window for 60 seconds; failed reads
+retry, connection changes invalidate it, and a five-second request timeout keeps
+manual check-in available during an Oura outage.
+
+Daily coaching sends only the local date because the endpoint rebuilds its
+source evidence. Chat and sleep-profile requests still supply their required
+context. Finishing a check-in waits for transcript persistence, but not the
+subsequent history refresh. Exact categorical typed answers are handled locally;
+nuanced replies still use server interpretation. Streaming replies display all
+received text in 50ms batches, and finished daily reports render immediately.
+
+Validation: run `npm test` at the repository root and
+`./node_modules/.bin/tsc --noEmit` from `mobile`. On a device, check cold start,
+opening Your Day on slow cellular, rapid chat switches, finishing during a
+background sync, and foregrounding after midnight. Automated tests use mocked
+network/native APIs; they do not measure production latency.
+
 ## Sleep profile settings
 
 Settings → Sleep profile → Edit lets users change their primary focus, usual

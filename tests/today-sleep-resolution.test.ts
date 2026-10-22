@@ -1,3 +1,4 @@
+import { invalidateOuraSleep } from '../mobile/oura/ouraSleep';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { createSupabaseTodayRepository } from '../mobile/today/supabaseTodayRepository';
 import { resolveSleep, sleepResolutionKey } from '../mobile/sleep/dailySleepContract';
@@ -21,6 +22,7 @@ vi.mock('../mobile/supabase', () => ({ supabase: {
 const repository = createSupabaseTodayRepository({ id: 'u' } as any, undefined, 'unrefreshed' as any);
 const date = new Date().toLocaleDateString('en-CA');
 beforeEach(() => {
+  invalidateOuraSleep();
   state.checkin = { id: 'c', checkin_date: date, manual_sleep_score: 62, manual_sleep_submitted_at: new Date().toISOString(), morning_feeling: 'tired' };
   state.wearable = null; state.nativeNights = []; state.writes = [];
   state.recommendation = { pattern: 'Pattern', meaning: 'Meaning', action: 'Action', prompt_version: DAILY_COACH_PROMPT_VERSION,
@@ -29,6 +31,7 @@ beforeEach(() => {
 it('keeps manual coaching when a wearable arrives, because the manual score takes precedence', async () => {
   expect((await repository.loadToday()).dailyCoaching?.action).toBe('Action');
   state.wearable = { day: date, score: 85, source: 'oura' };
+  invalidateOuraSleep();
   const snapshot = await repository.loadToday();
   expect(snapshot.dailyCoaching?.action).toBe('Action');
   expect(snapshot.sleepData).toMatchObject({ source: 'manual', score: 62 });

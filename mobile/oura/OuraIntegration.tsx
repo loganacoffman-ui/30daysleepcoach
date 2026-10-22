@@ -4,6 +4,7 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
 import { colors } from '../design/theme';
+import { invalidateOuraSleep } from './ouraSleep';
 import { supabase } from '../supabase';
 
 const redirectTo = Linking.createURL('oura/callback');
@@ -49,6 +50,7 @@ export default function OuraIntegration() {
   }, []);
 
   const refresh = useCallback(async () => {
+    invalidateOuraSleep();
     setBusy(true);
     setError('');
     try {
@@ -65,6 +67,7 @@ export default function OuraIntegration() {
   useEffect(() => { void refresh(); }, [refresh]);
 
   const connect = async () => {
+    invalidateOuraSleep();
     setBusy(true);
     setError('');
     try {
@@ -86,11 +89,13 @@ export default function OuraIntegration() {
   };
 
   const disconnect = async () => {
+    invalidateOuraSleep();
     setBusy(true);
     setError('');
     try {
       const { error: disconnectError } = await supabase.functions.invoke('oura-oauth-disconnect');
       if (disconnectError) throw disconnectError;
+      invalidateOuraSleep();
       setStatus({ connected: false });
       setLatestSleep(null);
     } catch (disconnectError) {

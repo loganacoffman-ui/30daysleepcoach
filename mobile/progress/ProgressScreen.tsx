@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { User } from '@supabase/supabase-js';
 
 import { checkinRevision, subscribeToCheckins } from '../cache/checkinRevision';
+import { loadOuraSleep } from '../oura/ouraSleep';
 import { screenCache } from '../cache/screenCache';
 import { loadSleepProfileSummary, loadStoredDailyCoaching, type DailyCoaching } from '../coach/coachRepository';
 import { plainCoachText } from '../coach/ChatBubble';
@@ -76,7 +77,7 @@ export default function ProgressScreen({ active = true, profile, refreshRequest,
       supabase.from('behavior_commitments').select('behavior_date, behavior, status').eq('user_id', user.id).order('behavior_date', { ascending: false }).limit(90),
       supabase.from('sleep_nights').select('provider, sleep_date, sleep_score').eq('user_id', user.id).in('provider', ['apple_health', 'health_connect']).gte('sleep_date', daysAgo(35)),
       loadPreferredSleepSource(user.id),
-      supabase.functions.invoke<{data?: Array<{day:string;score?:number}>}>('oura-proxy', { body: { endpoint: 'daily_sleep', start_date: daysAgo(35), end_date: localDate() } }),
+      loadOuraSleep(user.id),
       supabase.from('daily_checkins').select('checkin_date, completed_at, manual_sleep_score').eq('user_id', user.id).not('completed_at', 'is', null).order('checkin_date', { ascending: true }),
     ]);
     setJourneyError(journeyResult.error ? 'Your journey could not be loaded. Please try again.' : '');

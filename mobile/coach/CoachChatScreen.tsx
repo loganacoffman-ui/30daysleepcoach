@@ -79,7 +79,7 @@ const personalizedGreeting = (state: CoachHomeState | null) => {
     return `Last night’s ${source}sleep score was ${Math.round(state.sleepScore)}.${energy}`;
   }
   if (state.hasCheckedInToday && state.morningFeeling) {
-    return `Your wearable missed last night, but you said you feel ${feelingLabel(state.morningFeeling).toLowerCase()} this morning.`;
+    return `You said you feel ${feelingLabel(state.morningFeeling).toLowerCase()} this morning.`;
   }
   return "Let’s start with how you slept and how you feel. A quick check-in helps your coach understand your day.";
 };
@@ -200,6 +200,7 @@ export default function CoachChatScreen({
   const [resolvingToolCallId, setResolvingToolCallId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [dailyViewOpen, setDailyViewOpen] = useState(false);
+  const [dailyMounted, setDailyMounted] = useState(false);
   const [pastDailyDate, setPastDailyDate] = useState<string | null>(null);
   const listRef = useRef<FlatList<CoachMessage>>(null);
   const { scrollProps, scrollToLatest, reset: resetScroll, showLatest } = useChatScroll({
@@ -374,13 +375,20 @@ export default function CoachChatScreen({
     } satisfies CachedCoachHome).catch(() => undefined);
   }, [user.id]);
 
+  const homeLoadRequest = useRef(0);
   const refreshCoachHomeState = useCallback(async () => {
+    const request = ++homeLoadRequest.current;
     try {
-      persistCoachHomeState(await loadCoachHomeState(user));
+      const state = await loadCoachHomeState(user, partial => {
+        if (request !== homeLoadRequest.current) return;
+        setHomeState(partial);
+        setHomeLoaded(true);
+      });
+      if (request === homeLoadRequest.current) persistCoachHomeState(state);
     } catch {
       // Keep whatever the cache already painted if the network read fails.
     } finally {
-      setHomeLoaded(true);
+      if (request === homeLoadRequest.current) setHomeLoaded(true);
     }
   }, [persistCoachHomeState, user]);
 
@@ -425,9 +433,9 @@ export default function CoachChatScreen({
   // Mirror each settled thread so reopening it never starts from an empty list.
   // Skipped mid-send so a streaming reply is only cached once it is complete.
   useEffect(() => {
-    if (!conversationId || sending) return;
+    if (!conversationId || sending || busyAction || (error && !messages.length)) return;
     threadCache.current[conversationId] = messages;
-  }, [conversationId, messages, sending]);
+  }, [conversationId, messages, sending, busyAction, error]);
 
   const beginConversation = async (firstMessage: string) => {
     const id = await createCoachConversation(user, firstMessage);
@@ -467,6 +475,12 @@ export default function CoachChatScreen({
     Keyboard.dismiss();
     setError("");
     const request = ++openRequestRef.current;
+    setDailyMounted(true);
+    setDailyViewOpen(true);
+    setPastDailyDate(null);
+    setConversationId(null);
+    setMessages([]);
+    closeHistory();
     const showDaily = (id: string) => {
       setConversationId(id);
       setDailyViewOpen(true);
@@ -477,6 +491,7 @@ export default function CoachChatScreen({
     // immediate and the reconciling read happens behind the visible content.
     const cached = dailyConversation?.date === localDate() ? dailyConversation.id : null;
     if (cached && threadCache.current[cached]) {
+      setBusyAction(false);
       setMessages(threadCache.current[cached]);
       showDaily(cached);
       void loadCoachConversation(user, cached)
@@ -491,12 +506,13 @@ export default function CoachChatScreen({
     setBusyAction(true);
     try {
       const id = await getOrCreateDailyConversation(user);
-      const loadedMessages = await loadCoachConversation(user, id);
       if (request !== openRequestRef.current) return;
       setDailyConversation({ id, date: localDate() });
+      const loadedMessages = await loadCoachConversation(user, id);
+      if (request !== openRequestRef.current) return;
       setMessages(loadedMessages);
       showDaily(id);
-      await refreshHistory();
+      void refreshHistory().catch(() => undefined);
     } catch (loadError) {
       if (request === openRequestRef.current) {
         setError(loadError instanceof Error ? loadError.message : "Today’s coaching thread could not be opened.");
@@ -506,6 +522,13 @@ export default function CoachChatScreen({
       if (request === openRequestRef.current) setBusyAction(false);
     }
   }, [closeHistory, dailyConversation, refreshHistory, user]);
+
+  // A mounted Your Day must switch its chat along with the calendar day.
+  useEffect(() => {
+    if (dailyViewOpen && dailyConversation && dailyConversation.date !== localDate() && !sending) {
+      void openDailyThread();
+    }
+  }, [dailyViewOpen, dailyConversation, openDailyThread, refreshRequest, sending]);
 
   // Both are counters bumped by the caller. Compare against the value already
   // handled so a new callback identity cannot replay the last navigation.
@@ -528,13 +551,19 @@ export default function CoachChatScreen({
   // The saved check-in already lives in Supabase; a failed transcript write only
   // costs this day's thread its conversation, which the device draft still shows.
   const persistCheckinTranscript = useCallback(async (turns: CheckinTranscriptTurn[]) => {
-    if (!conversationId) return;
+    const request = openRequestRef.current;
     try {
-      await saveCheckinTranscript(user, conversationId, turns);
-      setMessages(await loadCoachConversation(user, conversationId));
-      await refreshHistory();
+      const id = dailyConversation?.date === localDate()
+        ? dailyConversation.id : await getOrCreateDailyConversation(user);
+      await saveCheckinTranscript(user, id, turns);
+      // Only transcript persistence is evidence needed before daily generation.
+      // History reconciliation must not add more round trips to Finish check-in.
+      void loadCoachConversation(user, id).then(loaded => {
+        if (request === openRequestRef.current && !sendingRef.current) setMessages(loaded);
+      }).catch(() => undefined);
+      void refreshHistory().catch(() => undefined);
     } catch { /* Keep the completed check-in view intact. */ }
-  }, [conversationId, refreshHistory, user]);
+  }, [dailyConversation, refreshHistory, user]);
 
   const openConversation = async (conversation: CoachConversationSummary) => {
     const dailyDate = dailyConversationDate(conversation.title);
@@ -556,7 +585,7 @@ export default function CoachChatScreen({
     setBusyAction(!cached);
     try {
       const loaded = await loadCoachConversation(user, conversation.id);
-      if (request === openRequestRef.current) setMessages(loaded);
+      if (request === openRequestRef.current && !sendingRef.current) setMessages(loaded);
     } catch (loadError) {
       if (!cached && request === openRequestRef.current) {
         setError(loadError instanceof Error ? loadError.message : "That conversation could not be loaded.");
@@ -570,6 +599,8 @@ export default function CoachChatScreen({
     const content = (suggested ?? input).trim();
     if (!content || sendingRef.current || busyAction || resolvingToolCallId) return false;
     sendingRef.current = true;
+    // A history refresh started before this send must never erase the new turn.
+    openRequestRef.current += 1;
 
     const optimistic: CoachMessage = {
       id: `pending-${Date.now()}`,
@@ -594,46 +625,32 @@ export default function CoachChatScreen({
     scrollToLatest();
 
     let receivedText = "";
-    let displayedLength = 0;
-    let drainResolver: (() => void) | null = null;
-    let streamFinished = false;
+    let displayedText = "";
+    // Batch native stream chunks without adding a character-by-character delay.
     const revealTimer = setInterval(() => {
-      const remaining = receivedText.length - displayedLength;
-      if (remaining <= 0) {
-        if (streamFinished && drainResolver) {
-          drainResolver();
-          drainResolver = null;
-        }
-        return;
-      }
-      const step = remaining > 160 ? 5 : remaining > 80 ? 3 : remaining > 32 ? 2 : 1;
-      displayedLength = Math.min(displayedLength + step, receivedText.length);
-      const visible = receivedText.slice(0, displayedLength);
-      setMessages(current => current.map(message => {
-        if (message.id === optimistic.id) return { ...message, pending: false };
-        return message.id === streamingId
-          ? { ...message, content: visible, pending: false }
-          : message;
-      }));
-    }, 18);
+      if (receivedText === displayedText) return;
+      const visible = receivedText;
+      displayedText = visible;
+      setMessages(current => current.map(message => message.id === streamingId
+        ? { ...message, content: visible, pending: false } : message));
+    }, 50);
 
     try {
-      const id = conversationId ?? await beginConversation(content);
+      const id = conversationId ?? (dailyViewOpen
+        ? await getOrCreateDailyConversation(user) : await beginConversation(content));
+      if (dailyViewOpen) {
+        setConversationId(id);
+        setDailyConversation({ id, date: localDate() });
+      }
       const response = await sendCoachMessage(user, profile, id, content, delta => {
         receivedText += delta;
       });
-      streamFinished = true;
-      if (displayedLength < receivedText.length) {
-        await new Promise<void>(resolve => {
-          drainResolver = resolve;
-        });
-      }
       setMessages(current => current.map(message =>
         message.id === streamingId ? response : message.id === optimistic.id
           ? { ...message, pending: false }
           : message
       ));
-      await refreshHistory().catch(() => undefined);
+      void refreshHistory().catch(() => undefined);
       return true;
     } catch (sendError) {
       // The message itself is persisted before the reply streams, so it stays
@@ -677,10 +694,10 @@ export default function CoachChatScreen({
   const checkedInToday = homeState?.hasCheckedInToday === true;
   const checkinPending = !checkedInToday && (!homeHydrated || !homeLoaded);
   const homeExperience = coachHomeExperience(homeState, profile.displayName);
-  const homeActionsDisabled = busyAction || sending || !!resolvingToolCallId || checkinPending;
+  const homeActionsDisabled = busyAction || sending || !!resolvingToolCallId;
   // While another thread is on screen the mounted Your Day reads its own history
   // from the cache, so its transcript never shows someone else's conversation.
-  const dailyMessages = dailyConversation
+  const dailyMessages = dailyConversation?.date === localDate()
     ? (conversationId === dailyConversation.id ? messages : threadCache.current[dailyConversation.id] ?? [])
     : [];
   const conversationLabel = (conversation: CoachConversationSummary) => {
@@ -728,10 +745,10 @@ export default function CoachChatScreen({
           {/* Your Day stays mounted once opened. Its check-in, sleep score, and
               coaching report survive every trip to Coach home or another thread,
               so none of it reloads or regenerates on the way back. */}
-          {dailyConversation && (
+          {dailyMounted && (
             <View style={dailyViewOpen ? styles.dailyPane : styles.hiddenPane}>
               <TodayScreen
-                key={dailyConversation.id}
+                key={`${user.id}:${localDate()}`}
                 embedded
                 refreshRequest={refreshRequest}
                 chat={{

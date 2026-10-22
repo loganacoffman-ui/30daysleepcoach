@@ -3,7 +3,7 @@ import type { User } from '@supabase/supabase-js';
 import { fetch as expoFetch } from 'expo/fetch';
 
 import { createAsyncMemo } from '../cache/asyncMemo';
-import { syncDeviceSleepForDate } from '../sleep/deviceSleep';
+import { loadOuraSleep } from '../oura/ouraSleep';
 import type { SleepProfile } from '../onboarding/types';
 import {
   isUnavailableSleepSchemaError,
@@ -68,9 +68,8 @@ const daysAgo = (count: number) => {
   return localDate(date);
 };
 
-// Opening Your Day generates coaching, greets you with today's score, and may
-// send a message, each of which needs the same recent history. One shared
-// window keeps that to a single HealthKit sync and a single Oura request.
+// Home and chat/profile context share recent wearable reads. Device sync runs
+// in ProductApp and refreshes these reads after new data is persisted.
 const COACH_CONTEXT_TTL_MS = 60_000;
 const wearableSleepMemo = createAsyncMemo<WearableSleep[]>(COACH_CONTEXT_TTL_MS);
 const coachContextMemo = createAsyncMemo<CoachContext>(COACH_CONTEXT_TTL_MS);
@@ -84,10 +83,9 @@ export const invalidateCoachContext = (userId: string) => {
 };
 
 const loadWearableSleep = (user: User, dayCount: number): Promise<WearableSleep[]> =>
-  wearableSleepMemo.run(`${user.id}:${dayCount}`, () => fetchWearableSleep(user, dayCount));
+  wearableSleepMemo.run(`${user.id}:${localDate()}:${dayCount}`, () => fetchWearableSleep(user, dayCount));
 
 const fetchWearableSleep = async (user: User, dayCount: number): Promise<WearableSleep[]> => {
-  await syncDeviceSleepForDate(user.id).catch(() => undefined);
   const [appleResult, preferredSleepSource, ouraResult] = await Promise.all([
     supabase
       .from('sleep_nights')
@@ -97,9 +95,7 @@ const fetchWearableSleep = async (user: User, dayCount: number): Promise<Wearabl
       .gte('sleep_date', daysAgo(dayCount))
       .order('sleep_date', { ascending: false }),
     loadPreferredSleepSource(user.id),
-    supabase.functions.invoke<{ data?: Array<{ day: string; score?: number }> }>('oura-proxy', {
-      body: { endpoint: 'daily_sleep', start_date: daysAgo(dayCount), end_date: localDate() },
-    }),
+    loadOuraSleep(user.id),
   ]);
   if (appleResult.error && !isUnavailableSleepSchemaError(appleResult.error)) {
     throw appleResult.error;
@@ -116,7 +112,7 @@ const fetchWearableSleep = async (user: User, dayCount: number): Promise<Wearabl
     }));
   if (!ouraResult.error) {
     for (const row of ouraResult.data?.data ?? []) {
-      if (typeof row.day === 'string' && typeof row.score === 'number') {
+      if (typeof row.day === 'string' && row.day >= daysAgo(dayCount) && row.day <= localDate() && typeof row.score === 'number') {
         rows.push({ day: row.day, score: row.score, source: 'oura' });
       }
     }
@@ -127,23 +123,33 @@ const fetchWearableSleep = async (user: User, dayCount: number): Promise<Wearabl
   );
 };
 
-export const loadCoachHomeState = async (user: User): Promise<CoachHomeState> => {
-  const [checkinResult, wearableSleep] = await Promise.all([
-    supabase
+export const loadCoachHomeState = async (user: User, onCheckinsLoaded?: (state: CoachHomeState) => void): Promise<CoachHomeState> => {
+  const wearableRequest = loadWearableSleep(user, 7);
+  // Attach the rejection handler immediately while the independent check-in read runs.
+  const wearableResult = wearableRequest.then(value => ({ value }), error => ({ error }));
+  const checkinResult = await supabase
       .from('daily_checkins')
       .select('checkin_date, morning_feeling, feeling, manual_sleep_score, manual_sleep_submitted_at, suspected_factor, suspected_factors, note')
       .eq('user_id', user.id)
       .order('checkin_date', { ascending: false })
-      .limit(7),
-    loadWearableSleep(user, 7),
-  ]);
+      .limit(7);
   if (checkinResult.error) throw checkinResult.error;
   const checkins = checkinResult.data ?? [];
   const todayCheckin = checkins.find(item => item.checkin_date === localDate()) ?? null;
-  const currentWearable = wearableSleep.find(item => item.day === localDate()) ?? null;
   const manualScore = typeof todayCheckin?.manual_sleep_score === 'number' && todayCheckin.manual_sleep_submitted_at
     ? todayCheckin.manual_sleep_score
     : null;
+  onCheckinsLoaded?.({
+    checkinCount: checkins.length, hasCheckedInToday: Boolean(todayCheckin),
+    morningFeeling: normalizeMorningFeeling(todayCheckin?.morning_feeling, todayCheckin?.feeling),
+    sleepScore: manualScore, previousSleepScore: null,
+    sleepSource: manualScore !== null ? 'manual' : 'missing',
+    suspectedFactor: todayCheckin?.suspected_factor ?? null,
+  });
+  const wearable = await wearableResult;
+  if ('error' in wearable) throw wearable.error;
+  const wearableSleep = wearable.value;
+  const currentWearable = wearableSleep.find(item => item.day === localDate()) ?? null;
   return {
     checkinCount: checkins.length,
     hasCheckedInToday: Boolean(todayCheckin),
@@ -408,20 +414,21 @@ const loadConversationRows = async <T,>(
 };
 
 export const loadCoachConversation = async (user: User, conversationId: string): Promise<CoachMessage[]> => {
-  const conversation = await supabase
-    .from('coach_conversations')
-    .select('id, title')
-    .eq('id', conversationId)
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (conversation.error) throw conversation.error;
-  if (!conversation.data) throw new Error('That coaching conversation is no longer available.');
-
-  const date = dailyConversationDate(conversation.data.title ?? '');
+  // Each read is scoped to both the authenticated account and conversation.
+  // Start independent history reads together instead of waiting one round trip
+  // for the title before fetching any messages.
+  const coachingRequest = (async () => {
+    const conversation = await supabase.from('coach_conversations').select('id, title')
+      .eq('id', conversationId).eq('user_id', user.id).maybeSingle();
+    if (conversation.error) throw conversation.error;
+    if (!conversation.data) throw new Error('That coaching conversation is no longer available.');
+    const date = dailyConversationDate(conversation.data.title ?? '');
+    return date ? loadStoredDailyCoaching(user.id, date) : null;
+  })();
   const [messages, toolCalls, coaching] = await Promise.all([
     loadConversationRows<StoredCoachMessage>('coach_messages', 'id, role, content, created_at, metadata', user.id, conversationId),
     loadConversationRows<StoredCoachToolCall>('coach_tool_calls', 'id, tool_name, status, input, requires_confirmation, expires_at', user.id, conversationId),
-    date ? loadStoredDailyCoaching(user.id, date) : Promise.resolve(null),
+    coachingRequest,
   ]);
   const history = mapCoachMessages(messages, toolCalls);
   if (coaching) {
@@ -462,7 +469,7 @@ const dailyCoachingRequests = new Map<string, Promise<DailyCoaching>>();
 
 export const loadDailyCoaching = async (
   user: User,
-  profile: SleepProfile,
+  _profile: SleepProfile,
   options: { refresh?: boolean; freshSources?: boolean } = {},
 ): Promise<DailyCoaching> => {
   const key = `${user.id}:${localDate()}`;
@@ -471,7 +478,7 @@ export const loadDailyCoaching = async (
   // may have arrived while the first request was running.
   const previous = dailyCoachingRequests.get(key);
   const request = (previous ? previous.catch(() => undefined) : Promise.resolve())
-    .then(() => fetchDailyCoaching(user, profile, options));
+    .then(() => fetchDailyCoaching(user, options));
   dailyCoachingRequests.set(key, request);
   try { return await request; }
   finally {
@@ -481,16 +488,16 @@ export const loadDailyCoaching = async (
 
 const fetchDailyCoaching = async (
   user: User,
-  profile: SleepProfile,
   options: { refresh?: boolean; freshSources?: boolean },
 ): Promise<DailyCoaching> => {
   if (options.refresh || options.freshSources) invalidateCoachContext(user.id);
-  const coachContext = await loadCoachContext(user, profile);
   const { data, error } = await supabase.functions.invoke<{
     status?: string;
     recommendation?: { pattern: string; meaning: string; action: string; why: string; generated_at: string };
   }>('sleep-coach', {
-    body: { mode: 'daily_coach', coachContext, refresh: options.refresh === true },
+    // Daily coaching rebuilds all evidence on the server. Only the local date
+    // is needed; preloading context added database, Oura and sync round trips.
+    body: { mode: 'daily_coach', coachContext: { date: localDate() }, refresh: options.refresh === true },
   });
   if (data?.status === 'awaiting_sleep_data') throw new Error('Sync sleep data or submit a manual sleep score to unlock today’s coaching.');
   if (error || data?.status !== 'ok' || !data.recommendation) throw error ?? new Error('Your daily coaching could not be generated.');

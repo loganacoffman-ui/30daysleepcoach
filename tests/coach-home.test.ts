@@ -90,3 +90,19 @@ it('keeps the manual score over a newly arrived wearable and retains the check-i
   expect(await loadCoachHomeState(user)).toMatchObject({ sleepSource: 'manual', sleepScore: 62, morningFeeling: 'tired', suspectedFactor: 'stress' });
   expect(checkins[0]).toEqual(row);
 });
+
+it('publishes check-in state before a slow wearable request finishes', async () => {
+  invalidateCoachContext(user.id);
+  const { invalidateOuraSleep } = await import('../mobile/oura/ouraSleep');
+  invalidateOuraSleep();
+  let finish!: (value: any) => void;
+  vi.mocked(supabase.functions.invoke).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+  checkins = [{ checkin_date: localDate() }];
+  const partial = vi.fn();
+  let completed = false;
+  const result = loadCoachHomeState(user, partial).then(state => { completed = true; return state; });
+  await vi.waitFor(() => expect(partial).toHaveBeenCalledWith(expect.objectContaining({ hasCheckedInToday: true })));
+  expect(completed).toBe(false);
+  finish({ data: { data: [{ day: localDate(), score: 80 }] }, error: null });
+  expect((await result).sleepScore).toBe(80);
+});

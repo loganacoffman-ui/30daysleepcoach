@@ -1,9 +1,19 @@
 import { supabase } from '../supabase';
-import { parseCheckinInterpretation, type CheckinInterpretation } from './checkinReplyContract';
+import { checkinAnswerValues, parseCheckinInterpretation, type CheckinInterpretation } from './checkinReplyContract';
 import { selectedCheckinFactors, type CheckinConversation } from './checkinConversation';
 
 export async function interpretTypedCheckinReply(state: CheckinConversation, message: string): Promise<CheckinInterpretation> {
   if (state.step === 'sleep') throw new Error('Start with your sleep score.');
+  // Match the server's exact-answer fast path locally. Nuanced prose still
+  // goes to semantic interpretation; no substring or keyword guessing.
+  if (state.step === 'feeling' || state.step === 'adherence') {
+    const answer = message.trim().toLowerCase().replace(/[.!]+$/, '');
+    if ((checkinAnswerValues[state.step] as readonly string[]).includes(answer)) {
+      return parseCheckinInterpretation(state.step, {
+        addressed: true, answer, factors: [], finish: false, clarification: null,
+      });
+    }
+  }
   // Keep the original experiment question and recent conversation in context.
   // Full, unabridged replies remain in the check-in draft and saved note.
   const turns = state.turns.length > 20 ? [state.turns[0], ...state.turns.slice(-19)] : state.turns;

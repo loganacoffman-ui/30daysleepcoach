@@ -224,3 +224,22 @@ it('Finish parses unsent detail before saving corrected factors', async () => {
   await act(async () => finish().props.onPress());
   expect(repository.saveCheckin).toHaveBeenCalledWith(expect.objectContaining({ suspectedFactors: ['bed_partner'], note: expect.stringContaining('Also the dog woke me') }));
 });
+
+it('does not let a background read overwrite a check-in saved while it was loading', async () => {
+  const sleepData = { status: 'wearable', score: 79, source: 'oura' } as const;
+  const { repository, finish } = await openReadyCheckin(sleepData);
+  let finishOldRead!: (value: TodaySnapshot) => void;
+  vi.mocked(repository.loadToday).mockReturnValueOnce(new Promise(resolve => { finishOldRead = resolve; }));
+  // Keep generation pending so this test isolates the earlier snapshot read.
+  vi.mocked(loadDailyCoaching).mockReturnValue(new Promise(() => {}));
+  await act(async () => screen!.update(createElement(TodayScreen, { ...screen!.root.props, refreshRequest: 1 })));
+  await act(async () => finish().props.onPress());
+  expect(loadDailyCoaching).toHaveBeenCalledTimes(1);
+  await act(async () => finishOldRead({
+    date: '2026-09-23', dayNumber: 3, checkin: null, sleepData, syncedSleep: null,
+    dailyCoaching: null, commitment: null, previousCommitment: null,
+  }));
+  expect(screen!.root.findAllByType('Text' as any).some(text =>
+    typeof text.props.children === 'string' && text.props.children.includes('Your check-in is saved.'))).toBe(true);
+  expect(loadDailyCoaching).toHaveBeenCalledTimes(1);
+});
