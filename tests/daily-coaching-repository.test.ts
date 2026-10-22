@@ -15,57 +15,37 @@ vi.mock('../mobile/sleep/sourcePreference', () => ({
 const user = { id: 'daily-user' } as User;
 const profile = { primaryConcern: 'unrefreshed', typicalBedtime: '23:00', typicalWakeTime: '07:00', timezone: 'UTC' } as SleepProfile;
 const report = { pattern: 'Pattern', meaning: 'Meaning', action: 'Dim lights', why: 'Wind down', generated_at: '2026-08-27T09:00:00Z' };
-let score = 79;
-let checkins: Record<string, unknown>[] = [];
-const adherenceQueries: { gte?: string; lte?: string; limit?: number }[] = [];
-
 beforeEach(() => {
   vi.clearAllMocks();
   invalidateCoachContext(user.id);
-  score = 79;
-  checkins = [];
-  adherenceQueries.length = 0;
-  vi.mocked(supabase.from).mockImplementation((table: string) => {
-    const filters: typeof adherenceQueries[number] = {};
-    if (table === 'behavior_commitments') adherenceQueries.push(filters);
-    const query = {
-      select: () => query, eq: () => query, in: () => query, order: () => query,
-      gte: (_column: string, value: string) => { filters.gte = value; return query; },
-      lte: (_column: string, value: string) => { filters.lte = value; return query; },
-      limit: (count: number) => { filters.limit = count; return query; },
-      then: (resolve: (value: unknown) => unknown) => resolve({ data: table === 'daily_checkins' ? checkins : [], error: null }),
-    };
-    return query as never;
-  });
-  vi.mocked(supabase.functions.invoke).mockImplementation(async (name: string) => ({
-    data: name === 'oura-proxy' ? { data: [{ day: localDate(), score }] } : { status: 'ok', recommendation: report },
-    error: null,
-  }) as never);
+  vi.mocked(supabase.from).mockImplementation(() => { throw new Error('Daily coaching must not preload client evidence'); });
+  vi.mocked(supabase.functions.invoke).mockResolvedValue({
+    data: { status: 'ok', recommendation: report }, error: null,
+  } as never);
 });
 
-it('revalidation bypasses the source memo without forcing regeneration', async () => {
+it('revalidates directly on the server without client context reads or forced regeneration', async () => {
   await loadDailyCoaching(user, profile, { freshSources: true });
-  score = 88;
   expect(await loadDailyCoaching(user, profile, { freshSources: true })).toEqual({
     pattern: report.pattern, meaning: report.meaning, action: report.action, why: report.why, generatedAt: report.generated_at,
   });
   const requests = vi.mocked(supabase.functions.invoke).mock.calls.filter(([name]) => name === 'sleep-coach');
   expect(requests).toHaveLength(2);
-  expect(requests[0][1]?.body).toMatchObject({ refresh: false, coachContext: { wearable_sleep: [{ day: localDate(), score: 79, source: 'oura' }] } });
-  expect(requests[1][1]?.body).toMatchObject({ refresh: false, coachContext: { wearable_sleep: [{ day: localDate(), score: 88, source: 'oura' }] } });
-  // A generated commitment cannot displace a prior row at a row-count limit.
-  expect(adherenceQueries).toHaveLength(2);
-  expect(adherenceQueries[0]).toEqual({ gte: expect.any(String), lte: localDate() });
+  expect(requests[0][1]?.body).toMatchObject({ refresh: false, coachContext: { date: localDate() } });
+  expect(requests[1][1]?.body).toMatchObject({ refresh: false, coachContext: { date: localDate() } });
+  expect(supabase.from).not.toHaveBeenCalled();
+  expect(supabase.functions.invoke).toHaveBeenCalledTimes(2);
 });
 
-it('sends the manual report and withholds the overridden night\'s wearable score during revalidation', async () => {
-  checkins = [{ checkin_date: localDate(), manual_sleep_score: 60, manual_sleep_submitted_at: '2026-08-27T09:00:00Z', note: 'Restless night' }];
-  await loadDailyCoaching(user, profile, { freshSources: true });
-  const request = vi.mocked(supabase.functions.invoke).mock.calls.find(([name]) => name === 'sleep-coach');
-  expect(request?.[1]?.body).toMatchObject({ refresh: false, coachContext: { subjective_checkins: [expect.objectContaining({ manual_sleep_score: 60, note: 'Restless night' })], wearable_sleep: [] } });
+it('only forces regeneration for an explicit refresh, still without preloading evidence', async () => {
+  await loadDailyCoaching(user, profile, { refresh: true });
+  expect(supabase.functions.invoke).toHaveBeenCalledWith('sleep-coach', {
+    body: { mode: 'daily_coach', refresh: true, coachContext: { date: localDate() } },
+  });
+  expect(supabase.from).not.toHaveBeenCalled();
 });
 
-it('serializes overlapping requests and reads changed input after the first result is saved', async () => {
+it('serializes overlapping requests so later evidence is checked after the first result is saved', async () => {
   const invoke = vi.mocked(supabase.functions.invoke);
   const original = invoke.getMockImplementation()!;
   let release!: () => void;
@@ -84,12 +64,11 @@ it('serializes overlapping requests and reads changed input after the first resu
   // Let context loads and invoke settle if a second request incorrectly starts.
   await new Promise(resolve => setTimeout(resolve, 0));
   expect(requests()).toHaveLength(1);
-  score = 88;
   release();
   await Promise.all([first, second]);
   expect(requests()).toHaveLength(2);
-  expect(requests()[0][1]?.body).toMatchObject({ refresh: false, coachContext: { wearable_sleep: [{ score: 79, day: localDate(), source: 'oura' }] } });
-  expect(requests()[1][1]?.body).toMatchObject({ refresh: false, coachContext: { wearable_sleep: [{ score: 88, day: localDate(), source: 'oura' }] } });
+  expect(requests()[0][1]?.body).toMatchObject({ refresh: false, coachContext: { date: localDate() } });
+  expect(requests()[1][1]?.body).toMatchObject({ refresh: false, coachContext: { date: localDate() } });
 });
 
 it('allows a queued retry after a failed request without forcing regeneration', async () => {

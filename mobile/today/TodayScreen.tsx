@@ -14,7 +14,6 @@ import {
   View,
 } from 'react-native';
 import type { User } from '@supabase/supabase-js';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { screenCache } from '../cache/screenCache';
 import { loadDailyCoaching, type CoachMessage, type DailyCoaching } from '../coach/coachRepository';
@@ -200,42 +199,11 @@ const timeGreeting = () => {
   return hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 };
 
-const DailyReport = ({ action, cacheKey, meaning, pattern }: {
-  action: string;
-  cacheKey: string;
-  meaning: string;
-  pattern: string;
-}) => {
-  const report = `${plainCoachText(pattern)}\n\n${plainCoachText(meaning)}\n\nTonight: ${plainCoachText(action)}`;
-  const [visible, setVisible] = useState('');
-
-  useEffect(() => {
-    let active = true;
-    let timer: ReturnType<typeof setInterval> | undefined;
-    void AsyncStorage.getItem(cacheKey).then(seen => {
-      if (!active) return;
-      if (seen) {
-        setVisible(report);
-        return;
-      }
-      void AsyncStorage.setItem(cacheKey, 'seen');
-      const words = report.split(/(\s+)/);
-      let count = 0;
-      setVisible('');
-      timer = setInterval(() => {
-        count += 1;
-        setVisible(words.slice(0, count).join(''));
-        if (count >= words.length && timer) clearInterval(timer);
-      }, 28);
-    });
-    return () => {
-      active = false;
-      if (timer) clearInterval(timer);
-    };
-  }, [cacheKey, report]);
-
-  return <Text selectable style={styles.dailyReportText}>{visible}</Text>;
-};
+const DailyReport = ({ action, meaning, pattern }: {
+  action: string; meaning: string; pattern: string;
+}) => <Text selectable style={styles.dailyReportText}>{
+  `${plainCoachText(pattern)}\n\n${plainCoachText(meaning)}\n\nTonight: ${plainCoachText(action)}`
+}</Text>;
 
 export default function TodayScreen({ embedded = false, chat, profile, refreshRequest, repository = mockTodayRepository, user }: TodayScreenProps) {
   const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
@@ -250,6 +218,8 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
   const [reviewedSleepData, setReviewedSleepData] = useState<TodaySnapshot['sleepData'] | null>(null);
   const [sleepReviewed, setSleepReviewed] = useState(false);
   const savingRef = useRef(false);
+  const loadRequest = useRef(0);
+  useEffect(() => () => { loadRequest.current += 1; }, []);
   const interpretingRef = useRef(false);
   const [interpreting, setInterpreting] = useState(false);
   const replyRequestRef = useRef(0);
@@ -279,12 +249,15 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
   const dailyCoaching = snapshot?.dailyCoaching ?? null;
 
   const loadToday = useCallback(async ({ silent = false, revalidateCoaching = true }: { silent?: boolean; revalidateCoaching?: boolean } = {}) => {
+    if (savingRef.current) return;
+    const request = ++loadRequest.current;
     if (!silent) {
       setError('');
       setLoading(true);
     }
     try {
       const nextSnapshot = await repository.loadToday();
+      if (request !== loadRequest.current) return;
       // Respect the repository's sleep-resolution gate: never restore a report
       // it has invalidated. Reopens still revalidate full server evidence.
       setSnapshot(nextSnapshot);
@@ -293,9 +266,9 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     } catch (loadError) {
       // A background refresh leaves the visible day alone; only a load with
       // nothing to show reports the failure.
-      if (!silent) setError(loadError instanceof Error ? loadError.message : 'Today could not be loaded.');
+      if (request === loadRequest.current && !silent) setError(loadError instanceof Error ? loadError.message : 'Today could not be loaded.');
     } finally {
-      setLoading(false);
+      if (request === loadRequest.current) setLoading(false);
     }
   }, [draftOwner, repository]);
 
@@ -568,6 +541,8 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
     if (!draft) return;
     if (finalText.trim()) scrollToLatest();
     savingRef.current = true;
+    loadRequest.current += 1;
+    setLoading(false);
     setSaving(true);
     setError('');
     setConversation(finalConversation);
@@ -936,7 +911,6 @@ export default function TodayScreen({ embedded = false, chat, profile, refreshRe
               <>
                 <DailyReport
                   action={dailyCoaching.action}
-                  cacheKey={`sleep-coach:daily-report-seen:${user.id}:${snapshot.date}:${dailyCoaching.generatedAt}`}
                   meaning={dailyCoaching.meaning}
                   pattern={dailyCoaching.pattern}
                 />

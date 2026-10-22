@@ -53,3 +53,16 @@ it('sends selected factors for correction and validates every returned factor', 
   invoke.mockResolvedValueOnce({ data: { interpretation: { addressed: true, answer: null, factors: ['invented'], finish: false, clarification: null } }, error: null } as never);
   await expect(interpretTypedCheckinReply(state, 'Also coffee')).rejects.toThrow('try sending again');
 });
+
+it('answers exact feeling and adherence replies locally while sending nuanced prose to the server', async () => {
+  for (const [step, message, answer] of [['feeling', ' Rested! ', 'rested'], ['adherence', 'Completed.', 'completed']] as const) {
+    const state = { ...startCheckin(), step };
+    expect(await interpretTypedCheckinReply(state, message)).toEqual({ addressed: true, answer, factors: [], finish: false, clarification: null });
+  }
+  expect(invoke).not.toHaveBeenCalled();
+  invoke.mockResolvedValue({ data: { interpretation: { addressed: true, answer: 'tired', finish: false, clarification: null } }, error: null } as never);
+  for (const message of ['not rested', 'my partner feels rested', 'rested yesterday', 'great, except I am exhausted']) {
+    await interpretTypedCheckinReply({ ...startCheckin(), step: 'feeling' }, message);
+  }
+  expect(invoke).toHaveBeenCalledTimes(4);
+});

@@ -130,10 +130,13 @@ describe('persisted coach conversation history', () => {
     await expect(loadCoachConversation(user, 'daily-thread')).rejects.toThrow('History load failed');
   });
 
-  it('does not query messages when the user cannot access the conversation', async () => {
+  it('rejects inaccessible conversations and scopes every parallel read to the account', async () => {
     missingConversation = true;
     await expect(loadCoachConversation(user, 'daily-thread')).rejects.toThrow('no longer available');
-    expect(queries).toHaveLength(1);
-    expect(queries[0].filters).toContainEqual(['user_id', 'user-1']);
+    expect(queries).toHaveLength(3);
+    for (const query of queries) {
+      expect(query.filters).toContainEqual(['user_id', 'user-1']);
+      expect(query.filters).toContainEqual([query.table === 'coach_conversations' ? 'id' : 'conversation_id', 'daily-thread']);
+    }
   });
 });
