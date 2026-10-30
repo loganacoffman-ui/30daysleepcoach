@@ -1,14 +1,20 @@
 import { backgroundTask } from './performance.ts';
 // Braintrust tracing for the coach's Anthropic calls.
 // In production: supabase secrets set BRAINTRUST_API_KEY=...
-// Imported from esm.sh rather than npm: the npm package ships ~23MB of optional
+// Use the pinned jsDelivr ESM build: esm.sh's build service can fail on a cold
+// import. Avoid npm: the package ships ~23MB of optional
 // `bt` CLI binaries that push the deployed function past Supabase's size limit.
 // edge-light is the build meant for this runtime.
 import {
   initLogger,
   NOOP_SPAN,
-  type Span,
-} from "https://esm.sh/braintrust@3.32.0/edge-light";
+} from "https://cdn.jsdelivr.net/npm/braintrust@3.32.0/edge-light/+esm";
+
+// Only the span operations this adapter uses; the CDN serves JavaScript.
+type Span = {
+  log(event: Record<string, unknown>): unknown;
+  end(): unknown;
+};
 
 // Without a key, tracing stays off and the coach behaves exactly as before.
 const apiKey = (() => {

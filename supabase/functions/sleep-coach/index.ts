@@ -53,9 +53,10 @@ import {
 import { chooseDailyExperiment } from "../_shared/experimentCycle.ts";
 import { createMeteredAnthropicFetch, usageFeature } from "../_shared/llmUsage.ts";
 import { interpretCheckinReply, interpretDirectCheckinReply } from "../_shared/checkinReply.ts";
-import { coachThinkingForModel, cachedCoachModel, SONNET_5_5_MODEL } from "../_shared/coachModel.ts";
+import { coachThinkingForModel, cachedCoachModel, DEFAULT_COACH_MODEL, SONNET_5_5_MODEL } from "../_shared/coachModel.ts";
 import { parseCheckinReplyRequest } from "../_shared/checkinReplyContract.ts";
 import { anthropicHttpErrorFields, logSleepCoach } from "../_shared/sleepCoachLog.ts";
+import { coachStreamDeadline } from "../_shared/coachStreamDeadline.ts";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
@@ -779,31 +780,60 @@ async function callAnthropicConversationStream(
   memories: Memory[],
   anthropicFetch: typeof fetch,
   model: string,
+  requestLog: Record<string, unknown>,
+  requestSignal: AbortSignal,
 ) {
-  const body = {
-    model,
-    max_tokens: 800,
-    thinking: coachThinkingForModel(model),
-    system: cachedSystemPrompt(SYSTEM_PROMPT, formatMemoryContext(memories) +
-      `\n\nCURRENT USER CONTEXT:\n${
-        formatCurrentCoachContext(coachContext)
-      }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`),
-    messages,
-    tools: coachToolsForModel(model),
-    tool_choice: { type: "auto", disable_parallel_tool_use: true },
-    stream: true,
-  };
-  const span = startAnthropicSpan("callAnthropicConversationStream", body);
-  const response = await anthropicFetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify(body),
-  });
-  return { response, span };
+  // Retry only before a response has been exposed to the client. A stalled
+  // rollout model can fall back without duplicating visible text or tool calls.
+  const models = model === DEFAULT_COACH_MODEL ? [model] : [model, DEFAULT_COACH_MODEL];
+  for (const attemptModel of models) {
+    requestSignal.throwIfAborted();
+    const deadline = coachStreamDeadline(requestSignal);
+    const body = {
+      model: attemptModel,
+      max_tokens: 800,
+      thinking: coachThinkingForModel(attemptModel),
+      system: cachedSystemPrompt(SYSTEM_PROMPT, formatMemoryContext(memories) +
+        `\n\nCURRENT USER CONTEXT:\n${
+          formatCurrentCoachContext(coachContext)
+        }\n\nExact current measurements in this context take precedence over semantic memory. Treat causal explanations as hypotheses, not diagnoses. Do not mention internal storage or memory systems.`),
+      messages,
+      tools: coachToolsForModel(attemptModel),
+      tool_choice: { type: "auto", disable_parallel_tool_use: true },
+      stream: true,
+    };
+    const span = startAnthropicSpan("callAnthropicConversationStream", body);
+    try {
+      const response = await anthropicFetch(ANTHROPIC_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify(body),
+        signal: deadline.signal,
+      });
+      deadline.headersReceived();
+      return { response, span, deadline, model: attemptModel };
+    } catch (error) {
+      deadline.dispose();
+      await endAnthropicSpan(span, null);
+      logSleepCoach("coach_stream_request_failed", {
+        ...requestLog, model: attemptModel,
+        reason: requestSignal.aborted ? "client_cancelled" : deadline.signal.aborted ? "headers_timeout" : "network_error",
+      });
+      // Caller aborts can carry any reason, including TimeoutError. They must
+      // never start a second billed request after the caller has disconnected.
+      requestSignal.throwIfAborted();
+      if (!deadline.signal.aborted || attemptModel === DEFAULT_COACH_MODEL) throw error;
+      logSleepCoach("coach_stream_fallback", {
+        ...requestLog,
+        model: attemptModel, fallback_model: DEFAULT_COACH_MODEL, reason: "headers_timeout",
+      });
+    }
+  }
+  throw new Error("The coach could not generate a response");
 }
 
 type CoachToolPrepareContext = {
@@ -1489,8 +1519,8 @@ async function handleSleepCoach(req: Request, timing: RequestTiming): Promise<Re
           user.id, buildMemoryQuery(memoryMode, chatHistory, sleepData, groundedContext))),
         getCoachModel(),
       ]);
-      const { response: anthropicResponse, span: coachSpan } =
-        await callAnthropicConversationStream(chatHistory, groundedContext, memories, anthropicFetch, coachModel);
+      const { response: anthropicResponse, span: coachSpan, deadline, model: responseModel } =
+        await callAnthropicConversationStream(chatHistory, groundedContext, memories, anthropicFetch, coachModel, coachRequestLog(), req.signal);
       if (!anthropicResponse.ok || !anthropicResponse.body) {
         logSleepCoach("anthropic_request_failed", {
           operation: "callAnthropicConversationStream",
@@ -1499,6 +1529,7 @@ async function handleSleepCoach(req: Request, timing: RequestTiming): Promise<Re
             ? { failure: "missing_response_body" }
             : await anthropicHttpErrorFields(anthropicResponse)),
         });
+        deadline.cancel();
         await endAnthropicSpan(coachSpan, null);
         return new Response(
           JSON.stringify({ error: "The coach could not generate a response" }),
@@ -1510,7 +1541,12 @@ async function handleSleepCoach(req: Request, timing: RequestTiming): Promise<Re
       }
 
       const encoder = new TextEncoder();
+      let cancelled = false;
       const clientStream = new ReadableStream<Uint8Array>({
+        cancel() {
+          cancelled = true;
+          deadline.cancel();
+        },
         async start(controller) {
           const reader = anthropicResponse.body!.getReader();
           const decoder = new TextDecoder();
@@ -1518,12 +1554,12 @@ async function handleSleepCoach(req: Request, timing: RequestTiming): Promise<Re
           let fullText = "";
           let stopReason: string | null = null;
           let usage: unknown = null;
-          let model = coachModel;
+          let model = responseModel;
           let toolUse: { id: string; name: string; input: unknown } | null = null;
           let toolInputJson = "";
-          const sendEvent = (event: unknown) => controller.enqueue(
-            encoder.encode(`${JSON.stringify(event)}\n`),
-          );
+          const sendEvent = (event: unknown) => {
+            if (!cancelled) controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+          };
 
           try {
             while (true) {
@@ -1565,6 +1601,8 @@ async function handleSleepCoach(req: Request, timing: RequestTiming): Promise<Re
               }
             }
 
+            deadline.signal.throwIfAborted();
+            deadline.dispose();
             let preparedToolCall: PublicCoachToolCall | null = null;
             if (toolUse) {
               if (toolInputJson) toolUse.input = JSON.parse(toolInputJson);
@@ -1635,6 +1673,11 @@ async function handleSleepCoach(req: Request, timing: RequestTiming): Promise<Re
               ),
             ]).then(() => undefined));
           } catch (streamError) {
+            logSleepCoach("coach_stream_failed", {
+              ...coachRequestLog(), model,
+              reason: cancelled || req.signal.aborted ? "client_cancelled" : deadline.signal.aborted ? "stream_timeout" : "stream_error",
+            });
+            deadline.cancel();
             sendEvent({
               type: "error",
               message: streamError instanceof Error
@@ -1642,7 +1685,9 @@ async function handleSleepCoach(req: Request, timing: RequestTiming): Promise<Re
                 : "The coach stream ended unexpectedly",
             });
           } finally {
-            controller.close();
+            deadline.dispose();
+            reader.releaseLock();
+            if (!cancelled) controller.close();
             await endAnthropicSpan(coachSpan, fullText, { stop_reason: stopReason, usage });
           }
         },
@@ -2352,7 +2397,7 @@ async function handleSleepCoach(req: Request, timing: RequestTiming): Promise<Re
       stack: err instanceof Error ? err.stack ?? null : null,
     });
     return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500,
+      status: req.signal.aborted ? 499 : err instanceof Error && err.name === "TimeoutError" ? 504 : 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
