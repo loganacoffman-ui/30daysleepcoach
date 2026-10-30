@@ -781,12 +781,14 @@ async function callAnthropicConversationStream(
   anthropicFetch: typeof fetch,
   model: string,
   requestLog: Record<string, unknown>,
+  requestSignal: AbortSignal,
 ) {
   // Retry only before a response has been exposed to the client. A stalled
   // rollout model can fall back without duplicating visible text or tool calls.
   const models = model === DEFAULT_COACH_MODEL ? [model] : [model, DEFAULT_COACH_MODEL];
   for (const attemptModel of models) {
-    const deadline = coachStreamDeadline();
+    requestSignal.throwIfAborted();
+    const deadline = coachStreamDeadline(requestSignal);
     const body = {
       model: attemptModel,
       max_tokens: 800,
@@ -819,8 +821,11 @@ async function callAnthropicConversationStream(
       await endAnthropicSpan(span, null);
       logSleepCoach("coach_stream_request_failed", {
         ...requestLog, model: attemptModel,
-        reason: deadline.signal.aborted ? "headers_timeout" : "network_error",
+        reason: requestSignal.aborted ? "client_cancelled" : deadline.signal.aborted ? "headers_timeout" : "network_error",
       });
+      // Caller aborts can carry any reason, including TimeoutError. They must
+      // never start a second billed request after the caller has disconnected.
+      requestSignal.throwIfAborted();
       if (!deadline.signal.aborted || attemptModel === DEFAULT_COACH_MODEL) throw error;
       logSleepCoach("coach_stream_fallback", {
         ...requestLog,
@@ -1515,7 +1520,7 @@ async function handleSleepCoach(req: Request, timing: RequestTiming): Promise<Re
         getCoachModel(),
       ]);
       const { response: anthropicResponse, span: coachSpan, deadline, model: responseModel } =
-        await callAnthropicConversationStream(chatHistory, groundedContext, memories, anthropicFetch, coachModel, coachRequestLog());
+        await callAnthropicConversationStream(chatHistory, groundedContext, memories, anthropicFetch, coachModel, coachRequestLog(), req.signal);
       if (!anthropicResponse.ok || !anthropicResponse.body) {
         logSleepCoach("anthropic_request_failed", {
           operation: "callAnthropicConversationStream",
@@ -1670,7 +1675,7 @@ async function handleSleepCoach(req: Request, timing: RequestTiming): Promise<Re
           } catch (streamError) {
             logSleepCoach("coach_stream_failed", {
               ...coachRequestLog(), model,
-              reason: cancelled ? "client_cancelled" : deadline.signal.aborted ? "stream_timeout" : "stream_error",
+              reason: cancelled || req.signal.aborted ? "client_cancelled" : deadline.signal.aborted ? "stream_timeout" : "stream_error",
             });
             deadline.cancel();
             sendEvent({
@@ -2392,7 +2397,7 @@ async function handleSleepCoach(req: Request, timing: RequestTiming): Promise<Re
       stack: err instanceof Error ? err.stack ?? null : null,
     });
     return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: err instanceof Error && err.name === "TimeoutError" ? 504 : 500,
+      status: req.signal.aborted ? 499 : err instanceof Error && err.name === "TimeoutError" ? 504 : 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

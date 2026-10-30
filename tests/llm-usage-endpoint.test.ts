@@ -24,7 +24,8 @@ let authenticated: boolean, profile: any, writes: any[], tasks: Promise<void>[],
 const usage = { input_tokens: 100, output_tokens: 20, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
 const providerMessage = (text: string) => ({ id: 'msg_test', model: 'claude-sonnet-4-6', usage,
   content: [{ type: 'text', text }], stop_reason: 'end_turn' });
-const request = (body: Record<string, unknown>) => state.handler(new Request('https://example.test', {
+const request = (body: Record<string, unknown>, signal?: AbortSignal) => state.handler(new Request('https://example.test', {
+  signal,
   method: 'POST', headers: { Authorization: 'Bearer caller-jwt' }, fetch: expect.any(Function),
   body: JSON.stringify({ user_id: 'forged-user', bucket: 'forged-bucket', ...body }),
 }));
@@ -129,7 +130,7 @@ it.each(['coach_chat', 'chat'])('meters %s streaming without changing its respon
 
 afterEach(() => vi.useRealTimers());
 
-const chatRequest = () => request({ mode: 'coach_chat', conversationId: 'conversation', message: 'Help me sleep' });
+const chatRequest = (signal?: AbortSignal) => request({ mode: 'coach_chat', conversationId: 'conversation', message: 'Help me sleep' }, signal);
 const stalledHeaders = (_input: unknown, init: RequestInit) => new Promise<Response>((_resolve, reject) => {
   init.signal!.addEventListener('abort', () => reject(init.signal!.reason), { once: true });
 });
@@ -201,17 +202,52 @@ it('ends a stalled body with an error without retrying or saving partial text', 
   expect(vi.getTimerCount()).toBe(0);
 });
 
-it('aborts the upstream body and clears timers when the mobile reader cancels', async () => {
+it.each(['reader', 'request'])('aborts the upstream body and clears timers when the %s cancels', async (source) => {
   vi.useFakeTimers();
+  const caller = new AbortController();
   provider.mockImplementation((_input, init) => Promise.resolve(new Response(new ReadableStream({
     start(controller) {
       init.signal.addEventListener('abort', () => controller.error(init.signal.reason), { once: true });
     },
   }))));
-  const response = await chatRequest();
-  await response.body!.cancel();
+  const response = await chatRequest(caller.signal);
+  if (source === 'reader') await response.body!.cancel();
+  else {
+    caller.abort();
+    expect(await response.text()).toContain('"type":"error"');
+  }
   await Promise.all(tasks);
   expect(provider.mock.calls[0][1].signal.aborted).toBe(true);
   expect(messages.filter(message => message.role === 'assistant')).toHaveLength(0);
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it.each(['AbortError', 'TimeoutError'])('cancels before headers without fallback for caller %s', async (name) => {
+  vi.useFakeTimers();
+  state.model = 'claude-sonnet-5-5';
+  const caller = new AbortController();
+  provider.mockImplementation(stalledHeaders);
+  const pending = chatRequest(caller.signal);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(provider).toHaveBeenCalledTimes(1);
+  caller.abort(new DOMException('Caller disconnected', name));
+  expect((await pending).status).toBe(499);
+  await Promise.all(tasks);
+  expect(provider.mock.calls[0][1].signal.reason).toBe(caller.signal.reason);
+  expect(vi.getTimerCount()).toBe(0);
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(provider).toHaveBeenCalledTimes(1);
+  expect(messages.filter(message => message.role === 'assistant')).toHaveLength(0);
+  expect(writes.filter(row => row.status === 'network_error')).toHaveLength(1);
+});
+
+it('does not start inference for an already aborted caller', async () => {
+  vi.useFakeTimers();
+  state.model = 'claude-sonnet-5-5';
+  const caller = new AbortController();
+  caller.abort();
+  expect((await chatRequest(caller.signal)).status).toBe(499);
+  expect(provider).not.toHaveBeenCalled();
+  expect(writes).toHaveLength(0);
   expect(vi.getTimerCount()).toBe(0);
 });
