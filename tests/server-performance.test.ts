@@ -343,7 +343,7 @@ it("ends a trace without waiting for the exporter and retains its flush task", a
     },
   });
   vi.doMock(
-    "https://esm.sh/braintrust@3.32.0/edge-light",
+    "https://cdn.jsdelivr.net/npm/braintrust@3.32.0/edge-light/+esm",
     () => ({ initLogger: () => ({ flush: () => flush.promise }), NOOP_SPAN: {} }),
   );
   const { endAnthropicSpan } = await import("../supabase/functions/_shared/tracing");
