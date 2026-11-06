@@ -22,25 +22,19 @@ Everything is in a single file: `index.html` (~1,737 lines) containing all HTML,
 **Backend:** Supabase (PostgreSQL + Auth + Edge Functions). Config is hardcoded near the top of the `<script>` block:
 - `SUPABASE_URL`, `SUPABASE_KEY` (public anon key — intentional)
 - `COACH_ENDPOINT` — Supabase Edge Function for streaming AI responses
-- `TRANSCRIBE_ENDPOINT` — Supabase Edge Function for voice-to-text via ElevenLabs Scribe
 
 **Edge Function Secrets:**
 - `ANTHROPIC_API_KEY` — required by the `sleep-coach` function to generate briefings, recommendations, and coaching responses.
 - `MEM0_API_KEY` — required by `sleep-coach` to retrieve and save long-term coaching memory, and by `delete-account` to remove that memory when a user deletes their account.
 - `CONFIGCAT_SDK_KEY` — optional, used by `sleep-coach` to evaluate the `useSonnet5` flag per user. Users get `claude-sonnet-5-5` when the flag is on and `claude-sonnet-4-6` otherwise, including when the key is missing or ConfigCat is unreachable.
-- `ELEVENLABS_API_KEY` — required by the `elevenlabs-transcribe` and `elevenlabs-tts` functions. Set via `supabase secrets set ELEVENLABS_API_KEY=...`
-- `SUPABASE_SERVICE_ROLE_KEY` — auto-injected by Supabase when edge functions are deployed; used by `elevenlabs-transcribe`, `elevenlabs-tts`, `oura-proxy`, and `sleep-coach` to validate the caller and access the database.
+- `SUPABASE_SERVICE_ROLE_KEY` — auto-injected by Supabase when edge functions are deployed; used by `oura-proxy`, and `sleep-coach` to validate the caller and access the database.
 
 **Deploying edge functions:**
 ```bash
 # Deploy all functions
 supabase functions deploy
 
-# Or deploy only the TTS function
-supabase functions deploy elevenlabs-tts
 
-# Set required secrets (run this once, or whenever the key rotates)
-supabase secrets set ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
 ```
 
 **Auth flow:** `checkSession()` (IIFE on load) → `tryAuth()` → `hideLandingPage()` → `initApp()` → `loadEntries()` → `renderHistory()`

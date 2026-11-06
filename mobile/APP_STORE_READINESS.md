@@ -41,7 +41,7 @@ Confirm the final production build and vendor configuration before submitting th
 
 - Contact information: email and optional name for authentication/account management.
 - Health & fitness: sleep stages and normalized sleep metrics imported with permission from Apple Health, app-derived Sleep Coach scores, Oura sleep/recovery data, stress, energy, mood, and related check-in information.
-- User content: journal notes, coaching messages, voice transcripts, and optional voice recordings while transcription is in progress.
+- User content: journal notes and coaching messages.
 - Identifiers: Supabase user ID and provider authentication identifiers.
 - Diagnostics: limited server/device diagnostic and security information needed to operate the service.
 - Tracking: no cross-app or cross-company advertising tracking is intended.
