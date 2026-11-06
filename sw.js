@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sleep-coach-v1';
+const CACHE_NAME = 'sleep-coach-v2';
 const ASSETS = ['/', '/index.html'];
 
 self.addEventListener('install', e => {

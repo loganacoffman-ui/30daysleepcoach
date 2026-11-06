@@ -210,31 +210,6 @@ textarea::placeholder { color: var(--muted2); }
 
 .note-wrap { position: relative; margin-bottom: 1.25rem; }
 .note-wrap textarea { margin-bottom: 0; }
-.voice-note-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
-.mic-btn { position: relative; display: inline-flex; align-items: center; gap: 10px; background: none; border: none; cursor: pointer; padding: 0; font-family: 'Geist', sans-serif; outline: none; -webkit-tap-highlight-color: transparent; }
-.mic-btn:disabled { cursor: not-allowed; }
-.mic-orb { position: relative; width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, #c8b6ff 0%, #7c6fef 30%, #4f7cff 60%, #a5b4fc 100%); box-shadow: 0 2px 12px rgba(79,124,255,0.18); transition: transform 0.25s ease, box-shadow 0.25s ease; overflow: hidden; flex-shrink: 0; }
-.mic-orb::before { content: ''; position: absolute; inset: 0; border-radius: 50%; background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E"); opacity: 0.5; mix-blend-mode: overlay; pointer-events: none; }
-.mic-orb svg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.15)); z-index: 1; }
-.mic-btn:hover .mic-orb { transform: scale(1.08); box-shadow: 0 4px 20px rgba(79,124,255,0.28); }
-.mic-label { font-size: 0.82rem; font-weight: 500; color: var(--muted); letter-spacing: 0.01em; transition: color 0.2s; white-space: nowrap; }
-.mic-btn:hover .mic-label { color: var(--text); }
-
-.mic-btn.recording .mic-orb { background: linear-gradient(135deg, #fca5a5 0%, #ef4444 35%, #dc2626 65%, #f87171 100%); box-shadow: 0 0 0 0 rgba(239,68,68,0.4); animation: orb-pulse 1.8s ease-in-out infinite; }
-.mic-btn.recording .mic-label { color: var(--red); font-weight: 600; }
-.mic-btn.recording .mic-orb svg { display: none; }
-.mic-btn.recording .mic-orb::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 16px; height: 16px; border-radius: 3px; background: #fff; z-index: 1; }
-
-.mic-btn.transcribing .mic-orb { background: linear-gradient(135deg, #a5b4fc 0%, #4f7cff 40%, #818cf8 70%, #c7d2fe 100%); animation: orb-shimmer 2s ease-in-out infinite; }
-.mic-btn.transcribing .mic-label { color: var(--accent); }
-.mic-btn.transcribing .mic-orb svg { display: none; }
-.mic-btn.transcribing .mic-orb::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 20px; height: 20px; border: 2.5px solid rgba(255,255,255,0.9); border-top-color: transparent; border-radius: 50%; animation: mic-spin 0.7s linear infinite; z-index: 1; }
-
-@keyframes orb-pulse { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.35); transform: scale(1); } 50% { box-shadow: 0 0 0 10px rgba(239,68,68,0); transform: scale(1.06); } 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); transform: scale(1); } }
-@keyframes orb-shimmer { 0%, 100% { opacity: 1; filter: brightness(1); } 50% { opacity: 0.85; filter: brightness(1.12); } }
-@keyframes mic-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
-.mic-error { font-size: 0.7rem; color: var(--red); font-family: 'Geist Mono', monospace; opacity: 0; transition: opacity .3s; margin-left: 4px; }
-.mic-error.visible { opacity: 1; }
 .save-btn { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-family: 'Geist', sans-serif; font-weight: 500; font-size: 0.95rem; padding: 15px 80px; cursor: pointer; transition: all .2s; display: block; margin: 0 auto; }
 .save-btn:hover { background: #3d6ae8; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79,124,255,0.2); }
 .save-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
@@ -285,134 +260,6 @@ textarea::placeholder { color: var(--muted2); }
   position: relative;
 }
 
-/* Big orb */
-.coach-orb-wrap {
-  position: relative;
-  width: 140px;
-  height: 140px;
-  margin-bottom: 1.5rem;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  flex-shrink: 0;
-}
-.coach-orb {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: conic-gradient(from 180deg at 50% 50%, #312e81 0deg, #4f46e5 60deg, #7c3aed 120deg, #a78bfa 180deg, #60a5fa 240deg, #4f7cff 300deg, #312e81 360deg);
-  box-shadow: 0 0 0 0 rgba(99,102,241,0.3), 0 8px 40px rgba(79,124,255,0.25);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-/* Noise texture overlay */
-.coach-orb::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.15'/%3E%3C/svg%3E");
-  mix-blend-mode: overlay;
-  pointer-events: none;
-}
-/* Gloss highlight */
-.coach-orb::after {
-  content: '';
-  position: absolute;
-  top: 10%;
-  left: 15%;
-  width: 45%;
-  height: 38%;
-  border-radius: 50%;
-  background: radial-gradient(ellipse at 40% 35%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 70%);
-  pointer-events: none;
-}
-
-/* Idle: slow breathe */
-.coach-orb-wrap.idle .coach-orb {
-  animation: coachOrbIdle 4s ease-in-out infinite;
-}
-@keyframes coachOrbIdle {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99,102,241,0.2), 0 8px 40px rgba(79,124,255,0.2); }
-  50% { transform: scale(1.04); box-shadow: 0 0 0 14px rgba(99,102,241,0), 0 12px 50px rgba(79,124,255,0.3); }
-}
-
-/* Listening: fast ripple, red tint */
-.coach-orb-wrap.listening .coach-orb {
-  background: conic-gradient(from 180deg at 50% 50%, #7f1d1d 0deg, #ef4444 60deg, #dc2626 120deg, #f87171 180deg, #fb923c 240deg, #ef4444 300deg, #7f1d1d 360deg);
-  animation: coachOrbListen 1.4s ease-in-out infinite;
-}
-@keyframes coachOrbListen {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239,68,68,0.4), 0 8px 40px rgba(239,68,68,0.2); }
-  50% { transform: scale(1.07); box-shadow: 0 0 0 18px rgba(239,68,68,0), 0 12px 50px rgba(239,68,68,0.3); }
-}
-
-/* Thinking: shimmer spin */
-.coach-orb-wrap.thinking .coach-orb {
-  animation: coachOrbThink 2.2s linear infinite;
-}
-@keyframes coachOrbThink {
-  0% { filter: brightness(1) hue-rotate(0deg); }
-  50% { filter: brightness(1.15) hue-rotate(40deg); }
-  100% { filter: brightness(1) hue-rotate(0deg); }
-}
-
-/* Speaking: wave pulse */
-.coach-orb-wrap.speaking .coach-orb {
-  animation: coachOrbSpeak 0.9s ease-in-out infinite;
-}
-@keyframes coachOrbSpeak {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99,102,241,0.35), 0 8px 40px rgba(79,124,255,0.25); }
-  30% { transform: scale(1.06); box-shadow: 0 0 0 10px rgba(99,102,241,0.15), 0 12px 50px rgba(79,124,255,0.35); }
-  60% { transform: scale(1.03); box-shadow: 0 0 0 20px rgba(99,102,241,0), 0 10px 44px rgba(79,124,255,0.28); }
-}
-
-/* Mic icon inside orb */
-.coach-orb-icon {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  color: rgba(255,255,255,0.9);
-  pointer-events: none;
-  transition: opacity 0.2s;
-  z-index: 1;
-}
-.coach-orb-wrap.listening .coach-orb-icon,
-.coach-orb-wrap.thinking .coach-orb-icon,
-.coach-orb-wrap.speaking .coach-orb-icon { opacity: 0; }
-
-/* Stop square (listening state) */
-.coach-orb-stop {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: 32px; height: 32px;
-  border-radius: 6px;
-  background: rgba(255,255,255,0.92);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s;
-  z-index: 1;
-}
-.coach-orb-wrap.listening .coach-orb-stop { opacity: 1; }
-
-/* Spinner (thinking state) */
-.coach-orb-spinner {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: 32px; height: 32px;
-  border: 2.5px solid rgba(255,255,255,0.9);
-  border-top-color: transparent;
-  border-radius: 50%;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s;
-  z-index: 1;
-}
-.coach-orb-wrap.thinking .coach-orb-spinner { opacity: 1; animation: coachSpin 0.7s linear infinite; }
-@keyframes coachSpin { to { transform: translate(-50%, -50%) rotate(360deg); } }
-
 /* Status label */
 .coach-status-label {
   font-family: 'Geist Mono', monospace;
@@ -424,25 +271,6 @@ textarea::placeholder { color: var(--muted2); }
   min-height: 1.2em;
   transition: color 0.3s;
 }
-.coach-status-label.listening { color: var(--red); }
-.coach-status-label.thinking  { color: var(--accent); }
-.coach-status-label.speaking  { color: var(--green); }
-
-/* Transcript bubble */
-.coach-transcript {
-  max-width: 520px;
-  width: 100%;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1rem 1.25rem;
-  font-size: 0.88rem;
-  color: var(--muted);
-  line-height: 1.6;
-  margin-bottom: 1rem;
-  display: none;
-}
-.coach-transcript.visible { display: block; }
 
 /* Coach response */
 .coach-response-wrap {
@@ -460,25 +288,6 @@ textarea::placeholder { color: var(--muted2); }
 }
 .coach-response-text p { margin-bottom: 0.65rem; }
 .coach-response-text p:last-child { margin-bottom: 0; }
-.coach-tts-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--surface);
-  border: 1px solid var(--border2);
-  border-radius: 100px;
-  padding: 8px 18px;
-  margin-bottom: 1rem;
-  font-family: 'Geist', sans-serif;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.coach-tts-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
-.coach-tts-btn.playing { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
-.coach-tts-btn svg { flex-shrink: 0; }
 
 /* Hint text */
 .coach-hint {
@@ -490,7 +299,7 @@ textarea::placeholder { color: var(--muted2); }
   margin-bottom: 0;
 }
 
-/* Dynamic area below orb */
+/* Check-in form */
 .coach-dynamic-area {
   padding-top: 0;
   padding-bottom: 3rem;
@@ -1275,10 +1084,9 @@ textarea::placeholder { color: var(--muted2); }
 </div>
 </div>
 
-<!-- COACH VIEW (combined voice check-in + log + coaching response) -->
+<!-- COACH VIEW -->
 <div id="view-coach" class="view">
 
-  <!-- ── Top: voice orb stage ── -->
   <div class="coach-stage">
 
     <!-- Tonight's plan (shown after first session) -->
@@ -1303,32 +1111,8 @@ textarea::placeholder { color: var(--muted2); }
       <div class="commitment-status" id="commitment-status"></div>
     </div>
 
-    <!-- The orb -->
-    <div class="coach-orb-wrap idle" id="coach-orb-wrap" onclick="handleCoachOrbClick()">
-      <div class="coach-orb">
-        <svg class="coach-orb-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="9" y="2" width="6" height="12" rx="3"/>
-          <path d="M5 10a7 7 0 0 0 14 0"/>
-          <line x1="12" y1="19" x2="12" y2="22"/>
-          <line x1="8" y1="22" x2="16" y2="22"/>
-        </svg>
-        <div class="coach-orb-stop"></div>
-        <div class="coach-orb-spinner"></div>
-      </div>
-    </div>
-
-    <!-- Status label -->
-    <div class="coach-status-label" id="coach-status-label">Tap to check in</div>
-
-    <!-- User transcript -->
-    <div class="coach-transcript" id="coach-transcript"></div>
-
-    <!-- Voice coaching response + TTS -->
+    <div class="coach-status-label" id="coach-status-label" role="status"></div>
     <div class="coach-response-wrap" id="coach-response-wrap">
-      <button class="coach-tts-btn" id="coach-tts-btn" onclick="toggleCoachTTS()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
-        <span id="coach-tts-label">Play</span>
-      </button>
       <div class="coach-response-text" id="coach-response-text"></div>
     </div>
 
@@ -1339,8 +1123,6 @@ textarea::placeholder { color: var(--muted2); }
       <div id="coach-retry-detail" style="font-family:'Geist Mono',monospace;font-size:0.68rem;color:var(--muted2);margin-top:12px;word-break:break-word;"></div>
     </div>
 
-    <!-- Idle hint -->
-    <div class="coach-hint" id="coach-hint">Record a voice note about how you slept. Your coach will respond with what's going on and what to focus on tonight.</div>
 
   </div>
 
@@ -1903,7 +1685,7 @@ function showNewUserWelcome() {
   banner.innerHTML = `
     <button onclick="this.parentElement.remove()" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted2);cursor:pointer;font-size:1rem;padding:4px;">×</button>
     <div style="font-size:0.95rem;font-weight:500;color:var(--text);margin-bottom:6px;">Welcome to 30 Day Sleep Coach</div>
-    <div style="font-size:0.82rem;color:var(--muted);line-height:1.65;">Tap the orb above to record a quick voice note about how you slept. Then fill in the details below — your wearable data and any habits that helped or hurt. Your coach will respond with what to focus on tonight.</div>
+    <div style="font-size:0.82rem;color:var(--muted);line-height:1.65;">Add a note about last night and any habits that helped or hurt. Your coach will respond with what to focus on tonight.</div>
   `;
   container.insertBefore(banner, container.firstChild);
 }
@@ -2554,9 +2336,8 @@ function buildCheckinNote() {
   const manualNote = document.getElementById('note').value.trim();
   const feelVal = feelSliderTouched ? parseInt(document.getElementById('feel_level').value, 10) : null;
   const parts = [];
-  if (window.coachVoiceTranscript) parts.push(`Voice note: ${window.coachVoiceTranscript}`);
   if (feelVal !== null) parts.push(`Feeling: ${feelVal}/100.`);
-  if (manualNote && manualNote !== coachVoiceTranscript) parts.push(manualNote);
+  if (manualNote) parts.push(manualNote);
   return parts.length ? parts.join('\n\n') : null;
 }
 
@@ -2764,90 +2545,9 @@ function renderDataView(){renderCoach();}
 
 // ── AI COACH ─────────────────────────────────────────
 const COACH_ENDPOINT = SUPABASE_URL + '/functions/v1/sleep-coach';
-const TRANSCRIBE_ENDPOINT = SUPABASE_URL + '/functions/v1/elevenlabs-transcribe';
 let chatHistory = [];
 let briefingGenerated = false;
 
-// ── VOICE NOTE ──────────────────────────────────────
-let voiceRecorder = null;
-let voiceChunks = [];
-
-function setMicState(state) {
-  const btn = document.getElementById('mic-btn');
-  const label = document.getElementById('mic-label');
-  const err = document.getElementById('mic-error');
-  btn.classList.remove('recording', 'transcribing');
-  btn.disabled = false;
-  label.textContent = 'Record voice note';
-  err.classList.remove('visible');
-  err.textContent = '';
-  if (state === 'recording') {
-    btn.classList.add('recording');
-    label.textContent = 'Stop recording';
-  } else if (state === 'transcribing') {
-    btn.classList.add('transcribing');
-    btn.disabled = true;
-    label.textContent = 'Transcribing\u2026';
-  }
-}
-
-function showMicError(msg) {
-  const err = document.getElementById('mic-error');
-  err.textContent = msg;
-  err.classList.add('visible');
-  setTimeout(() => err.classList.remove('visible'), 4000);
-}
-
-async function toggleVoiceNote() {
-  if (voiceRecorder && voiceRecorder.state === 'recording') {
-    voiceRecorder.stop();
-    return;
-  }
-
-  let stream;
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch (e) {
-    showMicError('Mic access denied');
-    return;
-  }
-
-  voiceChunks = [];
-  voiceRecorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : undefined });
-  voiceRecorder.ondataavailable = (e) => { if (e.data.size > 0) voiceChunks.push(e.data); };
-  voiceRecorder.onstop = async () => {
-    stream.getTracks().forEach(t => t.stop());
-    if (!voiceChunks.length) { setMicState('idle'); return; }
-    const blob = new Blob(voiceChunks, { type: 'audio/webm' });
-    voiceChunks = [];
-    setMicState('transcribing');
-
-    try {
-      const token = await getAuthToken();
-      const fd = new FormData();
-      fd.append('audio', blob, 'recording.webm');
-      const res = await fetch(TRANSCRIBE_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + token, 'apikey': SUPABASE_PUBLISHABLE_KEY },
-        body: fd,
-      });
-      if (!res.ok) {
-        const detail = await res.json().catch(() => ({}));
-        throw new Error(detail.error || 'Transcription failed');
-      }
-      const { transcript } = await res.json();
-      if (transcript) {
-        const noteEl = document.getElementById('note');
-        noteEl.value = noteEl.value ? noteEl.value.trimEnd() + ' ' + transcript : transcript;
-      }
-    } catch (e) {
-      showMicError(e.message || 'Transcription error');
-    }
-    setMicState('idle');
-  };
-  voiceRecorder.start();
-  setMicState('recording');
-}
 
 function getBriefingCacheKey() { return todayCacheKey('briefing'); }
 function getRecommendationCacheKey() { return todayCacheKey('recommendation_latest3'); }
@@ -3868,13 +3568,6 @@ if ('serviceWorker' in navigator) {
 // ── CBT-I COACH ──────────────────────────────────────
 (function() {
 
-  // ── State ──
-  let coachState = 'idle'; // idle | listening | thinking | speaking
-  let coachRecorder = null;
-  let coachChunks = [];
-  let coachAudio = null;
-  let coachTTSText = '';
-  window.coachVoiceTranscript = window.coachVoiceTranscript || '';
 
   // Persisted last response so navigating away and back restores it
   const COACH_STORAGE_KEY = 'coach_last_session';
@@ -3894,7 +3587,7 @@ if ('serviceWorker' in navigator) {
   // ── CBT-I System Prompt (Gregg Jacobs "Say Goodnight to Insomnia") ──
   const CBTI_SYSTEM_PROMPT = `You are a sleep coach trained in Cognitive Behavioral Therapy for Insomnia (CBT-I), specifically the structured 6-week protocol from Gregg Jacobs' "Say Goodnight to Insomnia" (Harvard Medical School).
 
-Your role is to deliver a brief, warm, personalized daily coaching session based on the user's voice check-in and their recent sleep log data. You are direct, encouraging, and clinically grounded. You never give vague advice — every response ends with one concrete behavioral directive for tonight.
+Your role is to deliver a brief, warm, personalized daily coaching session based on the user's check-in and their recent sleep log data. You are direct, encouraging, and clinically grounded. You never give vague advice — every response ends with one concrete behavioral directive for tonight.
 
 ## The CBT-I Protocol Framework
 
@@ -3939,7 +3632,7 @@ Your role is to deliver a brief, warm, personalized daily coaching session based
 - Never say "I'm just an AI." You are their sleep coach.
 
 ### Data you will receive
-- User's voice journal transcript (how they slept, how they feel, what they noticed)
+- Journal notes, when provided
 - Recent sleep log entries: sleep score, HRV, bedtime, wake time, night wakes, lifestyle factors
 - Days since program start (use this to determine which week of the protocol applies)
 - Current sleep efficiency trend if calculable from the data
@@ -3948,30 +3641,8 @@ Always end your response by stating tonight's recommended bedtime and wake time 
 
   // ── Helpers ──
   function setCoachState(state) {
-    coachState = state;
-    const wrap = document.getElementById('coach-orb-wrap');
     const label = document.getElementById('coach-status-label');
-    const hint = document.getElementById('coach-hint');
-    if (!wrap) return;
-
-    wrap.className = 'coach-orb-wrap ' + state;
-    label.className = 'coach-status-label ' + state;
-
-    const labels = {
-      idle: 'Tap to check in',
-      listening: 'Listening — tap to stop',
-      thinking: 'Thinking…',
-      speaking: 'Speaking'
-    };
-    label.textContent = labels[state] || '';
-    if (hint) hint.style.display = state === 'idle' ? 'block' : 'none';
-  }
-
-  function showTranscript(text) {
-    const el = document.getElementById('coach-transcript');
-    if (!el) return;
-    el.textContent = text;
-    el.classList.add('visible');
+    if (label) label.textContent = state === 'thinking' ? 'Preparing your coaching…' : '';
   }
 
   function showResponse(text) {
@@ -3981,7 +3652,6 @@ Always end your response by stating tonight's recommended bedtime and wake time 
     // Convert newlines to paragraphs
     textEl.innerHTML = text.split(/\n+/).filter(Boolean).map(p => `<p>${esc(p)}</p>`).join('');
     wrap.classList.add('visible');
-    coachTTSText = text;
 
     // Extract tonight's plan if present
     const match = text.match(/[Tt]onight[:\s–-]+aim for bed by\s+([0-9:apmAPM\s]+)\s+and up by\s+([0-9:apmAPM\s]+)/);
@@ -4008,16 +3678,15 @@ Always end your response by stating tonight's recommended bedtime and wake time 
 
     // Persist
     try {
-      const transcript = document.getElementById('coach-transcript')?.textContent || '';
-      localStorage.setItem(COACH_STORAGE_KEY, JSON.stringify({ status: 'complete', text, transcript, ts: Date.now(), day: coachTodayKey() }));
+      localStorage.setItem(COACH_STORAGE_KEY, JSON.stringify({ status: 'complete', text, ts: Date.now(), day: coachTodayKey() }));
     } catch(e) {}
   }
 
   // Persist a "check-in logged but coaching not yet completed" marker so a
   // failed/interrupted generation can be recovered when the user returns.
-  function persistPendingCheckin(transcript) {
+  function persistPendingCheckin() {
     try {
-      localStorage.setItem(COACH_STORAGE_KEY, JSON.stringify({ status: 'pending', transcript: transcript || '', ts: Date.now(), day: coachTodayKey() }));
+      localStorage.setItem(COACH_STORAGE_KEY, JSON.stringify({ status: 'pending', ts: Date.now(), day: coachTodayKey() }));
     } catch(e) {}
   }
 
@@ -4049,11 +3718,6 @@ Always end your response by stating tonight's recommended bedtime and wake time 
     if (form) form.style.display = 'none';
   }
 
-  function populateNoteFromVoice(transcript) {
-    window.coachVoiceTranscript = transcript;
-    const noteEl = document.getElementById('note');
-    if (noteEl && !noteEl.value.trim()) noteEl.value = transcript;
-  }
 
   function buildSleepContext() {
     const recent = (entries || []).slice(0, 14);
@@ -4081,92 +3745,17 @@ Always end your response by stating tonight's recommended bedtime and wake time 
     return `Days in program: ${daysSinceFirst}\n\nRecent entries (newest first):\n${lines.join('\n')}\n\nRecent behavior experiments:\n${adherence || 'No commitments recorded yet.'}`;
   }
 
-  // ── Recording ──
-  async function startListening() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      coachChunks = [];
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : undefined;
-      coachRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-      coachRecorder.ondataavailable = e => { if (e.data.size > 0) coachChunks.push(e.data); };
-      coachRecorder.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop());
-        await handleCoachRecordingDone();
-      };
-      coachRecorder.start();
-      setCoachState('listening');
-    } catch(e) {
-      alert('Microphone access is required for the coach. Please allow microphone access and try again.');
-      setCoachState('idle');
-    }
-  }
-
-  function stopListening() {
-    if (coachRecorder && coachRecorder.state === 'recording') {
-      coachRecorder.stop();
-    }
-  }
-
-  async function handleCoachRecordingDone() {
-    if (!coachChunks.length) { setCoachState('idle'); return; }
-    setCoachState('thinking');
-
-    const blob = new Blob(coachChunks, { type: 'audio/webm' });
-    coachChunks = [];
-
-    // 1. Transcribe with ElevenLabs Scribe
-    let transcript = '';
-    try {
-      const token = await getAuthToken();
-      const form = new FormData();
-      form.append('audio', blob, 'coach_checkin.webm');
-      const res = await fetch(TRANSCRIBE_ENDPOINT, {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: form
-      });
-      if (!res.ok) throw new Error('Transcription failed');
-      const json = await res.json();
-      transcript = json.transcript || '';
-    } catch(e) {
-      console.error('Transcription error:', e);
-      setCoachState('idle');
-      showToast('Could not transcribe your voice note. Please try again.', 'error');
-      return;
-    }
-
-    if (!transcript.trim()) {
-      setCoachState('idle');
-      showToast('No speech detected. Try again.', 'error');
-      return;
-    }
-
-    showTranscript(transcript);
-    populateNoteFromVoice(transcript);
-    showCoachForm();
-    setCoachState('idle');
-    // User now fills out the log form below and taps Save, which triggers the coach response.
-  }
-
-  // Generate and display the CBT-I coaching response for today's check-in.
-  // Works with a voice transcript OR from logged sleep data alone, and only
-  // auto-plays TTS when the user actively finished a voice check-in.
-  async function generateCoachResponse(opts = {}) {
-    const transcript = opts.transcript || window.coachVoiceTranscript || document.getElementById('coach-transcript')?.textContent || '';
-    // Need either something the user said, or a logged entry to coach on.
-    if (!transcript && !hasLoggedToday()) return;
+  async function generateCoachResponse() {
+    if (!hasLoggedToday()) return;
 
     // Record the check-in immediately so it survives a failed/interrupted
     // generation — we can recover it on the next visit to the Coach tab.
-    persistPendingCheckin(transcript);
+    persistPendingCheckin();
     hideCoachRetry();
-    if (transcript) showTranscript(transcript);
     setCoachState('thinking');
 
     try {
-      const userContent = transcript
-        ? `Voice check-in: "${transcript}"\n\nSleep data:\n${buildSleepContext()}`
-        : `The user logged today's sleep check-in without a voice note. Based on their recent sleep data, deliver today's coaching session.\n\nSleep data:\n${buildSleepContext()}`;
+      const userContent = `The user logged today's sleep check-in. Based on their recent sleep data, deliver today's coaching session.\n\nSleep data:\n${buildSleepContext()}`;
       const messages = [
         { role: 'system', content: CBTI_SYSTEM_PROMPT },
         { role: 'user', content: userContent }
@@ -4182,89 +3771,16 @@ Always end your response by stating tonight's recommended bedtime and wake time 
       hideCoachForm();
       showResponse(coachText);
       setCoachState('idle');
-      if (opts.autoplay !== false) await playCoachTTS(coachText);
     } catch(e) {
       console.error('Coach response error:', e);
       // Keep the pending check-in marker and surface a recoverable retry state.
       setCoachState('idle');
       hideCoachForm();
-      if (transcript) showTranscript(transcript);
       showCoachRetry(e && e.message ? e.message : String(e));
       showToast('Could not load your coaching. Tap "Get your coaching" to retry.', 'error');
     }
   }
 
-  // ── ElevenLabs TTS ──
-  const EL_TTS_VOICE_SETTINGS = { stability: 0.45, similarity_boost: 0.8, style: 0.1 };
-
-  async function playCoachTTS(text) {
-    if (coachAudio) { coachAudio.pause(); coachAudio = null; }
-
-    setCoachState('speaking');
-    const btn = document.getElementById('coach-tts-btn');
-    const lbl = document.getElementById('coach-tts-label');
-    if (btn) btn.classList.add('playing');
-    if (lbl) lbl.textContent = 'Playing…';
-
-    try {
-      const token = await getAuthToken();
-
-      // Route through Supabase edge function to keep API key server-side
-      const res = await fetch(SUPABASE_URL + '/functions/v1/elevenlabs-tts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_PUBLISHABLE_KEY,
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ text, voice_settings: EL_TTS_VOICE_SETTINGS })
-      });
-
-      if (!res.ok) {
-        let detail = '';
-        try { detail = (await res.json())?.error || ''; } catch(_) {}
-        throw new Error(`TTS ${res.status}${detail ? ': ' + detail : ''}`);
-      }
-      const audioBlob = await res.blob();
-      if (!audioBlob || audioBlob.size === 0) throw new Error('Empty audio from TTS');
-
-      const url = URL.createObjectURL(audioBlob);
-      coachAudio = new Audio(url);
-      const cleanup = (endLabel) => {
-        setCoachState('idle');
-        if (btn) btn.classList.remove('playing');
-        if (lbl) lbl.textContent = endLabel;
-        URL.revokeObjectURL(url);
-      };
-      coachAudio.onended = () => cleanup('Play again');
-      coachAudio.onerror = () => {
-        console.error('Audio playback error', coachAudio?.error);
-        cleanup('Play');
-        showToast('Could not play the audio.', 'error');
-      };
-      // Await play() so a blocked/failed start is caught rather than silently
-      // leaving the button stuck.
-      await coachAudio.play();
-    } catch(e) {
-      console.error('TTS error:', e);
-      setCoachState('idle');
-      if (btn) btn.classList.remove('playing');
-      if (lbl) lbl.textContent = 'Play';
-      showToast(e && e.message ? e.message : 'Could not play the audio.', 'error');
-    }
-  }
-
-  // ── Public handlers ──
-  window.handleCoachOrbClick = function() {
-    if (coachState === 'idle') {
-      // Reset any previous response and start a fresh check-in
-      resetCoachSession();
-      startListening();
-    } else if (coachState === 'listening') {
-      stopListening();
-    }
-    // thinking/speaking: no-op on orb click
-  };
 
   window.finishCoachCheckin = function() {
     hideCoachForm();
@@ -4280,14 +3796,6 @@ Always end your response by stating tonight's recommended bedtime and wake time 
   };
 
   window.resetCoachSession = function() {
-    window.coachVoiceTranscript = '';
-    coachTTSText = '';
-    if (coachAudio) { coachAudio.pause(); coachAudio = null; }
-    const ttsBtn = document.getElementById('coach-tts-btn');
-    const ttsLbl = document.getElementById('coach-tts-label');
-    if (ttsBtn) ttsBtn.classList.remove('playing');
-    if (ttsLbl) ttsLbl.textContent = 'Play';
-    document.getElementById('coach-transcript')?.classList.remove('visible');
     document.getElementById('coach-response-wrap')?.classList.remove('visible');
     document.getElementById('coach-plan-card')?.classList.add('visible');
     const actionEl = document.getElementById('coach-plan-action');
@@ -4309,23 +3817,9 @@ Always end your response by stating tonight's recommended bedtime and wake time 
     setCoachState('idle');
   };
 
-  window.toggleCoachTTS = function() {
-    if (coachState === 'speaking' && coachAudio) {
-      coachAudio.pause();
-      coachAudio = null;
-      setCoachState('idle');
-      const btn = document.getElementById('coach-tts-btn');
-      const lbl = document.getElementById('coach-tts-label');
-      if (btn) btn.classList.remove('playing');
-      if (lbl) lbl.textContent = 'Play again';
-    } else if (coachTTSText) {
-      playCoachTTS(coachTTSText);
-    }
-  };
 
   // ── Initialize / restore persisted session ──
   window.initCoachView = function() {
-    let carryTranscript = '';
     try {
       const saved = JSON.parse(localStorage.getItem(COACH_STORAGE_KEY) || 'null');
       const today = coachTodayKey();
@@ -4335,15 +3829,11 @@ Always end your response by stating tonight's recommended bedtime and wake time 
       if (fromToday && saved.status === 'complete' && saved.text) {
         resetCoachSession();
         hideCoachForm();
-        showTranscript(saved.transcript || '');
         showResponse(saved.text);
         setCoachState('idle');
         return;
       }
 
-      // Carry over any transcript from an interrupted voice check-in so a
-      // regeneration uses it instead of falling back to data-only.
-      if (fromToday && saved.transcript) carryTranscript = saved.transcript;
     } catch(e) {}
 
     // 2. Logged today but no completed coaching yet (incl. a stale pending
@@ -4351,12 +3841,12 @@ Always end your response by stating tonight's recommended bedtime and wake time 
     // attempt actually fails, so it self-heals instead of getting stuck.
     if (hasLoggedToday()) {
       resetCoachSession();
-      generateCoachResponse({ autoplay: false, transcript: carryTranscript });
+      generateCoachResponse();
       return;
     }
 
-    // 3. Nothing logged today → orb + hint, prompting a fresh check-in.
     resetCoachSession();
+    showCoachForm();
   };
 
 })();
